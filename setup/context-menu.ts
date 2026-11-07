@@ -1,3 +1,4 @@
+import { t, targetLabel } from '../client/i18n'
 import type { ContextMenuItem } from '@slidev/types'
 import type { ComputedRef } from 'vue'
 import { computed } from 'vue'
@@ -45,7 +46,7 @@ export default (items: ComputedRef<ContextMenuItem[]>): ComputedRef<ContextMenuI
         'separator',
         {
           icon: 'i-carbon:pen',
-          label: 'Edit slides with Studio',
+          label: t('openStudioMenu'),
           action: () => (studioOpen.value = true),
         },
       ]
@@ -62,7 +63,7 @@ export default (items: ComputedRef<ContextMenuItem[]>): ComputedRef<ContextMenuI
         'separator',
         {
           icon: 'i-carbon:close',
-          label: 'Close Studio',
+          label: t('closeStudioMenu'),
           action: () => (studioOpen.value = false),
         },
       ]
@@ -73,34 +74,34 @@ export default (items: ComputedRef<ContextMenuItem[]>): ComputedRef<ContextMenuI
     // `label` is what the selection badge shows: `H1`, `Text`, `<Pill>`. As a
     // heading in a sentence "Edit h1" reads badly and "Edit <Pill>" reads fine,
     // so a heading is named for what it is.
-    const name = /^H[1-6]$/.test(target.label) ? 'heading' : target.label.startsWith('<') ? target.label : target.label.toLowerCase()
+    const name = target.kind === 'heading' ? t('kindHeading') : targetLabel(target)
 
     const mine: ContextMenuItem[] = [
       {
         icon: 'i-carbon:text-annotation-toggle',
-        label: `Edit ${name}`,
+        label: t('editTarget', { name }),
         action: () => editText(),
       },
       positioned
         ? {
             icon: 'i-carbon:align-box-top-left',
-            label: 'Return to flow',
+            label: t('returnFlow'),
             action: () => returnToFlow(studio, target),
           }
         : {
             icon: 'i-carbon:move',
-            label: 'Free position',
+            label: t('freePosition'),
             action: () => freePosition(studio, target),
           },
       {
         icon: 'i-carbon:copy',
-        label: 'Duplicate',
+        label: t('duplicate'),
         action: () => duplicateBlock(studio, target),
         disabled: !canReorder(target),
       },
       {
         icon: 'i-carbon:trash-can',
-        label: `Delete ${name}`,
+        label: t('deleteTarget', { name }),
         action: () => deleteBlock(studio, target),
       },
       // An element sharing a Markdown block with its siblings has no line range
@@ -108,14 +109,14 @@ export default (items: ComputedRef<ContextMenuItem[]>): ComputedRef<ContextMenuI
       {
         small: true,
         icon: 'i-carbon:arrow-up',
-        label: 'Move earlier',
+        label: t('moveEarlier'),
         action: () => moveBlockBy(studio, target, -1),
         disabled: !canReorder(target),
       },
       {
         small: true,
         icon: 'i-carbon:arrow-down',
-        label: 'Move later',
+        label: t('moveLater'),
         action: () => moveBlockBy(studio, target, 1),
         disabled: !canReorder(target),
       },

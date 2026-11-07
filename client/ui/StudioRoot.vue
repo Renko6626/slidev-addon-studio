@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ActionLabel } from '../i18n'
 import type { StudioContext } from '../context'
 import { useNav } from '@slidev/client'
 import { useWindowSize } from '@vueuse/core'
@@ -29,7 +30,7 @@ const no = computed(() => nav.currentSlideNo.value)
 
 const source = useSlideSource(no)
 const canvas = useSlideCanvas(() => Number(source.frontmatter.value.zoom ?? 1))
-async function commit(content: string, label: string, options?: { skipHmr?: boolean, keepSelection?: boolean }) {
+async function commit(content: string, label: ActionLabel, options?: { skipHmr?: boolean, keepSelection?: boolean }) {
   const current = selection.value
   await source.setContent(content, label, options)
 

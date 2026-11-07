@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../../i18n'
 import type { ObjectRow, Primitive } from '../../md/literals'
 import { computed } from 'vue'
 import StudioIcon from './StudioIcon.vue'
@@ -82,13 +83,13 @@ function add() {
         <div class="studio-row__header">
           <span class="studio-card__meta">{{ index + 1 }}</span>
           <span class="studio-row__actions">
-            <button class="studio-icon-button" title="Move up" :disabled="index === 0" @click="move(index, -1)">
+            <button class="studio-icon-button" :title="t('moveUp')" :disabled="index === 0" @click="move(index, -1)">
               <StudioIcon name="up" :size="13" />
             </button>
-            <button class="studio-icon-button" title="Move down" :disabled="index === rows.length - 1" @click="move(index, 1)">
+            <button class="studio-icon-button" :title="t('moveDown')" :disabled="index === rows.length - 1" @click="move(index, 1)">
               <StudioIcon name="down" :size="13" />
             </button>
-            <button class="studio-icon-button" title="Remove" @click="remove(index)">
+            <button class="studio-icon-button" :title="t('remove')" @click="remove(index)">
               <StudioIcon name="close" :size="13" />
             </button>
           </span>
@@ -102,8 +103,8 @@ function add() {
               :value="row[name] === true ? 'yes' : 'no'"
               @change="update(index, name, ($event.target as HTMLSelectElement).value === 'yes')"
             >
-              <option value="no">No</option>
-              <option value="yes">Yes</option>
+              <option value="no">{{ t('no') }}</option>
+              <option value="yes">{{ t('yes') }}</option>
             </select>
             <input
               v-else
@@ -116,11 +117,11 @@ function add() {
       </div>
 
       <p v-if="!rows.length" class="studio-hint" style="margin: 0 0 6px">
-        Empty list.
+        {{ t('emptyList') }}
       </p>
 
       <button class="studio-button" @click="add">
-        <StudioIcon name="plus" :size="13" /> Add {{ label.toLowerCase().replace(/s$/, '') }}
+        <StudioIcon name="plus" :size="13" /> {{ t('addItem') }}
       </button>
     </div>
   </div>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { action, t } from '../../i18n'
 import type { StudioAsset } from '../../types'
 import { onMounted, ref } from 'vue'
 import { assetApi, readAsBase64 } from '../../composables/useDeckApi'
@@ -44,13 +45,13 @@ async function insert(asset: StudioAsset) {
   const range = selection.value?.range
   await studio.commit(
     insertSnippet(studio.content(), assetSnippet(asset), range ? { mode: 'after', range } : { mode: 'append' }),
-    `Insert ${asset.name}`,
+    action('actionInsert', { name: asset.name }),
   )
 }
 
 async function place(asset: StudioAsset) {
   const snippet = positioned(assetSnippet(asset), { x: 80, y: 80, w: 320, h: null, rotate: 0 })
-  await studio.commit(insertSnippet(studio.content(), snippet, { mode: 'append' }), `Place ${asset.name}`)
+  await studio.commit(insertSnippet(studio.content(), snippet, { mode: 'append' }), action('actionPlace', { name: asset.name }))
 }
 </script>
 
@@ -63,14 +64,13 @@ async function place(asset: StudioAsset) {
     @drop.prevent="over = false; upload(($event.dataTransfer as DataTransfer).files)"
   >
     <input type="file" multiple accept="image/*,video/*" hidden @change="upload(($event.target as HTMLInputElement).files)">
-    {{ uploading ? 'Uploading…' : 'Drop images here, or click to choose' }}
+    {{ uploading ? t('uploading') : t('dropAssets') }}
   </label>
 
   <div v-if="!assets.length" class="studio-empty">
-    <p>Nothing here yet.</p>
+    <p>{{ t('noAssets') }}</p>
     <p class="studio-hint">
-      Assets live next to the deck, in <code>{{ root || 'public/' }}</code>.
-      Dropping a file creates the directory.
+      {{ t('assetsHint', { root: root || 'public/' }) }}
     </p>
   </div>
 
@@ -79,7 +79,7 @@ async function place(asset: StudioAsset) {
       v-for="asset in assets"
       :key="asset.url"
       class="studio-asset"
-      :title="`${asset.url}. Click to insert, shift-click to place freely`"
+      :title="t('assetInsertHint', { url: asset.url })"
       @click="$event.shiftKey ? place(asset) : insert(asset)"
     >
       <img v-if="asset.kind === 'image'" :src="asset.url" :alt="asset.name" loading="lazy">

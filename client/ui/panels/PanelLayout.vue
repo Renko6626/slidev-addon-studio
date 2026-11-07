@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { action, t } from '../../i18n'
+import { catalogOrigin } from '../../i18n/catalog'
 import { computed, ref, watch } from 'vue'
 import type { ObjectRow } from '../../md/literals'
 import { formatObjectArray, formatStringArray, parseObjectArray, parseStringArray } from '../../md/literals'
@@ -48,8 +50,8 @@ const sample = computed(() => {
     return flat.length > max ? `${flat.slice(0, max).trimEnd()}\u2026` : flat
   }
   return {
-    title: heading ? clip(heading.replace(/^#+\s*/, ''), 60) : 'Slide title',
-    body: body ? clip(body, 120) : 'Body text sits here, so the shape of the layout is visible.',
+    title: heading ? clip(heading.replace(/^#+\s*/, ''), 60) : t('layoutTitle'),
+    body: body ? clip(body, 120) : t('layoutBody'),
   }
 })
 
@@ -87,7 +89,7 @@ function propValue(name: string): string | boolean | null {
 }
 
 async function setProp(prop: { name: string, type?: string }, value: string | boolean | null) {
-  await studio.setFrontmatter({ [prop.name]: coerce(prop.type, value) }, `Set ${prop.name}`)
+  await studio.setFrontmatter({ [prop.name]: coerce(prop.type, value) }, action('actionSet', { name: prop.name }))
 }
 
 /** Frontmatter is YAML, so a number should land as a number, not a string. */
@@ -135,7 +137,7 @@ async function hide(skip: boolean) {
 }
 
 function set(key: string, value: unknown) {
-  return studio.setFrontmatter({ [key]: value === '' ? null : value }, `Set ${key}`)
+  return studio.setFrontmatter({ [key]: value === '' ? null : value }, action('actionSet', { name: key }))
 }
 
 /**
@@ -150,7 +152,7 @@ function numberOrNull(value: string) {
 <template>
   <section class="studio-section">
     <h3 class="studio-section__title">
-      Layout
+      {{ t('layout') }}
     </h3>
     <div class="studio-grid studio-grid--thumbnails" style="padding: 0">
       <button
@@ -158,13 +160,13 @@ function numberOrNull(value: string) {
         :key="layout.name"
         class="studio-card"
         :class="{ 'studio-card--active': layout.name === currentLayout }"
-        :title="layout.description ?? `${layout.name} (${layout.origin})`"
+        :title="layout.description ?? `${layout.name} (${catalogOrigin(layout)})`"
         @click="set('layout', layout.name)"
       >
         <LayoutPreview :layout="layout" :frontmatter="frontmatter" :sample="sample" />
         <span class="studio-card__label">
           <span class="studio-card__name">{{ layout.name }}</span>
-          <span class="studio-card__meta">{{ layout.origin }}</span>
+          <span class="studio-card__meta">{{ catalogOrigin(layout) }}</span>
         </span>
       </button>
     </div>
@@ -172,7 +174,7 @@ function numberOrNull(value: string) {
 
   <section v-if="layoutProps.length" class="studio-section">
     <h3 class="studio-section__title">
-      {{ currentLayout }} options
+      {{ t('layoutOptions', { name: currentLayout }) }}
     </h3>
     <PropField
       v-for="prop in layoutProps"
@@ -182,55 +184,54 @@ function numberOrNull(value: string) {
       @change="setProp(prop, $event)"
     />
     <p class="studio-hint">
-      These are frontmatter keys the layout reads.
+      {{ t('frontmatterHint') }}
     </p>
   </section>
 
   <section class="studio-section">
     <h3 class="studio-section__title">
-      Slide
+      {{ t('slide') }}
     </h3>
-    <StudioField label="Title">
-      <input type="text" :value="frontmatter.title ?? ''" placeholder="From the first heading" @change="set('title', ($event.target as HTMLInputElement).value)">
+    <StudioField :label="t('title')">
+      <input type="text" :value="frontmatter.title ?? ''" :placeholder="t('titlePlaceholder')" @change="set('title', ($event.target as HTMLInputElement).value)">
     </StudioField>
-    <StudioField label="Classes">
+    <StudioField :label="t('classes')">
       <input type="text" :value="frontmatter.class ?? ''" placeholder="dark text-center" @change="set('class', ($event.target as HTMLInputElement).value)">
     </StudioField>
-    <StudioField label="Background">
-      <input type="text" :value="frontmatter.background ?? ''" placeholder="/cover.png or #101014" @change="set('background', ($event.target as HTMLInputElement).value)">
+    <StudioField :label="t('background')">
+      <input type="text" :value="frontmatter.background ?? ''" :placeholder="t('backgroundPlaceholder')" @change="set('background', ($event.target as HTMLInputElement).value)">
     </StudioField>
-    <StudioField label="Zoom">
+    <StudioField :label="t('zoom')">
       <input type="number" step="0.05" min="0.2" max="3" :value="frontmatter.zoom ?? 1" @change="set('zoom', numberOrNull(($event.target as HTMLInputElement).value))">
     </StudioField>
-    <StudioField label="Clicks">
+    <StudioField :label="t('clicks')">
       <input
         type="number"
         min="0"
         :value="frontmatter.clicks ?? ''"
-        placeholder="auto"
-        title="Force a number of click steps, e.g. to hold on the last one"
+        :placeholder="t('auto')"
+        :title="t('clicksHint')"
         @change="set('clicks', numberOrNull(($event.target as HTMLInputElement).value))"
       >
     </StudioField>
-    <StudioField label="Hide">
+    <StudioField :label="t('hide')">
       <select :value="frontmatter.hide ? 'yes' : 'no'" @change="hide(($event.target as HTMLSelectElement).value === 'yes')">
         <option value="no">
-          Show in the deck
+          {{ t('showSlide') }}
         </option>
         <option value="yes">
-          Skip this slide
+          {{ t('skipSlide') }}
         </option>
       </select>
     </StudioField>
     <p class="studio-hint">
-      A skipped slide leaves the deck entirely, so the editor cannot reach it
-      again: delete <code>hide: true</code> in the Markdown to bring it back.
+      {{ t('hiddenSlideHint', { setting: 'hide: true' }) }}
     </p>
   </section>
 
   <section class="studio-section">
     <h3 class="studio-section__title">
-      Presenter notes
+      {{ t('presenterNotes') }}
     </h3>
     <textarea v-model="note" rows="6" spellcheck="false" @change="studio.setNote(note)" />
   </section>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { action, t } from '../i18n'
 import type { BlockShape } from '../md/inline'
 import type { SourceRange } from '../types'
 import { computed, nextTick, ref, watch } from 'vue'
@@ -341,7 +342,7 @@ async function apply() {
     release()
     editing.value = false
     if (key && written !== source.trim())
-      await studio.setFrontmatter({ [key]: written }, `Set ${key}`)
+      await studio.setFrontmatter({ [key]: written }, action('actionSet', { name: key }))
     return
   }
 
@@ -352,7 +353,7 @@ async function apply() {
   if (mode.value === 'markdown') {
     editing.value = false
     if (draft.value !== source)
-      await studio.commit(replaceBlock(studio.content(), target, draft.value), 'Edit text')
+      await studio.commit(replaceBlock(studio.content(), target, draft.value), action('actionEditText'))
     return
   }
 
@@ -368,11 +369,11 @@ async function apply() {
     const block = getBlock(studio.content(), target)
     const patched = replaceInnerHtml(block, htmlTag, htmlWas, next)
     if (patched === null) {
-      reportError(new Error('That element could not be found in the Markdown any more, so nothing was changed.'))
+      reportError(new Error(t('errorHtmlMissing')))
       return
     }
     if (patched !== block)
-      await studio.commit(replaceBlock(studio.content(), target, patched), 'Edit text')
+      await studio.commit(replaceBlock(studio.content(), target, patched), action('actionEditText'))
     return
   }
 
@@ -387,12 +388,12 @@ async function apply() {
   editing.value = false
 
   if (written === null) {
-    reportError(new Error('That edit could not be written back as Markdown, so nothing was changed. Edit it as Markdown instead.'))
+    reportError(new Error(t('errorSerialize')))
     return
   }
 
   if (written !== source)
-    await studio.commit(replaceBlock(studio.content(), target, written), 'Edit text')
+    await studio.commit(replaceBlock(studio.content(), target, written), action('actionEditText'))
 }
 
 function cancel() {
@@ -494,20 +495,20 @@ function toggleMark(tag: string, aliases: string[]) {
 }
 
 const marks = [
-  { icon: 'bold', title: 'Bold (Ctrl+B)', markdown: () => format(sel => toggleWrap(sel, '**')), visual: () => toggleMark('b', ['b', 'strong']) },
-  { icon: 'italic', title: 'Italic (Ctrl+I)', markdown: () => format(sel => toggleWrap(sel, '*')), visual: () => toggleMark('i', ['i', 'em']) },
-  { icon: 'underline', title: 'Underline (Ctrl+U)', markdown: () => format(sel => toggleTagWrap(sel, '<u>', '</u>')), visual: () => toggleMark('u', ['u']) },
-  { icon: 'code', title: 'Inline code', markdown: () => format(sel => toggleWrap(sel, '`')), visual: () => toggleMark('code', ['code']) },
-  { icon: 'strike', title: 'Strikethrough', markdown: () => format(sel => toggleWrap(sel, '~~')), visual: () => toggleMark('s', ['s', 'del', 'strike']) },
-  { icon: 'link', title: 'Link', markdown: () => format(sel => toLink(sel)), visual: () => wrapSelection('a') },
+  { icon: 'bold', title: 'bold', markdown: () => format(sel => toggleWrap(sel, '**')), visual: () => toggleMark('b', ['b', 'strong']) },
+  { icon: 'italic', title: 'italic', markdown: () => format(sel => toggleWrap(sel, '*')), visual: () => toggleMark('i', ['i', 'em']) },
+  { icon: 'underline', title: 'underline', markdown: () => format(sel => toggleTagWrap(sel, '<u>', '</u>')), visual: () => toggleMark('u', ['u']) },
+  { icon: 'code', title: 'inlineCode', markdown: () => format(sel => toggleWrap(sel, '`')), visual: () => toggleMark('code', ['code']) },
+  { icon: 'strike', title: 'strikethrough', markdown: () => format(sel => toggleWrap(sel, '~~')), visual: () => toggleMark('s', ['s', 'del', 'strike']) },
+  { icon: 'link', title: 'link', markdown: () => format(sel => toLink(sel)), visual: () => wrapSelection('a') },
 ]
 
 /** Block level changes, which rewrite the Markdown's markers rather than its text. */
 const blocks = [
-  { icon: 'h1', title: 'Heading 1', run: () => format(sel => toggleHeading(sel, 1)) },
-  { icon: 'h2', title: 'Heading 2', run: () => format(sel => toggleHeading(sel, 2)) },
-  { icon: 'list', title: 'Bullet list', run: () => format(sel => toggleBullet(sel)) },
-  { icon: 'quote', title: 'Quote', run: () => format(sel => toggleQuote(sel)) },
+  { icon: 'h1', title: 'heading1', run: () => format(sel => toggleHeading(sel, 1)) },
+  { icon: 'h2', title: 'heading2', run: () => format(sel => toggleHeading(sel, 2)) },
+  { icon: 'list', title: 'bulletList', run: () => format(sel => toggleBullet(sel)) },
+  { icon: 'quote', title: 'quote', run: () => format(sel => toggleQuote(sel)) },
 ]
 
 function runMark(mark: typeof marks[number]) {
@@ -615,7 +616,7 @@ onDomEvent(window, 'resize', () => {
         v-for="mark in marks"
         :key="mark.icon"
         class="studio-icon-button"
-        :title="mark.title"
+        :title="t(mark.title)"
         @mousedown.prevent
         @click="runMark(mark)"
       >
@@ -627,7 +628,7 @@ onDomEvent(window, 'resize', () => {
           v-for="action in blocks"
           :key="action.icon"
           class="studio-icon-button"
-          :title="action.title"
+          :title="t(action.title)"
           @mousedown.prevent
           @click="action.run()"
         >
@@ -640,16 +641,16 @@ onDomEvent(window, 'resize', () => {
       <button
         v-if="mode === 'visual'"
         class="studio-icon-button"
-        title="Edit as Markdown"
+        :title="t('editMarkdown')"
         @mousedown.prevent
         @click="toMarkdown"
       >
         <StudioIcon name="code" :size="14" />
       </button>
-      <button class="studio-icon-button" title="Apply (Ctrl+Enter)" @mousedown.prevent @click="apply">
+      <button class="studio-icon-button" :title="t('applyShortcut')" @mousedown.prevent @click="apply">
         <StudioIcon name="check" :size="14" />
       </button>
-      <button class="studio-icon-button" title="Cancel (Esc)" @mousedown.prevent @click="cancel">
+      <button class="studio-icon-button" :title="t('cancelEdit')" @mousedown.prevent @click="cancel">
         <StudioIcon name="close" :size="14" />
       </button>
     </div>

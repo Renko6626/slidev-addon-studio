@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../../i18n'
 import { computed, ref } from 'vue'
 import { studioPalette } from '../../composables/useCatalog'
 import { isColorValue } from '../../md/literals'
@@ -63,7 +64,7 @@ function choose(value: string) {
     <button
       class="studio-color__swatch"
       :style="paintable ? { background: value } : undefined"
-      :title="palette.length ? 'Choose a colour' : 'Pick a colour'"
+      :title="palette.length ? t('chooseColor') : t('pickColor')"
       @click="palette.length ? (open_ = !open_) : pick()"
     />
     <input
@@ -75,7 +76,7 @@ function choose(value: string) {
     <input
       type="text"
       :value="value"
-      placeholder="#4f8cff or var(--accent)"
+      :placeholder="t('colorPlaceholder')"
       @change="emit('change', ($event.target as HTMLInputElement).value)"
     >
 
@@ -89,7 +90,7 @@ function choose(value: string) {
         @click="choose(colour.value)"
       />
       <button class="studio-palette__custom" @click="open_ = false; pick()">
-        Custom…
+        {{ t('customColor') }}
       </button>
     </span>
   </span>

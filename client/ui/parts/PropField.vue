@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import type { PropControl, PropMeta } from '../../types'
+import { t } from '../../i18n'
+import type { CatalogComponent, PropControl, PropMeta } from '../../types'
+import { catalogOptionLabel, catalogPropLabel } from '../../i18n/catalog'
 import { computed } from 'vue'
 import { formatObjectArray, formatStringArray, isArrayType, isColorValue, parseObjectArray, parseStringArray } from '../../md/literals'
 import { isBoolean, isNumber, isTruthyDefault } from '../../md/props'
@@ -16,10 +18,14 @@ import StudioField from './StudioField.vue'
  * colours have to be declared, since nothing about `string` says the string is
  * a colour.
  */
-const props = defineProps<{ prop: PropMeta, value: string | boolean | null }>()
+const props = defineProps<{
+  prop: PropMeta
+  value: string | boolean | null
+  component?: Pick<CatalogComponent, 'name' | 'source'>
+}>()
 const emit = defineEmits<{ change: [value: string | boolean | null] }>()
 
-const label = computed(() => props.prop.label ?? props.prop.name)
+const label = computed(() => props.component ? catalogPropLabel(props.component, props.prop) : props.prop.label ?? props.prop.name)
 const current = computed(() => (props.value === null ? '' : String(props.value)))
 const optionValues = computed(() => props.prop.options?.map(o => o.value) ?? [])
 
@@ -100,6 +106,10 @@ const control = computed<PropControl>(() => {
 
 const hasThumbnails = computed(() => props.prop.options?.some(o => o.preview) ?? false)
 
+function optionLabel(value: string): string {
+  return props.component ? catalogOptionLabel(props.component, props.prop, value) : value
+}
+
 function setList(next: string[]) {
   emit('change', formatStringArray(next))
 }
@@ -139,11 +149,11 @@ function setRows(next: Record<string, string | number | boolean>[]) {
         :key="option.value"
         class="studio-thumb"
         :class="{ 'studio-thumb--active': option.value === current }"
-        :title="option.value"
+        :title="optionLabel(option.value)"
         @click="emit('change', option.value)"
       >
-        <img v-if="option.preview" :src="option.preview" :alt="option.value" loading="lazy">
-        <span v-else>{{ option.value }}</span>
+        <img v-if="option.preview" :src="option.preview" :alt="optionLabel(option.value)" loading="lazy">
+        <span v-else>{{ optionLabel(option.value) }}</span>
       </button>
     </div>
   </div>
@@ -151,10 +161,10 @@ function setRows(next: Record<string, string | number | boolean>[]) {
   <StudioField v-else-if="control === 'select'" :label="label">
     <select :value="current" @change="emit('change', ($event.target as HTMLSelectElement).value)">
       <option value="">
-        {{ prop.required ? 'Choose…' : 'Default' }}
+        {{ prop.required ? t('choose') : t('default') }}
       </option>
       <option v-for="option in prop.options" :key="option.value" :value="option.value">
-        {{ option.value }}
+        {{ optionLabel(option.value) }}
       </option>
     </select>
   </StudioField>
@@ -162,10 +172,10 @@ function setRows(next: Record<string, string | number | boolean>[]) {
   <StudioField v-else-if="control === 'boolean'" :label="label">
     <select :value="booleanValue ? 'yes' : 'no'" @change="emit('change', ($event.target as HTMLSelectElement).value === 'yes')">
       <option value="no">
-        No
+        {{ t('no') }}
       </option>
       <option value="yes">
-        Yes
+        {{ t('yes') }}
       </option>
     </select>
   </StudioField>

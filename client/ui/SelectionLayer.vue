@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, targetLabel } from '../i18n'
 import type { ResizeHandle } from '../composables/useTransformGizmo'
 import { useRafFn } from '@vueuse/core'
 import { computed, ref } from 'vue'
@@ -168,7 +169,7 @@ function handleStyle(rect: Rect, handle: typeof handles[number]) {
         class="studio-badge"
         :style="{ left: `${selectionRect.left}px`, top: `${selectionRect.top - 4}px` }"
       >
-        {{ selection.label }}{{ selection.positioned ? ' · free' : '' }}
+        {{ selection.positioned ? t('freeBadge', { name: targetLabel(selection) }) : targetLabel(selection) }}
       </div>
 
       <!--
@@ -200,7 +201,7 @@ function handleStyle(rect: Rect, handle: typeof handles[number]) {
         <div
           class="studio-handle studio-handle--rotate"
           style="left: 50%; top: -22px"
-          title="Rotate. Hold Shift for 15° steps"
+          :title="t('rotateHint')"
           @pointerdown="studio.gizmo.startRotate($event)"
         />
       </div>

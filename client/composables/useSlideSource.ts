@@ -1,3 +1,4 @@
+import type { ActionLabel } from '../i18n'
 import type { SlidePatch } from '@slidev/types'
 import type { MaybeRefOrGetter } from 'vue'
 import { useDynamicSlideInfo } from '@slidev/client/composables/useSlideInfo.ts'
@@ -15,9 +16,9 @@ import { busy, reportError } from '../state'
  */
 
 type HistoryEntry =
-  | { kind: 'content', label: string, no: number, before: string, after: string }
-  | { kind: 'frontmatter', label: string, no: number, before: Record<string, any>, after: Record<string, any> }
-  | { kind: 'frontmatterRaw', label: string, no: number, before: string, after: string }
+  | { kind: 'content', label: ActionLabel, no: number, before: string, after: string }
+  | { kind: 'frontmatter', label: ActionLabel, no: number, before: Record<string, any>, after: Record<string, any> }
+  | { kind: 'frontmatterRaw', label: ActionLabel, no: number, before: string, after: string }
 
 const undoStack = ref<HistoryEntry[]>([])
 const redoStack = ref<HistoryEntry[]>([])
@@ -72,7 +73,7 @@ export function useSlideSource(no: MaybeRefOrGetter<number>) {
    * own result. A drag paints its position directly, so re-rendering mid-drag
    * would only make it stutter.
    */
-  async function setContent(next: string, label: string, options: { skipHmr?: boolean, history?: boolean } = {}) {
+  async function setContent(next: string, label: ActionLabel, options: { skipHmr?: boolean, history?: boolean } = {}) {
     const before = content.value
     if (before === next)
       return
@@ -93,7 +94,7 @@ export function useSlideSource(no: MaybeRefOrGetter<number>) {
    * The raw text is edited line by line, so comments and key order survive.
    * Anything a line edit cannot safely rewrite falls back to the patch.
    */
-  async function setFrontmatter(values: Record<string, any>, label: string) {
+  async function setFrontmatter(values: Record<string, any>, label: ActionLabel) {
     // Read the block back from the server first. The cached copy is whatever
     // the last response left behind, and Slidev does not always answer a write
     // with the new raw text, so patching the cache meant every control wrote

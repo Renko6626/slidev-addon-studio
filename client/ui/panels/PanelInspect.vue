@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { action, t, targetLabel } from '../../i18n'
+import { catalogDescription } from '../../i18n/catalog'
 import { computed, ref, watch } from 'vue'
 import { configs } from '@slidev/client/env.ts'
 import { useCatalog } from '../../composables/useCatalog'
@@ -59,7 +61,7 @@ async function setProp(prop: (typeof editableProps.value)[number], value: string
 
   const before = studio.content()
   const next = writeProp(before, range.value, prop, value)
-  await studio.commit(next, `Set ${prop.name}`)
+  await studio.commit(next, action('actionSet', { name: prop.name }))
   if (next === before)
     revision.value += 1
 }
@@ -82,7 +84,7 @@ async function setPos(field: 'x' | 'y' | 'w' | 'h' | 'rotate', value: number | n
     return
   await studio.commit(
     writeDrag(studio.content(), range.value, { ...pos.value, [field]: value }),
-    'Set position',
+    action('actionSetPosition'),
   )
 }
 
@@ -99,13 +101,13 @@ async function toFlow() {
 async function applyClasses() {
   if (!range.value)
     return
-  await studio.commit(writeClasses(studio.content(), range.value, classes.value), 'Set classes')
+  await studio.commit(writeClasses(studio.content(), range.value, classes.value), action('actionSetClasses'))
 }
 
 async function applyDraft() {
   if (!range.value || !dirty.value)
     return
-  await studio.commit(replaceBlock(studio.content(), range.value, draft.value), 'Edit block')
+  await studio.commit(replaceBlock(studio.content(), range.value, draft.value), action('actionEditBlock'))
 }
 
 async function move(direction: -1 | 1) {
@@ -127,52 +129,49 @@ async function remove() {
 <template>
   <div v-if="!selection" class="studio-empty">
     <template v-if="missed">
-      <p>That part of the slide does not come from the Markdown.</p>
+      <p>{{ t('inspectLayout') }}</p>
       <p class="studio-hint">
-        It is drawn by the layout, so it is edited under Layout rather than on
-        the canvas. Everything written in the slide body can be clicked.
+        {{ t('inspectLayoutHint') }}
       </p>
     </template>
     <template v-else>
-      Click anything on the slide to select it.
+      {{ t('inspectClick') }}
     </template>
   </div>
 
   <div v-else-if="selection?.prop" class="studio-empty">
     <p>
-      These words are the slide's <code>{{ selection.prop }}</code>.
+      {{ t('inspectProp', { name: selection.prop }) }}
     </p>
     <p class="studio-hint">
-      Double click to rewrite them here, or open the Layout panel to change them
-      along with the rest of the slide's settings.
+      {{ t('inspectPropHint') }}
     </p>
   </div>
 
   <div v-else-if="!range" class="studio-empty">
-    <p>This element could not be traced back to the Markdown.</p>
+    <p>{{ t('inspectUnmapped') }}</p>
     <p class="studio-hint">
-      That happens when a custom Markdown transformer moves lines around. The
-      element still renders, it just cannot be edited visually.
+      {{ t('inspectUnmappedHint') }}
     </p>
   </div>
 
   <template v-else>
     <section class="studio-section">
       <h3 class="studio-section__title">
-        {{ selection.label }}
+        {{ targetLabel(selection) }}
       </h3>
       <p class="studio-hint">
-        Lines {{ range[0] + 1 }}–{{ range[1] }} of this slide
+        {{ t('inspectLines', { start: range[0] + 1, end: range[1] }) }}
       </p>
     </section>
 
     <section class="studio-section">
       <h3 class="studio-section__title">
-        Position
+        {{ t('position') }}
       </h3>
       <div v-if="!pos" class="studio-button-row">
         <button class="studio-button" @click="toFreePosition">
-          <StudioIcon name="free" :size="14" /> Free position
+          <StudioIcon name="free" :size="14" /> {{ t('freePosition') }}
         </button>
       </div>
       <template v-else>
@@ -182,86 +181,84 @@ async function remove() {
         <StudioField label="Y">
           <input type="number" :value="Math.round(pos.y)" @change="setPos('y', +($event.target as HTMLInputElement).value)">
         </StudioField>
-        <StudioField label="Width">
+        <StudioField :label="t('width')">
           <input type="number" :value="Math.round(pos.w)" @change="setPos('w', +($event.target as HTMLInputElement).value)">
         </StudioField>
-        <StudioField label="Height">
+        <StudioField :label="t('height')">
           <input
             type="number"
             :value="pos.h === null ? '' : Math.round(pos.h)"
-            placeholder="auto"
+            :placeholder="t('auto')"
             @change="setPos('h', ($event.target as HTMLInputElement).value.trim() === '' ? null : +($event.target as HTMLInputElement).value)"
           >
         </StudioField>
-        <StudioField label="Rotation">
+        <StudioField :label="t('rotation')">
           <input type="number" :value="Math.round(pos.rotate)" @change="setPos('rotate', +($event.target as HTMLInputElement).value)">
         </StudioField>
         <button class="studio-button" @click="toFlow">
-          <StudioIcon name="flow" :size="14" /> Return to flow
+          <StudioIcon name="flow" :size="14" /> {{ t('returnFlow') }}
         </button>
         <p class="studio-hint">
-          Free elements are positioned in canvas units ({{ studio.canvas.slideWidth.value }} wide).
+          {{ t('canvasUnits', { width: studio.canvas.slideWidth.value }) }}
         </p>
       </template>
     </section>
 
     <section v-if="component" class="studio-section">
       <h3 class="studio-section__title">
-        {{ component.name }} props
+        {{ t('componentProps', { name: component.name }) }}
       </h3>
       <p v-if="!editableProps.length" class="studio-hint">
-        This component takes no props.
+        {{ t('noProps') }}
       </p>
       <PropField
         v-for="prop in editableProps"
         :key="`${prop.name}-${revision}`"
         :prop="prop"
+        :component="component"
         :value="valueOf(prop)"
         @change="setProp(prop, $event)"
       />
       <p v-if="component.description" class="studio-hint">
-        {{ component.description }}
+        {{ catalogDescription(component) }}
       </p>
     </section>
 
     <section class="studio-section">
       <h3 class="studio-section__title">
-        Style
+        {{ t('style') }}
       </h3>
-      <StudioField v-if="styleable" label="Classes">
+      <StudioField v-if="styleable" :label="t('classes')">
         <input v-model="classes" type="text" placeholder="text-xl opacity-80" @change="applyClasses">
       </StudioField>
       <p v-if="!selection.tag && !configs.mdc" class="studio-hint">
-        Classes on Markdown blocks need <code>mdc: true</code> in the headmatter.
+        {{ t('classesMdc', { setting: 'mdc: true' }) }}
       </p>
       <p v-else-if="!styleable" class="studio-hint">
-        This block cannot carry a class of its own. A trailing
-        <code>{{ '{.class}' }}</code> would land on its last line instead. Wrap
-        it in a <code>&lt;div&gt;</code> to style it.
+        {{ t('classesWrap', { syntax: '{.class}', tag: '<div>' }) }}
       </p>
     </section>
 
     <section class="studio-section">
       <h3 class="studio-section__title">
-        Arrange
+        {{ t('arrange') }}
       </h3>
       <div class="studio-button-row">
-        <button class="studio-button" title="Move earlier" :disabled="!canReorder(selection)" @click="move(-1)">
+        <button class="studio-button" :title="t('moveEarlier')" :disabled="!canReorder(selection)" @click="move(-1)">
           <StudioIcon name="up" :size="14" />
         </button>
-        <button class="studio-button" title="Move later" :disabled="!canReorder(selection)" @click="move(1)">
+        <button class="studio-button" :title="t('moveLater')" :disabled="!canReorder(selection)" @click="move(1)">
           <StudioIcon name="down" :size="14" />
         </button>
-        <button class="studio-button" title="Duplicate" :disabled="!canReorder(selection)" @click="duplicate">
+        <button class="studio-button" :title="t('duplicate')" :disabled="!canReorder(selection)" @click="duplicate">
           <StudioIcon name="copy" :size="14" />
         </button>
-        <button class="studio-button studio-button--danger" title="Delete" @click="remove">
+        <button class="studio-button studio-button--danger" :title="t('delete')" @click="remove">
           <StudioIcon name="trash" :size="14" />
         </button>
       </div>
       <p v-if="!canReorder(selection)" class="studio-hint">
-        This element shares a block with its neighbours, so it can be edited and
-        deleted but not reordered on its own.
+        {{ t('nestedArrange') }}
       </p>
     </section>
 
@@ -272,10 +269,10 @@ async function remove() {
       <textarea v-model="draft" rows="6" spellcheck="false" />
       <div class="studio-button-row" style="margin-top: 6px">
         <button class="studio-button" :disabled="!dirty" @click="applyDraft">
-          Apply
+          {{ t('apply') }}
         </button>
         <button class="studio-button" :disabled="!dirty" @click="draft = block">
-          Revert
+          {{ t('revert') }}
         </button>
       </div>
     </section>

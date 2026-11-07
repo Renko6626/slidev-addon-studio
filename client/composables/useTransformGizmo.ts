@@ -1,3 +1,5 @@
+import { action } from '../i18n'
+import type { ActionLabel } from '../i18n'
 import type { DragPos, StudioTarget } from '../types'
 import type { Box, Guide } from './useSnapping'
 import type { useSlideCanvas } from './useSlideCanvas'
@@ -51,7 +53,7 @@ export function useTransformGizmo(context: {
   getContent: () => string
   /** The slide being edited, so a gesture cannot land on a different one. */
   getNo: () => number
-  commit: (content: string, label: string, options?: { skipHmr?: boolean, keepSelection?: boolean }) => Promise<void>
+  commit: (content: string, label: ActionLabel, options?: { skipHmr?: boolean, keepSelection?: boolean }) => Promise<void>
   /** Selects what lies under a point, for a press on the overlay that was a click. */
   selectThrough: (x: number, y: number) => void
 }) {
@@ -283,7 +285,7 @@ export function useTransformGizmo(context: {
 
     const content = context.getContent()
     const next = writeDrag(content, target.range, pos)
-    const label = wasResize ? 'Resize element' : 'Move element'
+    const label = wasResize ? action('actionResize') : action('actionMove')
 
     // An element that already had a position only changes its numbers, and the
     // paint above already shows the result. Rebuilding the slide for that is

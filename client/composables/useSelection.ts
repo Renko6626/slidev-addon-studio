@@ -1,3 +1,5 @@
+import { action, targetName } from '../i18n'
+import type { ActionLabel } from '../i18n'
 import type { SourceRange, StudioTarget, TargetKind } from '../types'
 import { nextTick, onScopeDispose, watch, watchEffect } from 'vue'
 import { removeBlock } from '../md/lines'
@@ -47,7 +49,7 @@ function isStudioChrome(target: EventTarget | null): target is Element {
 export function useSelection(
   no: () => number,
   content: () => string,
-  remove?: (next: string, label: string) => Promise<void>,
+  remove?: (next: string, label: ActionLabel) => Promise<void>,
 ) {
   function targetFrom(node: EventTarget | null): StudioTarget | null {
     if (!(node instanceof Element))
@@ -273,7 +275,7 @@ export function useSelection(
     event.preventDefault()
     const target = selection.value
     selection.value = null
-    remove(removeBlock(content(), target.range!), `Delete ${target.label}`)
+    remove(removeBlock(content(), target.range!), action('actionDelete', { name: targetName(target) }))
   })
 
   watch(studioOpen, (open) => {

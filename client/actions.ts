@@ -1,3 +1,4 @@
+import { action, t, targetLabel, targetName } from './i18n'
 import type { StudioContext } from './context'
 import type { SourceRange, StudioTarget } from './types'
 import { readDrag, removeDrag, writeDrag } from './md/drag'
@@ -60,8 +61,7 @@ export async function freePosition(studio: StudioContext, target: StudioTarget) 
    */
   if (target.nested) {
     reportError(new Error(
-      `A ${target.label} inside a list cannot be given its own position: it would split the list around it. `
-      + 'Move the whole list instead, or take the item out of the list first.',
+      t('errorListPosition', { name: targetLabel(target) }),
     ))
     return
   }
@@ -73,14 +73,14 @@ export async function freePosition(studio: StudioContext, target: StudioTarget) 
   const origin = studio.canvas.originOf(target.el)
   await studio.commit(
     writeDrag(studio.content(), target.range, { x: box.x - origin.x, y: box.y - origin.y, w: box.w, h: null, rotate: 0 }),
-    'Free position',
+    action('actionFreePosition'),
   )
 }
 
 export async function returnToFlow(studio: StudioContext, target: StudioTarget) {
   if (!target.range)
     return
-  await studio.commit(removeDrag(studio.content(), target.range), 'Return to flow')
+  await studio.commit(removeDrag(studio.content(), target.range), action('actionReturnFlow'))
 }
 
 /**
@@ -104,13 +104,13 @@ export async function duplicateBlock(studio: StudioContext, target: StudioTarget
   if (target.kind === 'list-item') {
     const next = duplicateListItem(studio.content(), target.range[0])
     if (next)
-      await studio.commit(next, 'Duplicate list item')
+      await studio.commit(next, action('actionDuplicateItem'))
     return
   }
   const unit = positionedUnit(studio.content(), target.range)
   await studio.commit(
     insertAfter(studio.content(), unit, getBlock(studio.content(), unit)),
-    'Duplicate block',
+    action('actionDuplicateBlock'),
   )
 }
 
@@ -119,7 +119,7 @@ export async function deleteBlock(studio: StudioContext, target: StudioTarget) {
     return
   const unit = positionedUnit(studio.content(), target.range)
   selection.value = null
-  await studio.commit(removeBlock(studio.content(), unit), `Delete ${target.label}`)
+  await studio.commit(removeBlock(studio.content(), unit), action('actionDelete', { name: targetName(target) }))
 }
 
 /**
@@ -149,7 +149,7 @@ export async function nudgeBlock(
   const pos = drag.pos
   await studio.commit(
     writeDrag(content, unit, { ...pos, x: pos.x + dx, y: pos.y + dy }),
-    'Nudge element',
+    action('actionNudge'),
     // The numbers change, nothing else does, and rebuilding the slide for an
     // arrow key would make holding one down unusable.
     { keepSelection: true },
@@ -165,9 +165,9 @@ export async function moveBlockBy(studio: StudioContext, target: StudioTarget, d
     const next = moveListItem(studio.content(), target.range[0], direction)
     // Null means there is no sibling that way, so there is nothing to do.
     if (next)
-      await studio.commit(next, 'Reorder list item')
+      await studio.commit(next, action('actionReorderItem'))
     return
   }
   const unit = positionedUnit(studio.content(), target.range)
-  await studio.commit(moveBlock(studio.content(), unit, direction), 'Reorder block')
+  await studio.commit(moveBlock(studio.content(), unit, direction), action('actionReorderBlock'))
 }

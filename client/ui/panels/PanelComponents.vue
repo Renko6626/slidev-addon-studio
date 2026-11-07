@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import type { MessageKey } from '../../i18n'
+import { action, t } from '../../i18n'
+import { catalogDescription } from '../../i18n/catalog'
 import { ref } from 'vue'
 import { onDomEvent } from '../../composables/useDomEvent'
 import { CANVAS_SELECTOR } from '../../dom'
@@ -21,27 +24,28 @@ const studio = useStudio()
 const { query, groups, sources, toggleSource } = useCatalog()
 
 /** Whatever is being dragged onto the canvas, component or plain block. */
-const dragging = ref<{ label: string, snippet: string } | null>(null)
+const dragging = ref<{ label: string, snippet: string, labelKey?: MessageKey } | null>(null)
 
 const blocks = computed(() => {
   const needle = query.value.trim().toLowerCase()
-  if (!needle)
-    return BASIC_BLOCKS
-  return BASIC_BLOCKS.filter(b => b.name.toLowerCase().includes(needle) || b.description.toLowerCase().includes(needle))
+  return BASIC_BLOCKS
+    .map(b => ({ ...b, search: `${b.name} ${b.description}`.toLowerCase(), name: t(b.labelKey), description: t(`${b.labelKey}Description`) }))
+    .filter(b => !needle || b.name.toLowerCase().includes(needle) || b.description.toLowerCase().includes(needle)
+      || b.search.includes(needle))
 })
 
 const sourceFilters = [
-  { id: 'project', label: 'Project' },
-  { id: 'theme', label: 'Theme' },
-  { id: 'addon', label: 'Addons' },
+  { id: 'project', label: 'project' },
+  { id: 'theme', label: 'theme' },
+  { id: 'addon', label: 'addons' },
   { id: 'builtin', label: 'Slidev' },
 ] as const
 
-async function insert(item: { name: string, snippet: string, tag?: string }) {
+async function insert(item: { name: string, snippet: string, tag?: string, labelKey?: MessageKey }) {
   const range = selection.value?.range
   await studio.commit(
     insertSnippet(studio.content(), item.snippet, range ? { mode: 'after', range } : { mode: 'append' }),
-    `Insert ${item.name}`,
+    action('actionInsert', { name: item.labelKey ? { key: item.labelKey } : item.name }),
   )
   // Something just added is the thing you want to configure, so hand over to
   // the Element panel with it already selected. Matched on the tag it renders,
@@ -66,13 +70,15 @@ onDomEvent<DragEvent>(window, 'drop', async (event) => {
   event.preventDefault()
   const point = studio.canvas.toCanvas(event.clientX, event.clientY)
   const snippet = positioned(component.snippet, { x: Math.round(point.x), y: Math.round(point.y), w: 260, h: null, rotate: 0 })
-  await studio.commit(insertSnippet(studio.content(), snippet, { mode: 'append' }), `Place ${component.name}`)
+  await studio.commit(insertSnippet(studio.content(), snippet, { mode: 'append' }), action('actionPlace', {
+    name: component.labelKey ? { key: component.labelKey } : component.label,
+  }))
 })
 </script>
 
 <template>
   <div class="studio-catalog__search">
-    <input v-model="query" type="text" placeholder="Search components…">
+    <input v-model="query" type="text" :placeholder="t('searchComponents')">
     <div class="studio-segmented" style="margin-top: 8px">
       <button
         v-for="filter in sourceFilters"
@@ -81,14 +87,14 @@ onDomEvent<DragEvent>(window, 'drop', async (event) => {
         :aria-pressed="sources.has(filter.id)"
         @click="toggleSource(filter.id)"
       >
-        {{ filter.label }}
+        {{ filter.id === 'builtin' ? filter.label : t(filter.label) }}
       </button>
     </div>
   </div>
 
   <section v-if="blocks.length">
     <h3 class="studio-section__title" style="padding: 12px 12px 0">
-      Basic
+      {{ t('basic') }}
     </h3>
     <div class="studio-grid">
       <button
@@ -98,7 +104,7 @@ onDomEvent<DragEvent>(window, 'drop', async (event) => {
         draggable="true"
         :title="block.description"
         @click="insert(block)"
-        @dragstart="dragging = { label: block.name, snippet: block.snippet }"
+        @dragstart="dragging = { label: block.name, snippet: block.snippet, labelKey: block.labelKey }"
         @dragend="dragging = null"
       >
         <span class="studio-card__preview">
@@ -113,7 +119,7 @@ onDomEvent<DragEvent>(window, 'drop', async (event) => {
   </section>
 
   <div v-if="!groups.length && !blocks.length" class="studio-empty">
-    Nothing matches.
+    {{ t('noMatches') }}
   </div>
 
   <section v-for="[group, items] in groups" :key="group">
@@ -126,7 +132,7 @@ onDomEvent<DragEvent>(window, 'drop', async (event) => {
         :key="component.name"
         class="studio-card"
         draggable="true"
-        :title="component.description ?? component.name"
+        :title="catalogDescription(component) ?? component.name"
         @click="insert({ ...component, tag: component.name })"
         @dragstart="dragging = { label: component.name, snippet: component.snippet }"
         @dragend="dragging = null"
@@ -134,13 +140,13 @@ onDomEvent<DragEvent>(window, 'drop', async (event) => {
         <ComponentPreview :component="component" />
         <span class="studio-card__label">
           <span class="studio-card__name">{{ component.name }}</span>
-          <span v-if="component.description" class="studio-card__meta">{{ component.description }}</span>
+          <span v-if="component.description" class="studio-card__meta">{{ catalogDescription(component) }}</span>
         </span>
       </button>
     </div>
   </section>
 
   <p class="studio-hint" style="padding: 0 12px 16px">
-    Click to add after the selection, or drag onto the slide to place it freely.
+    {{ t('insertHint') }}
   </p>
 </template>

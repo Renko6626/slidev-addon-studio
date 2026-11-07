@@ -1,6 +1,7 @@
 import type { CatalogComponent, CatalogLayout } from '../types'
 import { components, config, layouts, palette } from 'virtual:slidev-studio/catalog'
 import { computed, ref } from 'vue'
+import { catalogDescription, catalogOrigin } from '../i18n/catalog'
 
 /**
  * The palette's inventory, built at dev time from every root Slidev resolved:
@@ -30,6 +31,7 @@ export function useCatalog() {
         return true
       return component.name.toLowerCase().includes(needle)
         || component.description?.toLowerCase().includes(needle)
+        || catalogDescription(component)?.toLowerCase().includes(needle)
         || component.category?.toLowerCase().includes(needle)
     })
   })
@@ -38,7 +40,7 @@ export function useCatalog() {
   const groups = computed(() => {
     const map = new Map<string, CatalogComponent[]>()
     for (const component of filtered.value) {
-      const key = component.category ?? component.origin
+      const key = component.category ?? catalogOrigin(component)
       const list = map.get(key) ?? []
       list.push(component)
       map.set(key, list)

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from './client/i18n'
 import { computed } from 'vue'
 import { useNav } from '@slidev/client'
 import { studioOpen } from './client/state'
@@ -13,7 +14,7 @@ const available = computed(() => __DEV__ && __SLIDEV_FEATURE_EDITOR__ && !nav.is
     v-if="available"
     class="slidev-icon-btn"
     :class="{ 'text-primary': studioOpen }"
-    title="Toggle Studio (E)"
+    :title="t('toggleStudio')"
     @click="studioOpen = !studioOpen"
   >
     <StudioIcon name="edit" :size="18" />

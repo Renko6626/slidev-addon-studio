@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../../i18n'
 import { useNav } from '@slidev/client'
 import { useLocalStorage } from '@vueuse/core'
 import { computed, ref } from 'vue'
@@ -28,7 +29,7 @@ const showThumbnails = useLocalStorage('slidev-studio:slide-thumbnails', true)
 function titleOf(slide: (typeof nav.slides.value)[number]) {
   const raw = slide.meta.slide.title
   const plain = raw?.replace(/<[^>]*>/g, '').trim()
-  return plain || slide.meta.slide.frontmatter.layout || 'Untitled'
+  return plain || slide.meta.slide.frontmatter.layout || t('untitled')
 }
 
 const busy = ref(false)
@@ -102,11 +103,11 @@ onDomEvent(window, 'dragend', () => {
 <template>
   <div>
     <div class="studio-section" style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
-      <span class="studio-card__meta">{{ slides.length }} slides</span>
+      <span class="studio-card__meta">{{ t('slidesCount', slides.length) }}</span>
       <button
         class="studio-icon-button"
         :aria-pressed="showThumbnails"
-        title="Show thumbnails"
+        :title="t('showThumbnails')"
         @click="showThumbnails = !showThumbnails"
       >
         <StudioIcon :name="showThumbnails ? 'slides' : 'flow'" />
@@ -138,10 +139,10 @@ onDomEvent(window, 'dragend', () => {
       </span>
 
       <span class="studio-slide-row__actions">
-        <span class="studio-icon-button" role="button" title="Duplicate" @click.stop="duplicate(slide.no)">
+        <span class="studio-icon-button" role="button" :title="t('duplicate')" @click.stop="duplicate(slide.no)">
           <StudioIcon name="copy" :size="14" />
         </span>
-        <span class="studio-icon-button" role="button" title="Delete" @click.stop="remove(slide.no)">
+        <span class="studio-icon-button" role="button" :title="t('delete')" @click.stop="remove(slide.no)">
           <StudioIcon name="trash" :size="14" />
         </span>
       </span>
@@ -149,11 +150,10 @@ onDomEvent(window, 'dragend', () => {
 
     <div class="studio-section">
       <button class="studio-button" :disabled="busy" @click="add(studio.no())">
-        <StudioIcon name="plus" :size="14" /> Add slide after {{ studio.no() }}
+        <StudioIcon name="plus" :size="14" /> {{ t('addSlideAfter', { number: studio.no() }) }}
       </button>
       <p class="studio-hint">
-        Drag a slide to reorder it. Slides imported from another file with
-        <code>src:</code> can only move within that file.
+        {{ t('reorderHint', { syntax: 'src:' }) }}
       </p>
     </div>
   </div>

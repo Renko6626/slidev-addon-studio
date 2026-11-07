@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../i18n'
 import { computed, ref } from 'vue'
 import { onDomEvent } from '../composables/useDomEvent'
 import { activePanel, dockWidth, studioOpen } from '../state'
@@ -11,12 +12,12 @@ import PanelSlides from './panels/PanelSlides.vue'
 import StudioIcon from './parts/StudioIcon.vue'
 
 const panels = {
-  inspect: { title: 'Element', component: PanelInspect },
-  components: { title: 'Components', component: PanelComponents },
-  animate: { title: 'Animation', component: PanelAnimate },
-  layout: { title: 'Slide layout', component: PanelLayout },
-  slides: { title: 'Slides', component: PanelSlides },
-  assets: { title: 'Assets', component: PanelAssets },
+  inspect: { title: 'element', component: PanelInspect },
+  components: { title: 'components', component: PanelComponents },
+  animate: { title: 'animation', component: PanelAnimate },
+  layout: { title: 'slideLayout', component: PanelLayout },
+  slides: { title: 'slides', component: PanelSlides },
+  assets: { title: 'assets', component: PanelAssets },
 } as const
 
 const current = computed(() => panels[activePanel.value] ?? panels.inspect)
@@ -36,12 +37,12 @@ onDomEvent(window, 'pointerup', () => (resizing.value = false))
   <aside class="studio-dock" :style="{ width: `${dockWidth}px` }">
     <div
       class="studio-dock__resizer"
-      title="Drag to resize"
+      :title="t('resizeDock')"
       @pointerdown.prevent="resizing = true"
     />
     <header class="studio-dock__header">
-      <span class="studio-dock__title">{{ current.title }}</span>
-      <button class="studio-icon-button" title="Close Studio (E)" @click="studioOpen = false">
+      <span class="studio-dock__title">{{ t(current.title) }}</span>
+      <button class="studio-icon-button" :title="t('closeStudio')" @click="studioOpen = false">
         <StudioIcon name="close" />
       </button>
     </header>

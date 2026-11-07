@@ -42,6 +42,27 @@ or in `package.json`, which applies it to every deck in the project:
 Start `slidev` as usual and press <kbd>E</kbd>, or use the pencil button in
 Slidev's bottom bar. Studio adds nothing to the slide while it is closed.
 
+## Interface language
+
+Studio supports English and Simplified Chinese. On first use it follows your
+browser language: Chinese browsers use Simplified Chinese, and others use
+English. Use the language selector in Studio's toolbar to change it. The choice
+is remembered in this browser under `slidev-studio:locale`.
+
+The setting changes Studio's interface. Slide content, component names, prop
+keys, inserted Markdown snippets and third-party component descriptions keep
+their original text. Labels and options Studio supplies for Slidev's builtin
+components are translated as well. Page-operation and upload validation errors
+use the selected language; their original English messages remain in the API
+response for diagnostics. Unexpected system errors retain their original text.
+
+Translations use a Studio-owned Vue I18n Composer, so they do not replace a
+presentation's own Vue I18n plugin or global `$t`. English and Chinese messages
+live in `client/i18n/en.ts` and `client/i18n/zh-CN.ts`. Add matching keys to both
+files and use `t('messageKey', { name: value })` for parameterized messages. Keep
+whole sentences in the dictionaries rather than joining translated fragments.
+Vue I18n is pinned to 11.4.2 to retain the addon's existing Node 20 support.
+
 ## What it does
 
 | Panel | What it edits |

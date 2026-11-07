@@ -1,3 +1,4 @@
+import type { ActionLabel } from './i18n'
 import type { InjectionKey } from 'vue'
 import type { SourceRange } from './types'
 import type { useSlideCanvas } from './composables/useSlideCanvas'
@@ -22,8 +23,8 @@ export interface StudioContext {
    * already painted; `keepSelection` then avoids re-finding an element that
    * never went away.
    */
-  commit: (content: string, label: string, options?: { skipHmr?: boolean, keepSelection?: boolean }) => Promise<void>
-  setFrontmatter: (values: Record<string, any>, label: string) => Promise<void>
+  commit: (content: string, label: ActionLabel, options?: { skipHmr?: boolean, keepSelection?: boolean }) => Promise<void>
+  setFrontmatter: (values: Record<string, any>, label: ActionLabel) => Promise<void>
   setNote: (note: string) => Promise<void>
   /** Range of the current selection, or `null` when nothing is selected. */
   range: () => SourceRange | null

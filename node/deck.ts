@@ -2,6 +2,7 @@ import type { ResolvedSlidevOptions } from '@slidev/types'
 import { readFile, writeFile } from 'node:fs/promises'
 import type { RawDeck } from './slide-source'
 import { joinDeck, prettifyRaw, splitDeck } from './slide-source'
+import { StudioError } from '../shared/errors'
 
 /**
  * Deck-level operations: everything that changes how many slides there are or
@@ -37,13 +38,13 @@ export interface DeckResult {
 function locate(options: ResolvedSlidevOptions, no: number): DeckSlideRef {
   const slide = options.data.slides[no - 1]
   if (!slide)
-    throw new Error(`Slide ${no} does not exist (deck has ${options.data.slides.length})`)
+    throw new StudioError('slideNotFound', `Slide ${no} does not exist (deck has ${options.data.slides.length})`, { number: no, total: options.data.slides.length })
   return { no, filepath: slide.source.filepath, index: slide.source.index }
 }
 
-function assertNotHeadmatter(options: ResolvedSlidevOptions, ref: DeckSlideRef, what: string) {
+function assertNotHeadmatter(options: ResolvedSlidevOptions, ref: DeckSlideRef, what: 'delete' | 'move') {
   if (ref.filepath === options.data.entry.filepath && ref.index === 0)
-    throw new Error(`Cannot ${what} the first slide of the entry file: its frontmatter is the deck's global configuration.`)
+    throw new StudioError(what === 'delete' ? 'deleteHeadmatter' : 'moveHeadmatter', `Cannot ${what} the first slide of the entry file: its frontmatter is the deck's global configuration.`)
 }
 
 const DEFAULT_SLIDE = '# New slide\n'
@@ -82,7 +83,7 @@ export async function applyDeckAction(options: ResolvedSlidevOptions, payload: D
       const ref = locate(options, payload.no)
       assertNotHeadmatter(options, ref, 'delete')
       if (total <= 1)
-        throw new Error('A deck must keep at least one slide')
+        throw new StudioError('emptyDeck', 'A deck must keep at least one slide')
       await mutateFile(ref.filepath, (slides) => {
         slides.splice(ref.index, 1)
         return slides
@@ -95,9 +96,9 @@ export async function applyDeckAction(options: ResolvedSlidevOptions, payload: D
       const target = locate(options, clamp(payload.to, 1, total))
       assertNotHeadmatter(options, ref, 'move')
       if (target.filepath !== ref.filepath)
-        throw new Error('Cannot move a slide across Markdown files')
+        throw new StudioError('crossFileMove', 'Cannot move a slide across Markdown files')
       if (target.index === 0 && ref.filepath === options.data.entry.filepath)
-        throw new Error('Cannot move a slide in front of the deck headmatter')
+        throw new StudioError('moveBeforeHeadmatter', 'Cannot move a slide in front of the deck headmatter')
       await mutateFile(ref.filepath, (slides) => {
         const [moved] = slides.splice(ref.index, 1)
         slides.splice(target.index, 0, moved)

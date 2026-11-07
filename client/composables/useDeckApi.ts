@@ -1,3 +1,5 @@
+import { t } from '../i18n'
+import { serverErrorText } from '../i18n/errors'
 import type { StudioAsset } from '../types'
 import { busy, reportError } from '../state'
 
@@ -18,7 +20,7 @@ async function request<T>(route: string, init?: RequestInit): Promise<T | null> 
     const response = await fetch(BASE + route, init)
     const body = await response.json()
     if (!response.ok || body?.error)
-      throw new Error(body?.error ?? `Request failed with ${response.status}`)
+      throw new Error(body?.error ? serverErrorText(body) : t('errorRequest', { status: response.status }), { cause: body?.error })
     return body as T
   }
   catch (error) {

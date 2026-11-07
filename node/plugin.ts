@@ -5,6 +5,7 @@ import { buildCatalog } from './catalog'
 import { readPalette } from './palette'
 import { assetRoot, listAssets, saveAsset } from './assets'
 import { applyDeckAction } from './deck'
+import { studioErrorResponse } from '../shared/errors'
 
 const VIRTUAL_CATALOG = 'virtual:slidev-studio/catalog'
 const RESOLVED_CATALOG = `\0${VIRTUAL_CATALOG}`
@@ -104,7 +105,7 @@ export function studioPlugin(options: ResolvedSlidevOptions): Plugin {
         catch (error: any) {
           res.statusCode = 400
           res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ error: error?.message ?? String(error) }))
+          res.end(JSON.stringify(studioErrorResponse(error)))
         }
       })
 

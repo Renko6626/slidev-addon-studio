@@ -2,6 +2,7 @@ import type { ResolvedSlidevOptions } from '@slidev/types'
 import { Buffer } from 'node:buffer'
 import { mkdir, readdir, stat, writeFile } from 'node:fs/promises'
 import { basename, extname, join, resolve } from 'node:path'
+import { StudioError } from '../shared/errors'
 
 /**
  * The asset drawer is backed by the deck's own `public/` directory, so an
@@ -64,12 +65,12 @@ export interface UploadPayload {
 export async function saveAsset(options: ResolvedSlidevOptions, payload: UploadPayload): Promise<AssetEntry> {
   const ext = extname(payload.name).toLowerCase()
   if (!IMAGE_EXTENSIONS.has(ext) && !VIDEO_EXTENSIONS.has(ext))
-    throw new Error(`Unsupported file type "${ext || payload.name}"`)
+    throw new StudioError('unsupportedAssetType', `Unsupported file type "${ext || payload.name}"`, { type: ext || payload.name })
 
   const base64 = payload.data.includes(',') ? payload.data.slice(payload.data.indexOf(',') + 1) : payload.data
   const buffer = Buffer.from(base64, 'base64')
   if (buffer.byteLength > MAX_UPLOAD_BYTES)
-    throw new Error(`File is larger than ${MAX_UPLOAD_BYTES / 1024 / 1024} MB`)
+    throw new StudioError('assetTooLarge', `File is larger than ${MAX_UPLOAD_BYTES / 1024 / 1024} MB`, { size: MAX_UPLOAD_BYTES / 1024 / 1024 })
 
   const publicRoot = assetRoot(options)
   const dir = sanitizeSegment(payload.dir ?? '')

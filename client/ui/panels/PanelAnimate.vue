@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { MessageKey } from '../../i18n'
+import { action, t, targetLabel } from '../../i18n'
 import type { ClickState } from '../../md/clicks'
 import { useNav } from '@slidev/client'
 import { computed, ref, watch } from 'vue'
@@ -72,7 +74,7 @@ async function apply(patch: Partial<ClickState>) {
     const list = selection.value.el.closest<HTMLElement>('[data-studio-kind="list"]')
     const at = list?.dataset.studioSrc?.split(',').map(Number)
     if (!at || at.length !== 2 || !at.every(Number.isFinite)) {
-      reportError(new Error('That item is in a list Studio cannot trace, so it cannot be revealed on a click.'))
+      reportError(new Error(t('errorListTrace')))
       return
     }
     target = [at[0], at[1]]
@@ -80,13 +82,13 @@ async function apply(patch: Partial<ClickState>) {
   }
 
   const next: ClickState = { ...state.value, ...patch, via: patch.via ?? (state.value.via === 'none' ? 'attr' : state.value.via) }
-  await studio.commit(writeClicks(studio.content(), target, next), 'Set animation')
+  await studio.commit(writeClicks(studio.content(), target, next), action('actionSetAnimation'))
 }
 
 async function disable() {
   if (!range.value)
     return
-  await studio.commit(writeClicks(studio.content(), range.value, { ...state.value, via: 'none' }), 'Remove animation')
+  await studio.commit(writeClicks(studio.content(), range.value, { ...state.value, via: 'none' }), action('actionRemoveAnimation'))
 }
 
 async function applyMotion(preset: string) {
@@ -94,7 +96,7 @@ async function applyMotion(preset: string) {
     return
   await studio.commit(
     writeMotion(studio.content(), range.value, preset || null, motionDelay.value),
-    preset ? 'Set motion' : 'Remove motion',
+    preset ? action('actionSetMotion') : action('actionRemoveMotion'),
   )
 }
 
@@ -103,7 +105,22 @@ function scrub(value: number) {
 }
 
 async function setTransition(value: string) {
-  await studio.setFrontmatter({ transition: value || null }, 'Set transition')
+  await studio.setFrontmatter({ transition: value || null }, action('actionSetTransition'))
+}
+
+const clickLabels: Record<string, MessageKey> = {
+  '': 'clickDefault', none: 'clickNone', fade: 'clickFade', 'fade-in': 'clickFadeIn',
+  up: 'clickUp', down: 'clickDown', left: 'clickLeft', right: 'clickRight', scale: 'clickScale',
+}
+const motionLabels: Record<string, MessageKey> = {
+  'slide-up': 'motionSlideUp', 'slide-down': 'motionSlideDown',
+  'slide-left': 'motionSlideLeft', 'slide-right': 'motionSlideRight',
+  zoom: 'motionZoom', pop: 'motionPop', tilt: 'motionTilt',
+}
+const transitionLabels: Record<string, MessageKey> = {
+  fade: 'transitionFade', 'fade-out': 'transitionFadeOut', 'slide-left': 'transitionLeft',
+  'slide-right': 'transitionRight', 'slide-up': 'transitionUp', 'slide-down': 'transitionDown',
+  'view-transition': 'transitionView', none: 'transitionNone',
 }
 
 const TRANSITIONS = ['', 'fade', 'fade-out', 'slide-left', 'slide-right', 'slide-up', 'slide-down', 'view-transition', 'none']
@@ -112,7 +129,7 @@ const TRANSITIONS = ['', 'fade', 'fade-out', 'slide-left', 'slide-right', 'slide
 <template>
   <section class="studio-section">
     <h3 class="studio-section__title">
-      Click sequence
+      {{ t('clickSequence') }}
     </h3>
 
     <!--
@@ -121,13 +138,13 @@ const TRANSITIONS = ['', 'fade', 'fade-out', 'slide-left', 'slide-right', 'slide
       slide has, which one they are on, and how to get to any of the others,
       and a dozen numbered stops answers all three at a glance.
     -->
-    <div class="studio-steps" role="group" aria-label="Click sequence">
+    <div class="studio-steps" role="group" :aria-label="t('clickSequence')">
       <button
         v-for="step in steps"
         :key="step"
         class="studio-step"
         :class="{ 'is-current': step === current, 'is-done': step < current }"
-        :title="step === clicks.clicksStart ? 'With the slide' : `Step ${step}`"
+        :title="step === clicks.clicksStart ? t('withSlide') : t('step', { step })"
         @click="scrub(step)"
       >
         {{ step === clicks.clicksStart ? '0' : step }}
@@ -136,66 +153,66 @@ const TRANSITIONS = ['', 'fade', 'fade-out', 'slide-left', 'slide-right', 'slide
 
     <p class="studio-hint">
       {{ total > clicks.clicksStart
-        ? `Step ${current} of ${total}. Click a number to jump there.`
-        : 'Nothing on this slide waits for a click yet.' }}
+        ? t('stepProgress', { current, total })
+        : t('noClickSteps') }}
     </p>
   </section>
 
   <div v-if="!selection || !range" class="studio-empty">
-    Select something on the slide to animate it.
+    {{ t('selectAnimate') }}
   </div>
 
   <template v-else>
     <section class="studio-section">
       <h3 class="studio-section__title">
-        {{ selection.label }} reveal
+        {{ t('targetReveal', { name: targetLabel(selection) }) }}
       </h3>
 
-      <StudioField label="Appears">
+      <StudioField :label="t('appears')">
         <select :value="state.via === 'none' ? 'never' : 'click'" @change="($event.target as HTMLSelectElement).value === 'never' ? disable() : apply({ via: 'attr' })">
-          <option value="never">With the slide</option>
-          <option value="click">On a click</option>
+          <option value="never">{{ t('withSlide') }}</option>
+          <option value="click">{{ t('onClick') }}</option>
         </select>
       </StudioField>
 
       <template v-if="state.via !== 'none'">
-        <StudioField label="At step">
+        <StudioField :label="t('atStep')">
           <input
             type="text"
             :value="state.at"
             placeholder="+1"
-            title="An absolute step (3) or one relative to the previous (+1)"
+            :title="t('stepHint')"
             @change="apply({ at: ($event.target as HTMLInputElement).value || '+1' })"
           >
         </StudioField>
 
-        <StudioField label="Animation">
+        <StudioField :label="t('animation')">
           <select :value="state.animation" @change="apply({ animation: ($event.target as HTMLSelectElement).value })">
             <option v-for="option in CLICK_ANIMATIONS" :key="option.id" :value="option.id">
-              {{ option.label }}
+              {{ t(clickLabels[option.id]) }}
             </option>
           </select>
         </StudioField>
 
-        <StudioField label="Direction">
+        <StudioField :label="t('direction')">
           <select :value="state.hide ? 'hide' : 'show'" @change="apply({ hide: ($event.target as HTMLSelectElement).value === 'hide' })">
-            <option value="show">Reveal at this step</option>
-            <option value="hide">Hide at this step</option>
+            <option value="show">{{ t('revealStep') }}</option>
+            <option value="hide">{{ t('hideStep') }}</option>
           </select>
         </StudioField>
 
         <template v-if="canStagger">
-          <StudioField label="Children">
+          <StudioField :label="t('children')">
             <select :value="state.stagger ? 'stagger' : 'together'" @change="apply({ stagger: ($event.target as HTMLSelectElement).value === 'stagger' })">
-              <option value="together">Reveal together</option>
-              <option value="stagger">One at a time</option>
+              <option value="together">{{ t('revealTogether') }}</option>
+              <option value="stagger">{{ t('oneAtTime') }}</option>
             </select>
           </StudioField>
           <template v-if="state.stagger">
-            <StudioField label="Per step">
+            <StudioField :label="t('perStep')">
               <input type="number" min="1" :value="state.every" @change="apply({ every: +($event.target as HTMLInputElement).value || 1 })">
             </StudioField>
-            <StudioField label="Nesting">
+            <StudioField :label="t('nesting')">
               <input type="number" min="1" max="5" :value="state.depth" @change="apply({ depth: +($event.target as HTMLInputElement).value || 1 })">
             </StudioField>
           </template>
@@ -205,42 +222,42 @@ const TRANSITIONS = ['', 'fade', 'fade-out', 'slide-left', 'slide-right', 'slide
 
     <section class="studio-section">
       <h3 class="studio-section__title">
-        Motion
+        {{ t('motion') }}
       </h3>
       <template v-if="canMotion">
-        <StudioField label="Preset">
+        <StudioField :label="t('preset')">
           <select :value="motion ?? ''" @change="applyMotion(($event.target as HTMLSelectElement).value)">
             <option value="">
-              None
+              {{ t('none') }}
             </option>
             <option v-for="preset in MOTION_PRESETS" :key="preset.id" :value="preset.id">
-              {{ preset.label }}
+              {{ t(motionLabels[preset.id]) }}
             </option>
             <!-- A motion written by hand matches no preset. Naming it keeps the
                  control from reading as "None" over an element that moves. -->
             <option v-if="motion === 'custom'" value="custom" disabled>
-              Custom, written by hand
+              {{ t('customMotion') }}
             </option>
           </select>
         </StudioField>
-        <StudioField v-if="motion && motion !== 'custom'" label="Delay (ms)">
+        <StudioField v-if="motion && motion !== 'custom'" :label="t('delay')">
           <input v-model.number="motionDelay" type="number" min="0" step="50" @change="applyMotion(motion!)">
         </StudioField>
       </template>
       <p v-else class="studio-hint">
-        Motion attaches to an element or component. Wrap this block in one to animate it.
+        {{ t('motionHint') }}
       </p>
     </section>
   </template>
 
   <section class="studio-section">
     <h3 class="studio-section__title">
-      Slide transition
+      {{ t('slideTransition') }}
     </h3>
-    <StudioField label="Leaving">
+    <StudioField :label="t('leaving')">
       <select :value="studio.frontmatter().transition ?? ''" @change="setTransition(($event.target as HTMLSelectElement).value)">
         <option v-for="option in TRANSITIONS" :key="option" :value="option">
-          {{ option || 'Inherit from deck' }}
+          {{ option ? t(transitionLabels[option]) : t('inheritDeck') }}
         </option>
       </select>
     </StudioField>

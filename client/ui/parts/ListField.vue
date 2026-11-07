@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '../../i18n'
 import ColorSwatch from './ColorSwatch.vue'
 import StudioIcon from './StudioIcon.vue'
 
@@ -54,19 +55,19 @@ function add(value = '') {
         <ColorSwatch v-if="color" :value="item" @change="update(index, $event)" />
         <input v-else type="text" :value="item" @change="update(index, ($event.target as HTMLInputElement).value)">
 
-        <button class="studio-icon-button" title="Move up" :disabled="index === 0" @click="move(index, -1)">
+        <button class="studio-icon-button" :title="t('moveUp')" :disabled="index === 0" @click="move(index, -1)">
           <StudioIcon name="up" :size="13" />
         </button>
-        <button class="studio-icon-button" title="Move down" :disabled="index === items.length - 1" @click="move(index, 1)">
+        <button class="studio-icon-button" :title="t('moveDown')" :disabled="index === items.length - 1" @click="move(index, 1)">
           <StudioIcon name="down" :size="13" />
         </button>
-        <button class="studio-icon-button" title="Remove" @click="remove(index)">
+        <button class="studio-icon-button" :title="t('remove')" @click="remove(index)">
           <StudioIcon name="close" :size="13" />
         </button>
       </div>
 
       <p v-if="!items.length" class="studio-hint" style="margin: 0 0 6px">
-        Empty list.
+        {{ t('emptyList') }}
       </p>
 
       <div v-if="options?.length" class="studio-list__options">
@@ -77,7 +78,7 @@ function add(value = '') {
       </div>
 
       <button class="studio-button" @click="add()">
-        <StudioIcon name="plus" :size="13" /> Add
+        <StudioIcon name="plus" :size="13" /> {{ t('add') }}
       </button>
     </div>
   </div>

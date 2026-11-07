@@ -81,6 +81,16 @@
   background: var(--studio-border);
 }
 
+.studio-language {
+  max-width: 110px;
+  padding: 4px;
+  color: var(--studio-text);
+  background: var(--studio-bg-soft);
+  border: 1px solid var(--studio-border);
+  border-radius: var(--studio-radius);
+  font: inherit;
+}
+
 .studio-tab {
   display: flex;
   align-items: center;
