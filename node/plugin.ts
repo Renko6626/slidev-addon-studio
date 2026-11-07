@@ -79,7 +79,8 @@ export function studioPlugin(options: ResolvedSlidevOptions): Plugin {
       }, 2000)
 
       server.middlewares.use(async (req, res, next) => {
-        const url = req.url?.split('?')[0]
+        const prefix = options.base || '/'
+        const url = req.url?.startsWith(prefix) ? '/' + req.url.slice(prefix.length).split('?')[0] : undefined
         if (!url?.startsWith(API_PREFIX))
           return next()
 
@@ -132,7 +133,7 @@ async function handle(route: string, method: string, req: any, options: Resolved
     return { ...await buildCatalog(options), palette: await readPalette(options) }
 
   if (route === 'assets' && method === 'GET')
-    return { assets: await listAssets(options), root: assetRoot(options) }
+    return { assets: await listAssets(options), root: process.env.SLIDEV_STUDIO_ASSET_DIR ? assetRoot(options) + '/' + process.env.SLIDEV_STUDIO_ASSET_DIR : assetRoot(options) }
 
   if (route === 'assets' && method === 'POST')
     return await saveAsset(options, await readJson(req))

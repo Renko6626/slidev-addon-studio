@@ -1,4 +1,5 @@
 /// <reference types="@slidev/types/client" />
+/// <reference types="vite/client" />
 
 declare module 'virtual:slidev-studio/catalog' {
   import type { CatalogComponent, CatalogLayout } from './client/types'

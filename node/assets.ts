@@ -73,7 +73,7 @@ export async function saveAsset(options: ResolvedSlidevOptions, payload: UploadP
     throw new StudioError('assetTooLarge', `File is larger than ${MAX_UPLOAD_BYTES / 1024 / 1024} MB`, { size: MAX_UPLOAD_BYTES / 1024 / 1024 })
 
   const publicRoot = assetRoot(options)
-  const dir = sanitizeSegment(payload.dir ?? '')
+  const dir = sanitizeSegment(process.env.SLIDEV_STUDIO_ASSET_DIR ?? payload.dir ?? '')
   const targetDir = dir ? join(publicRoot, dir) : publicRoot
   await mkdir(targetDir, { recursive: true })
 

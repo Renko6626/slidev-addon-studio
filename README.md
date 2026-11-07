@@ -1,5 +1,9 @@
 # slidev-addon-studio
 
+Renko6626's fork adds English/Simplified Chinese interface switching and the
+workbench's subpath and asset-directory support. The package keeps its original
+name so existing Slidev addon configuration continues to work.
+
 ![slidev-addon-studio: a visual editor for Slidev. A slide canvas with a Shape component selected, showing the selection outline and resize handles](./docs/banner.png)
 
 A visual editor for [Slidev](https://sli.dev). Select, drag, resize, animate and
@@ -17,8 +21,13 @@ control, code review and hand editing.
 ## Install
 
 ```bash
-pnpm add -D slidev-addon-studio
+pnpm add -D ./vendor/slidev-addon-studio-0.3.1-renko.1.tgz
 ```
+
+The workbench distributes this fork as a local archive, built with `npm pack`
+from a fixed commit. The activity template includes the archive under `vendor/`
+and locks its integrity in `pnpm-lock.yaml`; this fork is not published to npm.
+Installing `slidev-addon-studio` by its registry name still installs upstream.
 
 Then enable it in your deck's headmatter:
 
@@ -62,6 +71,15 @@ live in `client/i18n/en.ts` and `client/i18n/zh-CN.ts`. Add matching keys to bot
 files and use `t('messageKey', { name: value })` for parameterized messages. Keep
 whole sentences in the dictionaries rather than joining translated fragments.
 Vue I18n is pinned to 11.4.2 to retain the addon's existing Node 20 support.
+
+## Workbench mounts
+
+Studio's API requests and asset thumbnails follow Vite's `base`, including
+workbench paths such as `/edit/<workspace>/`. Editing raw HTML removes that
+mount prefix from media URLs before saving, so Markdown keeps root-relative
+asset paths. `SLIDEV_STUDIO_ASSET_DIR` optionally selects the upload directory
+inside `public/`; an empty value uses `public/` itself. These adaptations are
+included in the fork, so the workbench no longer needs a Studio package patch.
 
 ## What it does
 

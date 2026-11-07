@@ -13,6 +13,7 @@ import { selection } from '../../state'
  * the slide. Nothing here depends on Studio being installed later.
  */
 const studio = useStudio()
+const importBase = (url: string) => import.meta.env.BASE_URL.replace(/\/$/, '') + url
 
 const assets = ref<StudioAsset[]>([])
 const root = ref('')
@@ -82,7 +83,7 @@ async function place(asset: StudioAsset) {
       :title="t('assetInsertHint', { url: asset.url })"
       @click="$event.shiftKey ? place(asset) : insert(asset)"
     >
-      <img v-if="asset.kind === 'image'" :src="asset.url" :alt="asset.name" loading="lazy">
+      <img v-if="asset.kind === 'image'" :src="importBase(asset.url)" :alt="asset.name" loading="lazy">
       <span class="studio-asset__name">{{ asset.name }}</span>
     </button>
   </div>

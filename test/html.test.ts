@@ -32,6 +32,14 @@ describe('replacing the words inside raw HTML', () => {
     )
   })
 
+  it('removes the workspace base from media URLs when saving edited HTML', () => {
+    const block = '<p>Caption <img src="/parts/opening/sample.svg"></p>'
+    const edited = 'New caption <img src="/edit/workspace-1/parts/opening/sample.svg">'
+    expect(replaceInnerHtml(block, 'p', 'Caption', edited, '/edit/workspace-1/')).toBe(
+      '<p>New caption <img src="/parts/opening/sample.svg"></p>',
+    )
+  })
+
   it('matches across the line breaks the source happens to have', () => {
     const block = '<p class="x">Om betalingsterminaler bak disken,\n   heiser på vei opp.</p>'
     expect(replaceInnerHtml(block, 'p', 'Om betalingsterminaler bak disken, heiser på vei opp.', 'Kort.'))

@@ -1,7 +1,7 @@
 {
   "name": "slidev-addon-studio",
   "type": "module",
-  "version": "0.3.1",
+  "version": "0.3.1-renko.1",
   "description": "A visual editor for Slidev. Select, drag, resize, animate and compose slides on the canvas, with every change written back to your Markdown.",
   "license": "MIT",
   "packageManager": "pnpm@11.20.0",
@@ -13,10 +13,10 @@
     "presentation",
     "vue"
   ],
-  "homepage": "https://github.com/BobTheShoplifter/slidev-addon-studio",
+  "homepage": "https://github.com/Renko6626/slidev-addon-studio",
   "repository": {
     "type": "git",
-    "url": "https://github.com/BobTheShoplifter/slidev-addon-studio"
+    "url": "https://github.com/Renko6626/slidev-addon-studio"
   },
   "engines": {
     "node": ">=20.12.0",

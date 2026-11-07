@@ -87,6 +87,7 @@ export function replaceInnerHtml(
   tag: string,
   current: string,
   next: string,
+  base = '/',
 ): string | null {
   const spans = spansOf(block, tag.toLowerCase())
   if (!spans)
@@ -98,5 +99,12 @@ export function replaceInnerHtml(
     return null
 
   const { from, to } = found[0]
+  // Vite's mount prefix is a rendered URL detail, not part of the source deck.
+  if (base !== '/') {
+    next = next.replace(/<(?:img|video|audio|source)\b[^>]*>/gi, tag =>
+      tag.replace(/\b(src|poster)=(['"])(.*?)\2/gi, (attribute, name, quote, url) =>
+        url.startsWith(base) ? `${name}=${quote}/${url.slice(base.length)}${quote}` : attribute),
+    )
+  }
   return block.slice(0, from) + next + block.slice(to)
 }

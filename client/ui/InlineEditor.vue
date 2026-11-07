@@ -367,7 +367,7 @@ async function apply() {
     release()
     editing.value = false
     const block = getBlock(studio.content(), target)
-    const patched = replaceInnerHtml(block, htmlTag, htmlWas, next)
+    const patched = replaceInnerHtml(block, htmlTag, htmlWas, next, import.meta.env.BASE_URL)
     if (patched === null) {
       reportError(new Error(t('errorHtmlMissing')))
       return

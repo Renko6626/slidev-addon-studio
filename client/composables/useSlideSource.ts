@@ -45,7 +45,7 @@ async function send(no: number, data: SlidePatch) {
 /** The frontmatter block as the deck has it right now, not as it was cached. */
 async function currentFrontmatterRaw(no: number): Promise<string | null> {
   try {
-    const info = await fetch(`/__slidev/slides/${no}.json`).then(r => r.json())
+    const info = await fetch(`${import.meta.env.BASE_URL}__slidev/slides/${no}.json`).then(r => r.json())
     return typeof info?.frontmatterRaw === 'string' ? info.frontmatterRaw : null
   }
   catch {

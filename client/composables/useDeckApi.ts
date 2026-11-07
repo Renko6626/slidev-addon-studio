@@ -12,7 +12,7 @@ import { busy, reportError } from '../state'
  * pushes the result back to the browser like any other edit.
  */
 
-const BASE = '/@studio/'
+const BASE = `${import.meta.env.BASE_URL}@studio/`
 
 async function request<T>(route: string, init?: RequestInit): Promise<T | null> {
   busy.value = true
