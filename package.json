@@ -1,5 +1,5 @@
 {
-  "name": "slidev-addon-studio",
+  "name": "@renko_1055/slidev-addon-studio",
   "type": "module",
   "version": "0.3.1-renko.1",
   "description": "A visual editor for Slidev. Select, drag, resize, animate and compose slides on the canvas, with every change written back to your Markdown.",
@@ -17,6 +17,11 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/Renko6626/slidev-addon-studio"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/",
+    "tag": "latest"
   },
   "engines": {
     "node": ">=20.12.0",

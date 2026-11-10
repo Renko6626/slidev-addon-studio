@@ -1,8 +1,9 @@
-# slidev-addon-studio
+# @renko_1055/slidev-addon-studio
 
 Renko6626's fork adds English/Simplified Chinese interface switching and the
-workbench's subpath and asset-directory support. The package keeps its original
-name so existing Slidev addon configuration continues to work.
+workbench's subpath and asset-directory support. It is published under
+`@renko_1055/slidev-addon-studio`; the installation alias below keeps existing
+Slidev addon configuration working.
 
 ![slidev-addon-studio: a visual editor for Slidev. A slide canvas with a Shape component selected, showing the selection outline and resize handles](./docs/banner.png)
 
@@ -21,13 +22,13 @@ control, code review and hand editing.
 ## Install
 
 ```bash
-pnpm add -D ./vendor/slidev-addon-studio-0.3.1-renko.1.tgz
+pnpm add -D slidev-addon-studio@npm:@renko_1055/slidev-addon-studio@0.3.1-renko.1
 ```
 
-The workbench distributes this fork as a local archive, built with `npm pack`
-from a fixed commit. The activity template includes the archive under `vendor/`
-and locks its integrity in `pnpm-lock.yaml`; this fork is not published to npm.
-Installing `slidev-addon-studio` by its registry name still installs upstream.
+This installs the scoped fork under the local name `slidev-addon-studio`.
+The workbench activity template pins the same npm alias and records the package
+integrity in `pnpm-lock.yaml`. Installing `slidev-addon-studio` without the alias
+still installs upstream.
 
 Then enable it in your deck's headmatter:
 
