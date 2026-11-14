@@ -9,7 +9,7 @@ import { onDomEvent } from './useDomEvent'
 import { normalise, resolveRange } from '../md/locate'
 import { readDrag } from '../md/drag'
 import { readElement } from '../md/elements'
-import { editing, hovered, missed, selection, studioOpen } from '../state'
+import { busy, editing, hovered, missed, selection, studioOpen } from '../state'
 
 /**
  * Turns a click on the rendered slide into a Markdown range Studio can edit.
@@ -51,6 +51,7 @@ export function useSelection(
   no: () => number,
   content: () => string,
   remove?: (next: string, label: ActionLabel) => Promise<void>,
+  startMove?: (event: PointerEvent) => void,
 ) {
   function targetFrom(node: EventTarget | null): StudioTarget | null {
     if (!(node instanceof Element))
@@ -165,7 +166,7 @@ export function useSelection(
       selection.value = target
   }, { capture: true })
 
-  onDomEvent<PointerEvent>(document, 'pointerdown', (event) => {
+  function selectOnPointer(event: PointerEvent, startDrag = true) {
     if (!studioOpen.value || event.button !== 0 || editing.value)
       return
     // The overlay and the handles handle themselves.
@@ -192,7 +193,11 @@ export function useSelection(
     event.stopPropagation()
     missed.value = false
     selection.value = target
-  }, { capture: true })
+    if (startDrag && !busy.value)
+      startMove?.(event)
+  }
+
+  onDomEvent<PointerEvent>(document, 'pointerdown', selectOnPointer, { capture: true })
 
   onDomEvent<PointerEvent>(document, 'pointermove', (event) => {
     if (!studioOpen.value || editing.value)
@@ -214,8 +219,8 @@ export function useSelection(
 
   // Double click edits the text where it sits, which is what people expect of
   // anything on a canvas.
-  onDomEvent<MouseEvent>(document, 'dblclick', (event) => {
-    if (!studioOpen.value)
+  function editOnPointer(event: MouseEvent) {
+    if (!studioOpen.value || editing.value || busy.value)
       return
 
     // The first click of a double click selects, which lays the move overlay
@@ -243,7 +248,9 @@ export function useSelection(
     event.preventDefault()
     selection.value = target
     if (target.element !== 'image') editing.value = true
-  }, { capture: true })
+  }
+
+  onDomEvent<MouseEvent>(document, 'dblclick', editOnPointer, { capture: true })
 
   onDomEvent<KeyboardEvent>(document, 'keydown', (event) => {
     if (!studioOpen.value)
@@ -292,6 +299,8 @@ export function useSelection(
    * the selection, and every panel bound to it, alive across an edit.
    */
   async function reselect(hint: SourceRange | null, kind: TargetKind, tag?: string) {
+    const expected = selection.value
+    const slideNo = no()
     await nextTick()
 
     // A re-render can land a frame or several later, and binding at a fixed
@@ -305,19 +314,27 @@ export function useSelection(
     let fallback: StudioTarget | null = null
 
     while (Date.now() < deadline) {
-      if (!hint || !slideElement(no()))
+      if (selection.value !== expected || no() !== slideNo || !studioOpen.value)
+        return
+      if ((!hint && !expected?.prop) || !slideElement(slideNo))
         return
 
-      const best = mappedElements(no())
-        .filter(el => (el.dataset.studioKind ?? 'unknown') === kind && el.dataset.studioTag === tag)
+      // Another block's text may have grown before this object. Its old DOM
+      // signature can still locate it in the new source, unlike its old line.
+      const resolved = expected ? describe(expected.el, slideNo, content()).range : null
+      const line = (resolved ?? hint)?.[0] ?? 0
+      const best = mappedElements(slideNo)
+        .filter(el => expected?.prop
+          ? el.dataset.studioProp === expected.prop
+          : (el.dataset.studioKind ?? 'unknown') === kind && el.dataset.studioTag === tag)
         // Attached is the test, not visible: an element that has just been
         // given `v-click` is hidden at the current step, and refusing to
         // rebind to it leaves the selection on a node that no longer exists.
         .filter(el => document.contains(el))
         .map(el => ({ el, start: parseHint(el.dataset.studioSrc)?.[0] ?? Number.POSITIVE_INFINITY }))
-        .sort((a, b) => Math.abs(a.start - hint[0]) - Math.abs(b.start - hint[0]))[0]?.el
+        .sort((a, b) => Math.abs(a.start - line) - Math.abs(b.start - line))[0]?.el
 
-      const candidate = best ? describe(best, no(), content()) : null
+      const candidate = best ? describe(best, slideNo, content()) : null
       fallback = candidate ?? fallback
 
       // The source is updated the moment the write returns, while the rebuilt
@@ -325,7 +342,7 @@ export function useSelection(
       // element against the new Markdown, which cannot be traced, so the
       // selection came back with no range and nothing could be edited or
       // deleted afterwards. Waiting for the two to agree is the fix.
-      if (candidate?.range) {
+      if (candidate?.range || candidate?.prop) {
         bound = candidate
         break
       }
@@ -337,7 +354,7 @@ export function useSelection(
     // briefly cannot be rebound used to empty the whole panel, which read as
     // the editor losing the thing you were working on.
     const next = bound ?? fallback
-    if (next)
+    if (next && selection.value === expected && no() === slideNo && studioOpen.value)
       selection.value = next
   }
 
@@ -432,7 +449,7 @@ export function useSelection(
       selection.value = target
   }
 
-  return { select, targetFrom, reselect, selectInserted, selectThrough }
+  return { select, targetFrom, reselect, selectInserted, selectThrough, selectOnPointer, editOnPointer }
 }
 
 /**

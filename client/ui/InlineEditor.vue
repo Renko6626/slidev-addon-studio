@@ -360,6 +360,8 @@ function release() {
 }
 
 async function apply() {
+  if (!editing.value)
+    return
   if (heldKind === 'prop') {
     const key = selection.value?.prop
     const written = (editable?.textContent ?? '').replace(/\s+/g, ' ').trim()
@@ -618,14 +620,20 @@ onDomEvent<KeyboardEvent>(document, 'keydown', (event) => {
 
 /** A click anywhere else finishes the edit, the way a canvas tool does. */
 onDomEvent<PointerEvent>(document, 'pointerdown', (event) => {
-  if (mode.value !== 'visual' || !editing.value || !editable)
+  // A synthetic double click can open editing earlier in this same event.
+  // Until Vue mounts/holds the editor, there is no draft to finish yet.
+  if (!editing.value || (mode.value === 'visual' ? !editable : !box.value))
     return
   const target = event.target
   if (!(target instanceof Node))
     return
-  if (editable.contains(target) || (target instanceof Element && target.closest('.studio-inline')))
+  if (editable?.contains(target) || (target instanceof Element && target.closest('.studio-inline')))
     return
-  apply()
+  // apply reads the old selection and draft synchronously before its first
+  // await. Selection's earlier document listener skipped this press while we
+  // were editing, so hand it the same press once the draft has been captured.
+  void apply()
+  studio.selectOnPointer(event, false)
 }, { capture: true })
 
 // Keep the toolbar over its block while the deck scrolls or the window resizes.

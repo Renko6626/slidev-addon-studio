@@ -37,6 +37,8 @@ export interface StudioContext {
    * drag uses this, so clicking again reaches what lies underneath.
    */
   selectThrough: (x: number, y: number) => void
+  /** Reuse a canvas press after the inline editor has read and submitted its draft. */
+  selectOnPointer: (event: PointerEvent, startDrag?: boolean) => void
   go: (no: number) => void
 }
 

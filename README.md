@@ -102,6 +102,12 @@ size in canvas CSS pixels, colour, alignment and line spacing. Inline bold,
 italic and underline use the floating text toolbar. Plain-text paste preserves
 line breaks in these new text boxes.
 
+Press and drag a movable object directly, without selecting it first. A light
+click only selects it. Clicking another canvas object while editing text applies
+the text and selects that object in the same click; clicking blank slide space
+applies the text and clears the selection. This also works from source editing.
+Dragging is disabled while a write is in progress.
+
 **Insert → Picture** offers a file picker and the asset library. The image is
 inserted and selected immediately, at a size that keeps its original proportions
 and fits the slide. Pictures lock their frame ratio by default. The inspector

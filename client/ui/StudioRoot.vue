@@ -45,7 +45,7 @@ async function commit(content: string, label: ActionLabel, options?: { skipHmr?:
 
   // Nothing re-rendered, so the element the user is holding is still the one on
   // screen. Re-finding it would only make the panel flicker.
-  if (options?.keepSelection || !current)
+  if (options?.keepSelection || !current || selection.value !== current)
     return
 
   await selectionApi.reselect(current.range, current.kind, current.tag)
@@ -56,6 +56,7 @@ const selectionApi = useSelection(
   () => source.content.value,
   // Deleting drops the selection outright, so there is nothing to restore.
   (next, label) => source.setContent(next, label),
+  event => gizmo.startMove(event),
 )
 
 const gizmo = useTransformGizmo({
@@ -65,6 +66,7 @@ const gizmo = useTransformGizmo({
   getNo: () => no.value,
   commit,
   selectThrough: (x, y) => selectionApi.selectThrough(x, y),
+  onDoubleClick: event => selectionApi.editOnPointer(event),
 })
 
 const context: StudioContext = {
@@ -81,6 +83,7 @@ const context: StudioContext = {
   range: () => selection.value?.range ?? null,
   selectInserted: (tag, range) => selectionApi.selectInserted(tag, range),
   selectThrough: (x, y) => selectionApi.selectThrough(x, y),
+  selectOnPointer: selectionApi.selectOnPointer,
   go: target => nav.go(target),
 }
 

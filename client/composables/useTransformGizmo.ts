@@ -8,7 +8,7 @@ import { mappedElements } from '../dom'
 import { onDomEvent } from './useDomEvent'
 import { DRAG_WRAPPER_PADDING, readDrag, writeDrag } from '../md/drag'
 import { readElement } from '../md/elements'
-import { gridEnabled, gridSize, snapEnabled } from '../state'
+import { busy, editing, gridEnabled, gridSize, snapEnabled } from '../state'
 import { snapBox } from './useSnapping'
 
 export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
@@ -57,6 +57,7 @@ export function useTransformGizmo(context: {
   commit: (content: string, label: ActionLabel, options?: { skipHmr?: boolean, keepSelection?: boolean }) => Promise<void>
   /** Selects what lies under a point, for a press on the overlay that was a click. */
   selectThrough: (x: number, y: number) => void
+  onDoubleClick?: (event: PointerEvent) => void
 }) {
   const { canvas } = context
 
@@ -82,13 +83,14 @@ export function useTransformGizmo(context: {
   let painted: HTMLElement | null = null
   let restore = ''
   let startNo = 0
-  let lastPress = { at: 0, x: 0, y: 0 }
+  let press = { x: 0, y: 0 }
+  let lastClick: { at: number, x: number, y: number, el: HTMLElement } | null = null
 
   function start(event: PointerEvent, next: Gesture) {
     // Only the primary button drags. A right-click on the selection overlay
     // otherwise armed a gesture and swallowed the event that opens the context
     // menu, so the menu never appeared over the very thing it is about.
-    if (event.button !== 0)
+    if (event.button !== 0 || busy.value || editing.value)
       return
 
     const current = context.getTarget()
@@ -97,15 +99,20 @@ export function useTransformGizmo(context: {
     if (current.element === 'text' && next.type === 'resize' && !['e', 'w'].includes(next.handle))
       return
 
-    // The second press of a double click is not a gesture. Left armed, a hand
-    // that drifts while double clicking drags the block instead of opening it
-    // for editing.
+    // Only a completed click on this same object can start a double click.
+    // A previous drag or a press on another handle must not swallow this one.
     const now = Date.now()
-    const doubleClick = now - lastPress.at < 350
-      && Math.hypot(event.clientX - lastPress.x, event.clientY - lastPress.y) < 6
-    lastPress = { at: now, x: event.clientX, y: event.clientY }
-    if (doubleClick)
+    const doubleClick = next.type === 'move' && current.element !== 'image'
+      && lastClick?.el === current.el && now - lastClick.at < 350
+      && Math.hypot(event.clientX - lastClick.x, event.clientY - lastClick.y) < 6
+    lastClick = null
+    press = { x: event.clientX, y: event.clientY }
+    if (doubleClick) {
+      // The first press hit the object, the second can hit its new overlay.
+      // Browsers need not emit dblclick across those two different elements.
+      context.onDoubleClick?.(event)
       return
+    }
 
     event.preventDefault()
     event.stopPropagation()
@@ -228,8 +235,10 @@ export function useTransformGizmo(context: {
     // also the only way to reach anything under the overlay, which covers the
     // whole selection: clicking again selects what is beneath the pointer.
     if (!active.value) {
-      if (gesture?.type === 'move' && lastPress.at)
-        context.selectThrough(lastPress.x, lastPress.y)
+      if (gesture?.type === 'move' && target) {
+        context.selectThrough(press.x, press.y)
+        lastClick = { at: Date.now(), ...press, el: target.el }
+      }
       armed.value = false
       gesture = null
       preview.value = null
