@@ -17,8 +17,11 @@ export function useEditorMode() {
   })
 
   watch(studioOpen, open => {
-    if (!open && editing.value) {
-      studioOpen.value = true
+    // Restoring the switch re-enters this synchronous watcher. Both calls must
+    // leave the text editor's selection intact (frontmatter edits need its key).
+    if (editing.value) {
+      if (!open)
+        studioOpen.value = true
       return
     }
     library.value = null

@@ -122,10 +122,12 @@ included in the fork, so the workbench no longer needs a Studio package patch.
 | --- | --- |
 | **Element** | Position, size, rotation, component props, utility classes, order, duplicate, delete, and the raw Markdown of the selection |
 | **Components** | Markdown basics plus every component this deck can use, with live previews. Click to insert, drag onto the canvas to place freely |
-| **Animate** | Click steps, reveal and hide, entrance animations, staggered lists, motion presets, slide transitions |
-| **Layout** | The layout, with a live thumbnail of each one, the frontmatter keys that layout reads, and the slide's title, classes, background, zoom, click count and notes |
+| **Animate** | Click steps, reveal and hide, entrance animations, staggered lists and motion presets |
+| **Transitions** | The effect used when leaving the current slide |
+| **Layout** | The layout, with a live thumbnail of each one, the frontmatter keys that layout reads, and the slide's title, classes, background, zoom and click count |
 | **Slide filmstrip** | Live thumbnails, drag to reorder, add, duplicate and delete |
 | **Assets** | Drop images into `public/` and insert them |
+| **Notes** | The current slide's speaker notes, below the canvas |
 
 ### Selecting and moving
 

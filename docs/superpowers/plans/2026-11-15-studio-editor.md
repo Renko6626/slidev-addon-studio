@@ -1,6 +1,6 @@
 # Studio 完整编辑模式实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 在现有 addon 内完成 PowerPoint 式编辑外壳，保留真实 Slidev 画布与 Markdown 编辑能力。
 
@@ -44,35 +44,50 @@
 
 **Interfaces:** `editorOpenFromQuery(value, fallback): boolean`；`fitSlide(area, slide): { left, top, width, height, scale }`，输入矩形及幻灯片宽高；`useDeckActions()` 返回 `add/duplicate/remove/move`；`useEditorMode()` 返回 `preview/present/returnToEditor`。
 
-- [ ] 新增入口解析与画布适应行为测试：显式开/关覆盖偏好、未提供参数沿用偏好；宽/高限制下正确居中、空区域不产生 NaN。
-- [ ] 实现纯函数及 UI 状态；移动原 `PanelSlides.run` 到共用 composable，保留刷新导航与历史语义。
-- [ ] 通过 Slidev router 更新 `studio` 参数；沿用 fullscreen，退出自发全屏后返回，失败时提示；编辑文字时阻止模式切换。
-- [ ] 用新测试验证实际生产函数，结果必须通过。
+- [x] 新增入口解析与画布适应行为测试：显式开/关覆盖偏好、未提供参数沿用偏好；宽/高限制下正确居中、空区域不产生 NaN。
+- [x] 实现纯函数及 UI 状态；移动原 `PanelSlides.run` 到共用 composable，保留刷新导航与历史语义。
+- [x] 通过 Slidev router 更新 `studio` 参数；沿用 fullscreen，退出自发全屏后返回，失败时提示；编辑文字时阻止模式切换。
+- [x] 用新测试验证实际生产函数，结果必须通过。
 
 ### Task 2: 布局与页面导航
 
 **Interfaces:** 页面栏使用 `useDeckActions`；中央空白占位区域供 `StudioRoot` 测量；`useSlideCanvas` 继续从 `#slide-content` 计算选框位置。
 
-- [ ] 外壳改为顶部、左右栏、中央占位、备注和底栏；为真实 Slidev 页面设置与中央区域对应的位置和大小，关闭时还原。
-- [ ] 改造页面列表为可键盘聚焦的缩略图列表，避免嵌套按钮；按宽度传递缩略图尺寸，当前页自动滚入可见区。
-- [ ] 窄窗口自动隐藏可选侧栏，明确入口可恢复；属性面板关闭只收起属性，不退出整个编辑器。
-- [ ] 备注移入唯一组件，按当前页读取并用已有 change 语义写回；底栏提供备注开关及适应比例。
+- [x] 外壳改为顶部、左右栏、中央占位、备注和底栏；为真实 Slidev 页面设置与中央区域对应的位置和大小，关闭时还原。
+- [x] 改造页面列表为可键盘聚焦的缩略图列表，避免嵌套按钮；按宽度传递缩略图尺寸，当前页自动滚入可见区。
+- [x] 窄窗口自动隐藏可选侧栏，明确入口可恢复；属性面板关闭只收起属性，不退出整个编辑器。
+- [x] 备注移入唯一组件，按当前页读取并用已有 change 语义写回；底栏提供备注开关及适应比例。
 
 ### Task 3: 功能区与详细设置
 
 **Interfaces:** 顶部使用现有 `actions`、`BASIC_BLOCKS`、`useStudioHistory`、`useDeckActions`；目录组件通过完成事件关闭；右侧面板模式 `auto/layout/animate/transition`。
 
-- [ ] 实现文稿名称、撤销重做、预览/放映和分类标签；开始/插入/设计/切换/动画/视图/对象各组只放已有可执行命令。
-- [ ] 选中对象时提供上下文标签，取消选择回到开始；详细动画面板不因对象选择变化被强制切走。
-- [ ] 将现有页面切换表单抽成 `PanelTransition.vue`，复用同一 frontmatter 写回和选项；动画仅保留元素与点击步骤。
-- [ ] 目录以可关闭浮层呈现，保留画布可拖入和右侧属性；组件插入完成后关闭，切到当前对象属性。
-- [ ] 元素源码/类名放入高级 details；新按钮和提示同步中英文；不把文档顺序描述成置顶/置底。
+- [x] 实现文稿名称、撤销重做、预览/放映和分类标签；开始/插入/设计/切换/动画/视图/对象各组只放已有可执行命令。
+- [x] 选中对象时提供上下文标签，取消选择回到开始；详细动画面板不因对象选择变化被强制切走。
+- [x] 将现有页面切换表单抽成 `PanelTransition.vue`，复用同一 frontmatter 写回和选项；动画仅保留元素与点击步骤。
+- [x] 目录以可关闭浮层呈现，保留画布可拖入和右侧属性；组件插入完成后关闭，切到当前对象属性。
+- [x] 元素源码/类名放入高级 details；新按钮和提示同步中英文；不把文档顺序描述成置顶/置底。
 
 ### Task 4: 验证与交付
 
-- [ ] 更新 README：完整编辑模式、`?studio=1`、备注/预览入口和保留限制。
-- [ ] 集中运行 `pnpm test`、`pnpm typecheck`，预期全部适用检查通过；真实服务 QA 在未配置 URL 时允许跳过并报告。
-- [ ] 用现有 Slidev playground 做构建和开发页面编译；开发模式需实际加载 Studio，不能仅凭导出构建通过。
-- [ ] 如截图工具可用，打开带 `studio=1` 的 playground，检查正常桌面和窄窗口布局；不进行自动交互测试。
-- [ ] 一次只读完整改动审阅；仅修复具体核心问题，运行受影响检查，不为理论风险扩展功能。
-- [ ] 保存功能分支提交，报告命令结果、截图和未实际操作验证的项目；不发布、不合并到 main。
+- [x] 更新 README：完整编辑模式、`?studio=1`、备注/预览入口和保留限制。
+- [x] 集中运行 `pnpm test`、`pnpm typecheck`，预期全部适用检查通过；真实服务 QA 在未配置 URL 时允许跳过并报告。
+- [x] 用现有 Slidev playground 做构建和开发页面编译；开发模式需实际加载 Studio，不能仅凭导出构建通过。
+- [x] 如截图工具可用，打开带 `studio=1` 的 playground，检查正常桌面和窄窗口布局；不进行自动交互测试。
+- [x] 一次只读完整改动审阅；仅修复具体核心问题，运行受影响检查，不为理论风险扩展功能。
+- [x] 保存功能分支提交，报告命令结果、截图和未实际操作验证的项目；不发布、不合并到 main。
+
+
+## 执行与验证记录
+
+完成于 2026-11-15，功能分支 `codex/studio-workspace`。在现有干净检出中创建功能分支以复用依赖，未修改 main 或发布。实际 SlideContainer 使用已有尺寸观察器适应中央区域，未另建渲染链路。
+
+- `pnpm test`：179 通过，1 个要求 `STUDIO_QA_URL` 的真实服务 QA 跳过。
+- `pnpm typecheck`：通过。
+- Vue SFC 类型检查：通过；临时使用 vue-tsc，显式调用项目已有 TypeScript 5.9.3，未改项目依赖。运行入口为 `node -e "require('/data/sunyunbo/.npm/_npx/d98b0549d8187273/node_modules/vue-tsc').run(require.resolve('typescript/lib/tsc'))" -- --noEmit`。
+- `pnpm exec slidev build playground/slides.md --out /tmp/studio-build`：通过。
+- 开发页面 `/3?studio=1`：1440×900 和 960×720 截图检查通过；窄窗口中原生 Slidev 控制条已隐藏。
+- 一次只读完整审阅完成。关闭保护的同步回调重入导致选区丢失，通过实际模式 composable 的回归测试复现并修复；预览往返保留其他查询参数也得到覆盖。
+- 同一修正轮恢复新备注和目录区域的浏览器右键菜单。这是新界面引入的实际编辑回归，修复只调整选择器，没有增加 DOM 测试基础设施。
+- 按用户约定集中验证，仅为关键新行为和具体故障增加永久测试。未做自动点击、输入、拖动或放映流程验收；这些交互待用户试用。截图环境中既有 Slidev Wake Lock 权限被 headless 浏览器拒绝，未修改上游权限行为。
+- 桌面和较窄窗口截图保存在 `../release/studio-editor-2026-11-15/`。未接入工作台/Git、未新增依赖、未发布或合并。

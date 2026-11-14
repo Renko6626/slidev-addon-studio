@@ -832,11 +832,8 @@ html.slidev-studio-docked #slide-content object {
 }
 
 /*
- * Slidev's own controls sit invisibly over the slide's bottom left corner and
- * take the pointer, so a block in that strip could be seen but never clicked.
- * The canvas wins while the editor is open: Studio's toolbar carries undo,
- * redo, the grid, the outlines and closing, and every navigation shortcut still
- * works from the keyboard.
+ * Hide Slidev's normal navigation while editing. Its persistent narrow-window
+ * controls otherwise cover the canvas; the Studio ribbon owns these actions.
  */
 html.slidev-studio-docked #slide-container > div:has(> nav),
 html.slidev-studio-docked #slide-container > div:has(> nav) * {

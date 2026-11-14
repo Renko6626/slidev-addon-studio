@@ -140,7 +140,7 @@ export function useSelection(
       return
     // The editor's own panels keep the browser's menu, which is the useful one
     // around a text field.
-    if (target.closest('.studio-dock, .studio-toolbar, .studio-inline'))
+    if (target.closest('.studio-workspace, .studio-library, .studio-inline'))
       return
 
     event.preventDefault()
