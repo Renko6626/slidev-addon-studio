@@ -24,6 +24,11 @@ const nav = useNav()
 const deck = useDeckActions()
 const images = useImageInsertion()
 const history = useStudioHistory()
+const textActive = computed(() => !!studio.text.editor.value)
+const undoEnabled = computed(() => textActive.value ? studio.text.canUndo.value : canUndo.value && !locked.value)
+const redoEnabled = computed(() => textActive.value ? studio.text.canRedo.value : canRedo.value && !locked.value)
+function undo() { return textActive.value ? studio.text.undo() : history.undo() }
+function redo() { return textActive.value ? studio.text.redo() : history.redo() }
 const title = computed(() => configs.title || configs.slidesTitle || 'Slidev Studio')
 const locked = computed(() => busy.value || editing.value || imagePending.value)
 const mapped = computed(() => !!selection.value?.range)
@@ -132,9 +137,9 @@ const groups = computed<Group[]>(() => {
   <header class="studio-ribbon">
     <div class="studio-titlebar">
       <span class="studio-brand"><StudioIcon name="slides" :size="19" />Studio</span>
-      <div class="studio-quick-actions">
-        <button class="studio-icon-button" :disabled="!canUndo || locked" :title="lastAction ? t('undoAction', { action: actionText(lastAction) }) : t('undo')" @click="history.undo()"><StudioIcon name="undo" /></button>
-        <button class="studio-icon-button" :disabled="!canRedo || locked" :title="t('redo')" @click="history.redo()"><StudioIcon name="redo" /></button>
+      <div class="studio-quick-actions" data-studio-text-controls>
+        <button class="studio-icon-button" :disabled="!undoEnabled" :title="!textActive && lastAction ? t('undoAction', { action: actionText(lastAction) }) : t('undo')" @click="undo"><StudioIcon name="undo" /></button>
+        <button class="studio-icon-button" :disabled="!redoEnabled" :title="t('redo')" @click="redo"><StudioIcon name="redo" /></button>
       </div>
       <span class="studio-document-title" :title="title">{{ title }}</span>
       <select v-model="studioLocale" class="studio-language" :aria-label="t('language')"><option value="en">English</option><option value="zh-CN">简体中文</option></select>
@@ -142,7 +147,7 @@ const groups = computed<Group[]>(() => {
       <button class="studio-title-action studio-title-action--primary" :disabled="locked" :title="editing ? t('finishEditing') : t('presentCurrent')" @click="emit('present')"><StudioIcon name="play" />{{ t('present') }}</button>
       <button class="studio-icon-button" :disabled="locked" :title="t('closeStudio')" @click="studioOpen = false"><StudioIcon name="close" /></button>
     </div>
-    <nav class="studio-ribbon-tabs" :aria-label="t('editorTools')">
+    <nav class="studio-ribbon-tabs" :aria-label="t('editorTools')" data-studio-text-controls>
       <button v-for="tab in tabs" :key="tab.id" :aria-pressed="ribbonTab === tab.id" @click="ribbonTab = tab.id">{{ t(tab.label) }}</button>
       <button v-if="selection" class="studio-context-tab" :aria-pressed="ribbonTab === 'object'" @click="ribbonTab = 'object'">{{ t('objectTab') }}</button>
     </nav>

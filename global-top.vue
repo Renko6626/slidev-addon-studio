@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, defineAsyncComponent } from 'vue'
 import { useNav } from '@slidev/client'
-import StudioRoot from './client/ui/StudioRoot.vue'
+// Keep the authoring UI and rich-text engine out of static presentation bundles.
+const StudioRoot = __DEV__ && __SLIDEV_FEATURE_EDITOR__
+  ? defineAsyncComponent(() => import('./client/ui/StudioRoot.vue'))
+  : undefined
 
 /**
  * Studio only exists while `slidev` is running with the editor enabled. In

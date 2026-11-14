@@ -69,8 +69,17 @@
 
 - New text boxes and pictures have dedicated controls; existing unmarked content
   keeps its original editing paths. No automatic document migration is performed.
-- Text box height follows its content. Arbitrary per-character fonts, font
-  installation, interactive image cropping and editable SVG paths are not included.
+- Studio text boxes support character-level fonts, sizes, colours and marks,
+  paragraph alignment/spacing and lists. Height still follows content; fixed-height
+  boxes, vertical alignment, text-box margins, auto-shrink and font installation
+  remain future work. Interactive image cropping and editable SVG paths are not included.
+- Rich text is limited to marked Studio text boxes. Unsupported custom source
+  markup opens as source rather than being silently normalised by the text schema.
+  Editing-session history and the existing whole-deck history are separate: after
+  applying, the text session is one deck action; reopening starts a new text history.
+- On hand-authored boxes, underline/strikethrough inherited from the root or a
+  theme cannot currently be removed by the local mark buttons. Ordinary new
+  text boxes use local marks and are not affected; edit the root style in source.
 - Object clipboard data is limited to the same origin and Vite base. Top-level
   blocks are supported; list items, nested sublists, nested HTML sub-elements and
   frontmatter-only text are not independent clipboard objects. The clipboard

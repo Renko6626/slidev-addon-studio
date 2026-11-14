@@ -96,11 +96,25 @@ windows and can be reopened from View.
 ## Text boxes and pictures
 
 **Insert → Text box** creates a positioned box with its placeholder selected.
-Double-click to edit; use the side handles to change its width. Height follows
-the text. Whole-box controls include a theme/default or generic font family,
-size in canvas CSS pixels, colour, alignment and line spacing. Inline bold,
-italic and underline use the floating text toolbar. Plain-text paste preserves
-line breaks in these new text boxes.
+Double-click or press F2 to edit; use the side handles to change its width.
+Height follows the text. The Home ribbon and inspector share font, size (canvas
+CSS pixels), colour, bold/italic/underline/strike, alignment, list, indent and line
+spacing controls. A text selection changes only those characters; a caret sets
+the format of subsequent typing; selecting the box applies formatting to all its
+text. Mixed values are shown as Mixed. Font names use fonts available in the
+browser, with normal CSS fallback; fonts are not installed or downloaded.
+
+Format controls keep the active text selection. Enter starts a paragraph,
+Shift+Enter inserts a line break, and Tab/Shift+Tab changes list levels. During
+text editing, undo/redo handles typing and formatting in the current session.
+After applying, the deck history treats that session as one edit. Clear character
+formatting restores the box's defaults. Supported formatting is retained on
+paste; use the browser's plain-text paste shortcut when needed.
+
+Studio text boxes use Tiptap/ProseMirror internally and still save native HTML
+inside the existing positioned box. Opening and closing without changes does
+not rewrite it. Custom markup outside the supported text schema opens as source
+to preserve it. Unmarked Markdown and components keep their existing editors.
 
 Press and drag a movable object directly, without selecting it first. A light
 click only selects it. Clicking another canvas object while editing text applies
@@ -139,6 +153,7 @@ interactive cropping are outside the current feature set.
 | Ctrl/Cmd+D | Create a copy immediately |
 | Delete / Backspace | Delete the selected object when not typing |
 | Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z | Undo / redo |
+| F2 | Enter or finish editing a selected Studio text box |
 | Ctrl/Cmd+Enter or Esc while editing text | Apply the text edit; use the floating Cancel button to discard it |
 | Arrow keys / Shift+Arrow | Move a positioned selection by 1 / 10 canvas units |
 | Alt while dragging | Bypass snapping |

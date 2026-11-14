@@ -4,6 +4,8 @@
 
 后续拖动与点击切换改动保存在 `codex/studio-pointer-interaction` 功能分支：首次按下直接拖动，文字提交后同一次点击选择其他对象或取消选择，异步重选不覆盖后来的选择。实现与检查见[拖动与点击切换记录](superpowers/plans/2026-11-15-pointer-interaction.md)。该分支尚未合并或发布；下方原有整合记录保留为历史阶段记录。
 
+文字区的下一阶段位于 `codex/studio-rich-text`（基于上述拖动提交），为 Studio 文本框接入 Tiptap/ProseMirror，支持局部/光标/整框格式、段落列表及编辑历史。范围、实现和验证见[富文本计划](superpowers/plans/2026-11-15-rich-text.md)，普通 Markdown 和复杂组件继续使用原路径。该阶段亦未合并或发布。
+
 ## 当前成果
 
 | 阶段 | 已交付内容 | 实现记录 |

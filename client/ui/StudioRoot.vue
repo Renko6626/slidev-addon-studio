@@ -11,6 +11,7 @@ import { useSelection } from '../composables/useSelection'
 import { useSlideCanvas } from '../composables/useSlideCanvas'
 import { useSlideSource } from '../composables/useSlideSource'
 import { useTransformGizmo } from '../composables/useTransformGizmo'
+import { useTextEditor } from '../composables/useTextEditor'
 import { studioContext, studioKey } from '../context'
 import { busy, dockWidth, editing, inspectorVisible, lastError, notesVisible, selection, slidesVisible, studioOpen } from '../state'
 import { fitSlide } from '../editor-view'
@@ -77,6 +78,7 @@ const context: StudioContext = {
   note: () => source.note.value,
   canvas,
   gizmo,
+  text: useTextEditor({ content: () => source.content.value, commit }),
   commit,
   setFrontmatter: (values, label) => source.setFrontmatter(values, label),
   setNote: note => source.setNote(note),
@@ -118,6 +120,12 @@ onDomEvent<KeyboardEvent>(document, 'keydown', (event) => {
   // A key pressed in a panel field belongs to that field.
   if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"]'))
     return
+
+  if (event.key === 'F2' && target.element === 'text' && !busy.value) {
+    event.preventDefault()
+    editing.value = true
+    return
+  }
 
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
     event.preventDefault()

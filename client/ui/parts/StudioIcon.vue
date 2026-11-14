@@ -7,6 +7,14 @@
 const props = withDefaults(defineProps<{ name: string, size?: number }>(), { size: 16 })
 
 const paths: Record<string, string> = {
+  'clear-format': 'M5 5h12M11 5l-3 14M15 13l6 6M21 13l-6 6',
+  'align-left': 'M4 5h16M4 10h10M4 15h16M4 20h10',
+  'align-center': 'M4 5h16M7 10h10M4 15h16M7 20h10',
+  'align-right': 'M4 5h16M10 10h10M4 15h16M10 20h10',
+  'align-justify': 'M4 5h16M4 10h16M4 15h16M4 20h16',
+  'ordered-list': 'M10 5h10M10 12h10M10 19h10M4 4l1-1v5M3 13c0-3 4-3 4 0l-4 3h4',
+  indent: 'M10 5h10M10 10h10M10 15h10M10 20h10M3 9l4 3-4 3',
+  outdent: 'M10 5h10M10 10h10M10 15h10M10 20h10M7 9l-4 3 4 3',
   notes: 'M4 3h16v18H4zM8 7h8M8 11h8M8 15h5',
   fit: 'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5M7 7h10v10H7z',
   cursor: 'M5 3l14 8-6 1.5L10 19z',

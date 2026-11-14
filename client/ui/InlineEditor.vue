@@ -2,13 +2,13 @@
 import { action, t } from '../i18n'
 import type { BlockShape } from '../md/inline'
 import type { SourceRange } from '../types'
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onScopeDispose, ref, watch } from 'vue'
 import { blockShape, canEditContainer, canEditVisually, serialiseBlock, serialiseContainer } from '../md/inline'
 import { toggleBullet, toggleHeading, toggleQuote, toggleTagWrap, toggleWrap, toLink } from '../md/format'
 import { replaceInnerHtml, stripStudioAttrs } from '../md/html'
 import { getBlock, replaceBlock } from '../md/lines'
-import { editing, reportError, selectAllOnEdit, selection } from '../state'
-import { replaceTextContent } from '../md/elements'
+import { editing, editPointer, reportError, selectAllOnEdit, selection } from '../state'
+import { readTextContent, replaceTextContent } from '../md/elements'
 import { useStudio } from '../context'
 import { onDomEvent } from '../composables/useDomEvent'
 import StudioIcon from './parts/StudioIcon.vue'
@@ -30,13 +30,14 @@ import StudioIcon from './parts/StudioIcon.vue'
  */
 const studio = useStudio()
 
-type Mode = 'visual' | 'markdown'
+type Mode = 'visual' | 'markdown' | 'rich'
 
 const mode = ref<Mode>('markdown')
 const draft = ref('')
 const box = ref<HTMLTextAreaElement | null>(null)
 const rect = ref<{ left: number, top: number, width: number } | null>(null)
 const shape = ref<BlockShape | null>(null)
+const richUnsupported = ref(false)
 
 /** The rendered block being edited, and its markup as it was found. */
 let editable: HTMLElement | null = null
@@ -79,6 +80,9 @@ watch(editing, async (open) => {
     release()
     return
   }
+  richUnsupported.value = false
+  const point = editPointer.value
+  editPointer.value = null
 
   /*
    * Text a layout was handed, rather than text the slide holds.
@@ -121,19 +125,23 @@ watch(editing, async (open) => {
     held = textTarget.range
     shape.value = null
     source = getBlock(studio.content(), held)
-    mode.value = 'visual'
     const at = textTarget.el.getBoundingClientRect()
     rect.value = { left: at.left, top: at.top, width: Math.max(at.width, 260) }
     const selectAll = selectAllOnEdit.value
     selectAllOnEdit.value = false
-    await nextTick()
-    hold(textTarget.el)
-    if (selectAll) {
-      const chosen = window.getSelection()
-      const all = document.createRange()
-      all.selectNodeContents(textTarget.el)
-      chosen?.removeAllRanges()
-      chosen?.addRange(all)
+    const html = readTextContent(studio.content(), held)
+    original = textTarget.el.innerHTML
+    if (html !== null && studio.text.start(textTarget, html, selectAll, () => { void apply() }, point)) {
+      mode.value = 'rich'
+      editable = textTarget.el
+      editable.classList.add('studio-editing')
+    }
+    else {
+      richUnsupported.value = true
+      mode.value = 'markdown'
+      draft.value = source
+      await nextTick()
+      box.value?.focus()
     }
     return
   }
@@ -349,6 +357,7 @@ function hold(element: HTMLElement, caretIn?: HTMLElement | null) {
 
 /** Gives the block back to the renderer, exactly as it was found. */
 function release() {
+  studio.text.stop()
   held = null
   if (!editable)
     return
@@ -375,6 +384,16 @@ async function apply() {
   const target = held ?? range.value
   if (!target || !editing.value)
     return
+
+  if (mode.value === 'rich') {
+    const changed = studio.text.changed()
+    const html = studio.text.html()
+    release()
+    editing.value = false
+    if (changed)
+      await studio.commit(replaceTextContent(studio.content(), target, html), action('actionEditText'))
+    return
+  }
 
   if (mode.value === 'markdown') {
     editing.value = false
@@ -441,7 +460,9 @@ function cancel() {
 function toMarkdown() {
   if (mode.value === 'markdown')
     return
-  const written = editable
+  const written = mode.value === 'rich'
+    ? (studio.text.changed() ? replaceTextContent(source, [0, source.split('\n').length], studio.text.html()) : source)
+    : editable
     ? (heldKind === 'text'
         ? replaceTextContent(source, [0, source.split('\n').length], stripStudioAttrs(editable.innerHTML))
         : heldKind === 'container'
@@ -557,8 +578,10 @@ function runMark(mark: typeof marks[number]) {
 }
 
 function onKeydown(event: KeyboardEvent) {
+  if (event.isComposing)
+    return
   const modifier = event.metaKey || event.ctrlKey
-  if (event.key === 'Escape') {
+  if (event.key === 'Escape' || event.key === 'F2') {
     event.preventDefault()
     // Committed, not thrown away. Escape in a word processor means "I am done
     // with this box", and undo is how you take an edit back. Discarding a whole
@@ -622,13 +645,19 @@ onDomEvent<KeyboardEvent>(document, 'keydown', (event) => {
 onDomEvent<PointerEvent>(document, 'pointerdown', (event) => {
   // A synthetic double click can open editing earlier in this same event.
   // Until Vue mounts/holds the editor, there is no draft to finish yet.
-  if (!editing.value || (mode.value === 'visual' ? !editable : !box.value))
+  if (!editing.value || (mode.value !== 'markdown' ? !editable : !box.value))
     return
   const target = event.target
   if (!(target instanceof Node))
     return
   if (editable?.contains(target) || (target instanceof Element && target.closest('.studio-inline')))
     return
+  if (mode.value === 'rich' && target instanceof Element && target.closest('[data-studio-text-controls]'))
+    return
+  // Commit a font/size field's native change event before reading the draft.
+  if (mode.value === 'rich' && document.activeElement instanceof HTMLElement
+    && document.activeElement.closest('[data-studio-text-controls]'))
+    document.activeElement.blur()
   // apply reads the old selection and draft synchronously before its first
   // await. Selection's earlier document listener skipped this press while we
   // were editing, so hand it the same press once the draft has been captured.
@@ -644,20 +673,21 @@ onDomEvent(window, 'resize', () => {
     rect.value = { left: found.left, top: found.top, width: Math.max(found.width, 260) }
   }
 })
+onScopeDispose(release)
 </script>
 
 <template>
   <div
     v-if="editing && rect"
     class="studio-inline"
-    :class="{ 'studio-inline--floating': mode === 'visual' }"
-    :style="mode === 'visual'
+    :class="{ 'studio-inline--floating': mode !== 'markdown' }"
+    :style="mode !== 'markdown'
       ? { left: `${rect.left}px`, top: `${Math.max(4, rect.top - 42)}px` }
       : { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px` }"
   >
     <div v-if="!editingProp" class="studio-inline__bar">
       <button
-        v-for="mark in marks"
+        v-for="mark in mode === 'rich' ? [] : marks"
         :key="mark.icon"
         class="studio-icon-button"
         :title="t(mark.title)"
@@ -680,10 +710,10 @@ onDomEvent(window, 'resize', () => {
         </button>
       </template>
 
-      <span class="studio-toolbar__divider" />
+      <span v-if="mode !== 'rich'" class="studio-toolbar__divider" />
 
       <button
-        v-if="mode === 'visual'"
+        v-if="mode !== 'markdown'"
         class="studio-icon-button"
         :title="t('editMarkdown')"
         @mousedown.prevent
@@ -698,6 +728,8 @@ onDomEvent(window, 'resize', () => {
         <StudioIcon name="close" :size="14" />
       </button>
     </div>
+
+    <p v-if="richUnsupported" class="studio-hint">{{ t('textSourceFallback') }}</p>
 
     <textarea
       v-if="mode === 'markdown'"

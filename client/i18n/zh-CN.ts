@@ -1,6 +1,17 @@
 import type en from './en'
 
 export default {
+  "mixedFormat": "混合",
+  "clearTextFormat": "清除字符格式",
+  "alignJustify": "两端对齐",
+  "textLists": "列表与缩进",
+  "numberedList": "编号",
+  "decreaseIndent": "减少缩进",
+  "increaseIndent": "增加缩进",
+  "textScopeBox": "格式作用于整个文本框。",
+  "textScopeTyping": "字符格式作用于接下来输入的文字。",
+  "textScopeSelection": "格式作用于选中的文字。",
+  "textSourceFallback": "此文本框包含自定义标记，请通过源码编辑保留其内容。",
   "actionPasteObject": "粘贴对象",
   "clipboardPageLoading": "当前页仍在读取，请稍后再粘贴。",
   "textBox": "文本框",

@@ -34,6 +34,8 @@ export const missed = shallowRef(false)
 /** The selection's text is being edited in place. */
 export const editing = ref(false)
 export const selectAllOnEdit = ref(false)
+/** Consumed once on entry, so a mouse edit starts near the clicked text. */
+export const editPointer = shallowRef<{ x: number, y: number } | null>(null)
 export const hovered = shallowRef<StudioTarget | null>(null)
 
 /** A write is in flight; the UI blocks further edits until it lands. */

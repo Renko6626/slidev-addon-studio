@@ -9,7 +9,7 @@ import { onDomEvent } from './useDomEvent'
 import { normalise, resolveRange } from '../md/locate'
 import { readDrag } from '../md/drag'
 import { readElement } from '../md/elements'
-import { busy, editing, hovered, missed, selection, studioOpen } from '../state'
+import { busy, editing, editPointer, hovered, missed, selection, studioOpen } from '../state'
 
 /**
  * Turns a click on the rendered slide into a Markdown range Studio can edit.
@@ -235,7 +235,10 @@ export function useSelection(
         return
       event.preventDefault()
       selection.value = beneath
-      if (beneath.element !== 'image') editing.value = true
+      if (beneath.element !== 'image') {
+        editPointer.value = { x: event.clientX, y: event.clientY }
+        editing.value = true
+      }
       return
     }
 
@@ -247,7 +250,10 @@ export function useSelection(
       return
     event.preventDefault()
     selection.value = target
-    if (target.element !== 'image') editing.value = true
+    if (target.element !== 'image') {
+      editPointer.value = { x: event.clientX, y: event.clientY }
+      editing.value = true
+    }
   }
 
   onDomEvent<MouseEvent>(document, 'dblclick', editOnPointer, { capture: true })

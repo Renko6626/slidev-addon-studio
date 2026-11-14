@@ -83,6 +83,14 @@ export function appendElement(content: string, snippet: string) {
 }
 
 /** The marked root is known; nested divs do not confuse its closing tag. */
+export function readTextContent(content: string, range: SourceRange): string | null {
+  if (readElement(content, range)?.kind !== 'text') return null
+  const block = getBlock(content, range)
+  const tag = opensWithTag(block)!
+  const end = block.lastIndexOf('</div>')
+  return end < tag.end ? null : block.slice(tag.end, end)
+}
+
 export function replaceTextContent(content: string, range: SourceRange, html: string) {
   if (readElement(content, range)?.kind !== 'text')
     return content

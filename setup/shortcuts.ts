@@ -1,6 +1,6 @@
 import type { NavOperations, ShortcutOptions } from '@slidev/types'
 import { canRedo, canUndo, useStudioHistory } from '../client/composables/useSlideSource'
-import { studioOpen } from '../client/state'
+import { editing, studioOpen } from '../client/state'
 
 /**
  * `E` toggles the editor, chosen because Slidev leaves it free and it is the
@@ -34,12 +34,12 @@ export default (_nav: NavOperations, shortcuts: ShortcutOptions[]): ShortcutOpti
     {
       name: 'studio_undo',
       key: 'ctrl+z',
-      fn: () => studioOpen.value && canUndo.value && history.undo(),
+      fn: () => studioOpen.value && !editing.value && canUndo.value && history.undo(),
     },
     {
       name: 'studio_redo',
       key: 'ctrl+shift+z',
-      fn: () => studioOpen.value && canRedo.value && history.redo(),
+      fn: () => studioOpen.value && !editing.value && canRedo.value && history.redo(),
     },
     /*
      * The same two again under Cmd, for macOS.
@@ -52,12 +52,12 @@ export default (_nav: NavOperations, shortcuts: ShortcutOptions[]): ShortcutOpti
     {
       name: 'studio_undo_meta',
       key: 'meta+z',
-      fn: () => studioOpen.value && canUndo.value && history.undo(),
+      fn: () => studioOpen.value && !editing.value && canUndo.value && history.undo(),
     },
     {
       name: 'studio_redo_meta',
       key: 'meta+shift+z',
-      fn: () => studioOpen.value && canRedo.value && history.redo(),
+      fn: () => studioOpen.value && !editing.value && canRedo.value && history.redo(),
     },
   ]
 }

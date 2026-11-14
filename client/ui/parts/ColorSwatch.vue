@@ -13,7 +13,7 @@ import { isColorValue } from '../../md/literals'
  * variable starts from the right colour rather than from black, and choosing
  * one writes a hex the user can see.
  */
-const props = defineProps<{ value: string }>()
+const props = defineProps<{ value: string, placeholder?: string }>()
 const emit = defineEmits<{ change: [value: string] }>()
 
 const picker = ref<HTMLInputElement | null>(null)
@@ -76,7 +76,7 @@ function choose(value: string) {
     <input
       type="text"
       :value="value"
-      :placeholder="t('colorPlaceholder')"
+      :placeholder="placeholder ?? t('colorPlaceholder')"
       @change="emit('change', ($event.target as HTMLInputElement).value)"
     >
 
