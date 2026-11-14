@@ -625,6 +625,11 @@ describe('resize', () => {
     expect(next.y + next.h).toBe(200)
     expect(next.w / next.h).toBeCloseTo(2)
   })
+
+  it('keeps the picture ratio when shrinking to the minimum size', () => {
+    const next = resize(box, 'nw', 1000, 1000, true)
+    expect(next).toEqual({ x: 268, y: 184, w: 32, h: 16 })
+  })
 })
 
 describe('frontmatter formatting', () => {

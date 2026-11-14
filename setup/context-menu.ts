@@ -81,6 +81,7 @@ export default (items: ComputedRef<ContextMenuItem[]>): ComputedRef<ContextMenuI
         icon: 'i-carbon:text-annotation-toggle',
         label: t('editTarget', { name }),
         action: () => editText(),
+          disabled: target.element === 'image',
       },
       positioned
         ? {

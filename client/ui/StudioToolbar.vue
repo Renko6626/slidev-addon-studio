@@ -11,7 +11,10 @@ import { useStudio } from '../context'
 import { useDeckActions } from '../composables/useDeckActions'
 import { canRedo, canUndo, lastAction, useStudioHistory } from '../composables/useSlideSource'
 import { insertSnippet } from '../md/insert'
-import { activePanel, busy, editing, gridEnabled, inspectorVisible, library, notesVisible, outlineEnabled, ribbonTab, selection, slidesVisible, snapEnabled, studioOpen } from '../state'
+import { appendElement, createTextElement } from '../md/elements'
+import { imageLibraryRequest, imagePending, useImageInsertion } from '../composables/useImageInsertion'
+import TextElementFields from './parts/TextElementFields.vue'
+import { activePanel, busy, editing, gridEnabled, inspectorVisible, library, notesVisible, outlineEnabled, ribbonTab, selectAllOnEdit, selection, slidesVisible, snapEnabled, studioOpen } from '../state'
 import PanelTransition from './panels/PanelTransition.vue'
 import StudioIcon from './parts/StudioIcon.vue'
 
@@ -19,9 +22,10 @@ const emit = defineEmits<{ preview: [], present: [], fit: [] }>()
 const studio = useStudio()
 const nav = useNav()
 const deck = useDeckActions()
+const images = useImageInsertion()
 const history = useStudioHistory()
 const title = computed(() => configs.title || configs.slidesTitle || 'Slidev Studio')
-const locked = computed(() => busy.value || editing.value)
+const locked = computed(() => busy.value || editing.value || imagePending.value)
 const mapped = computed(() => !!selection.value?.range)
 const reorderable = computed(() => !!selection.value?.range && canReorder(selection.value))
 const tabs: { id: RibbonTab, label: MessageKey }[] = [
@@ -39,6 +43,7 @@ function panel(id: PanelId) {
   library.value = null
 }
 function openLibrary(id: 'components' | 'assets') {
+  imageLibraryRequest.value = null
   library.value = library.value === id ? null : id
 }
 async function insertBasic(index: number) {
@@ -47,6 +52,16 @@ async function insertBasic(index: number) {
   await studio.commit(insertSnippet(studio.content(), block.snippet, range ? { mode: 'after', range } : { mode: 'append' }), action('actionInsert', { name: { key: block.labelKey } }))
   await studio.selectInserted()
   panel('inspect')
+}
+async function insertTextBox() {
+  if (locked.value) return
+  const no = studio.no()
+  const inserted = appendElement(studio.content(), createTextElement({ width: studio.canvas.slideWidth.value, height: studio.canvas.slideHeight.value }, t('textBoxPlaceholder')))
+  await studio.commit(inserted.content, action('actionInsert', { name: { key: 'textBox' } }))
+  if (studio.no() !== no || !await studio.selectInserted('div', inserted.range)) return
+  panel('inspect')
+  selectAllOnEdit.value = true
+  editing.value = true
 }
 interface Command { label: MessageKey, icon: string, run: () => unknown, disabled?: boolean, pressed?: boolean, hint?: MessageKey }
 interface Group { label: MessageKey, commands: Command[] }
@@ -61,7 +76,7 @@ const groups = computed<Group[]>(() => {
         { label: 'layout', icon: 'layout', run: () => panel('layout') },
       ] },
       { label: 'editingGroup', commands: [
-        { label: 'editTextCommand', icon: 'edit', run: editText, disabled: !target || (!mapped.value && !target.prop) },
+        { label: 'editTextCommand', icon: 'edit', run: editText, disabled: !target || target.element === 'image' || (!mapped.value && !target.prop) },
         { label: 'duplicateObject', icon: 'copy', run: () => target && duplicateBlock(studio, target), disabled: !reorderable.value },
         { label: 'deleteObject', icon: 'trash', run: () => target && deleteBlock(studio, target), disabled: !mapped.value },
       ] },
@@ -69,7 +84,7 @@ const groups = computed<Group[]>(() => {
     case 'insert': return [
       { label: 'textGroup', commands: [
         { label: 'blockHeading', icon: 'h1', run: () => insertBasic(0) },
-        { label: 'blockText', icon: 'edit', run: () => insertBasic(1) },
+        { label: 'textBox', icon: 'edit', run: insertTextBox },
         { label: 'blockList', icon: 'list', run: () => insertBasic(2) },
         { label: 'blockCode', icon: 'code', run: () => insertBasic(7) },
       ] },
@@ -132,6 +147,20 @@ const groups = computed<Group[]>(() => {
       <button v-if="selection" class="studio-context-tab" :aria-pressed="ribbonTab === 'object'" @click="ribbonTab = 'object'">{{ t('objectTab') }}</button>
     </nav>
     <div class="studio-ribbon-tools">
+      <div v-if="ribbonTab === 'insert'" class="studio-command-group">
+        <details class="studio-picture-menu">
+          <summary class="studio-command" :aria-label="t('picture')"><StudioIcon name="assets" :size="20" /><span>{{ t('picture') }} ▾</span></summary>
+          <div class="studio-picture-menu__items">
+            <button :disabled="locked" @click="images.fromFile(); ($event.currentTarget as HTMLElement).closest('details')?.removeAttribute('open')">{{ t('imageFromFile') }}</button>
+            <button :disabled="locked" @click="images.fromLibrary(); ($event.currentTarget as HTMLElement).closest('details')?.removeAttribute('open')">{{ t('imageFromLibrary') }}</button>
+          </div>
+        </details>
+        <span class="studio-command-group__label">{{ t('picture') }}</span>
+      </div>
+      <div v-if="ribbonTab === 'home' && selection?.element === 'text'" class="studio-command-group studio-text-tools">
+        <TextElementFields compact />
+        <span class="studio-command-group__label">{{ t('textFormat') }}</span>
+      </div>
       <fieldset v-if="ribbonTab === 'transition'" class="studio-transition-quick" :disabled="locked"><PanelTransition /></fieldset>
       <div v-for="group in groups" :key="group.label" class="studio-command-group">
         <div class="studio-command-group__buttons">

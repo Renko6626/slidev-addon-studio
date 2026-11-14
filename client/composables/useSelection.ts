@@ -4,10 +4,11 @@ import type { SourceRange, StudioTarget, TargetKind } from '../types'
 import { nextTick, onScopeDispose, watch, watchEffect } from 'vue'
 import { removeBlock } from '../md/lines'
 import { openContextMenu } from '@slidev/client/logic/contextMenu.ts'
-import { belongsToSlide, mappedElements, slideElement } from '../dom'
+import { belongsToSlide, elementRoot, mappedElements, slideElement } from '../dom'
 import { onDomEvent } from './useDomEvent'
 import { normalise, resolveRange } from '../md/locate'
 import { readDrag } from '../md/drag'
+import { readElement } from '../md/elements'
 import { editing, hovered, missed, selection, studioOpen } from '../state'
 
 /**
@@ -229,7 +230,7 @@ export function useSelection(
         return
       event.preventDefault()
       selection.value = beneath
-      editing.value = true
+      if (beneath.element !== 'image') editing.value = true
       return
     }
 
@@ -241,7 +242,7 @@ export function useSelection(
       return
     event.preventDefault()
     selection.value = target
-    editing.value = true
+    if (target.element !== 'image') editing.value = true
   }, { capture: true })
 
   onDomEvent<KeyboardEvent>(document, 'keydown', (event) => {
@@ -390,8 +391,24 @@ export function useSelection(
    * the new one. For a plain Markdown block there is no tag to match on, so the
    * last mapped element of the slide is the best available answer.
    */
-  async function selectInserted(tag?: string) {
+  async function selectInserted(tag?: string, range?: SourceRange): Promise<boolean> {
     await nextTick()
+    if (range) {
+      const currentNo = no()
+      const deadline = Date.now() + 1500
+      while (Date.now() < deadline && no() === currentNo) {
+        const candidate = mappedElements(currentNo)
+          .filter(el => !tag || el.dataset.studioTag === tag)
+          .map(el => describe(el, currentNo, content()))
+          .find(item => item.range?.[0] === range[0] && item.range[1] === range[1])
+        if (candidate) {
+          selection.value = candidate
+          return true
+        }
+        await new Promise(resolve => setTimeout(resolve, 40))
+      }
+      return false
+    }
     await new Promise(resolve => setTimeout(resolve, 120))
 
     const candidates = mappedElements(no())
@@ -399,6 +416,7 @@ export function useSelection(
     const el = matching.at(-1) ?? candidates.at(-1)
     if (el)
       selection.value = describe(el, no(), content())
+    return !!el
   }
 
   /**
@@ -443,6 +461,7 @@ function isTyping(target: EventTarget | null) {
 }
 
 function describe(el: HTMLElement, no: number, content: string): StudioTarget {
+  el = elementRoot(el)
   const prop = el.dataset.studioProp
   if (prop) {
     return {
@@ -474,6 +493,7 @@ function describe(el: HTMLElement, no: number, content: string): StudioTarget {
     el,
     no,
     range,
+    element: range ? readElement(content, range)?.kind : undefined,
     kind,
     tag,
     positioned: range ? !!readDrag(content, range) : false,

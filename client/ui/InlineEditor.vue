@@ -7,7 +7,8 @@ import { blockShape, canEditContainer, canEditVisually, serialiseBlock, serialis
 import { toggleBullet, toggleHeading, toggleQuote, toggleTagWrap, toggleWrap, toLink } from '../md/format'
 import { replaceInnerHtml, stripStudioAttrs } from '../md/html'
 import { getBlock, replaceBlock } from '../md/lines'
-import { editing, reportError, selection } from '../state'
+import { editing, reportError, selectAllOnEdit, selection } from '../state'
+import { replaceTextContent } from '../md/elements'
 import { useStudio } from '../context'
 import { onDomEvent } from '../composables/useDomEvent'
 import StudioIcon from './parts/StudioIcon.vue'
@@ -60,7 +61,7 @@ let held: SourceRange | null = null
  * around a different element. Which one is in play decides which serialiser
  * writes the result back.
  */
-let heldKind: 'block' | 'container' | 'prop' | 'html' = 'block'
+let heldKind: 'block' | 'container' | 'prop' | 'html' | 'text' = 'block'
 
 /** For an edit inside raw HTML: the element's tag, and the words it held. */
 let htmlTag = ''
@@ -110,6 +111,29 @@ watch(editing, async (open) => {
       all.selectNodeContents(propEl)
       chosen.removeAllRanges()
       chosen.addRange(all)
+    }
+    return
+  }
+
+  const textTarget = selection.value
+  if (textTarget?.element === 'text' && textTarget.range) {
+    heldKind = 'text'
+    held = textTarget.range
+    shape.value = null
+    source = getBlock(studio.content(), held)
+    mode.value = 'visual'
+    const at = textTarget.el.getBoundingClientRect()
+    rect.value = { left: at.left, top: at.top, width: Math.max(at.width, 260) }
+    const selectAll = selectAllOnEdit.value
+    selectAllOnEdit.value = false
+    await nextTick()
+    hold(textTarget.el)
+    if (selectAll) {
+      const chosen = window.getSelection()
+      const all = document.createRange()
+      all.selectNodeContents(textTarget.el)
+      chosen?.removeAllRanges()
+      chosen?.addRange(all)
     }
     return
   }
@@ -278,7 +302,7 @@ function onPaste(event: ClipboardEvent) {
   event.preventDefault()
   // Line breaks in a pasted block would each start a new element; the text is
   // taken as one run and the author can break it where they want it.
-  document.execCommand('insertText', false, text.replace(/\r?\n/g, ' '))
+  document.execCommand('insertText', false, heldKind === 'text' ? text : text.replace(/\r?\n/g, ' '))
 }
 
 /** Hands the block over to the browser to edit, and remembers how it was. */
@@ -296,7 +320,7 @@ function hold(element: HTMLElement, caretIn?: HTMLElement | null) {
 
   // Enter should start a paragraph, not the `div` browsers reach for by
   // default, because a paragraph is a block the serialiser recognises.
-  document.execCommand('defaultParagraphSeparator', false, 'p')
+  document.execCommand('defaultParagraphSeparator', false, heldKind === 'text' ? 'div' : 'p')
 
   // Anything in the box that is not text is atomic: it can be selected and
   // deleted whole, which writes it out of the Markdown, but not typed into.
@@ -359,6 +383,16 @@ async function apply() {
 
   const element = editable
 
+  if (heldKind === 'text' && element) {
+    const html = stripStudioAttrs(element.innerHTML)
+    release()
+    editing.value = false
+    const next = replaceTextContent(studio.content(), target, html)
+    if (next !== studio.content())
+      await studio.commit(next, action('actionEditText'))
+    return
+  }
+
   if (heldKind === 'html' && element) {
     // What goes back is what the browser will render: Markdown written inside
     // an HTML block is passed through untouched, so `**bold**` would stay four
@@ -406,7 +440,9 @@ function toMarkdown() {
   if (mode.value === 'markdown')
     return
   const written = editable
-    ? (heldKind === 'container'
+    ? (heldKind === 'text'
+        ? replaceTextContent(source, [0, source.split('\n').length], stripStudioAttrs(editable.innerHTML))
+        : heldKind === 'container'
         ? serialiseContainer(editable as any, verbatim)
         : (shape.value ? serialiseBlock(editable, shape.value) : null))
     : null

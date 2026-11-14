@@ -102,6 +102,9 @@ const handles: { id: ResizeHandle, x: number, y: number, cursor: string }[] = [
   { id: 'sw', x: 0, y: 1, cursor: 'nesw-resize' },
   { id: 'w', x: 0, y: 0.5, cursor: 'ew-resize' },
 ]
+const visibleHandles = computed(() => selection.value?.element === 'text'
+  ? handles.filter(handle => handle.id === 'e' || handle.id === 'w')
+  : handles)
 
 const guideStyles = computed(() => studio.gizmo.guides.value.map((guide) => {
   const { rect, scale } = studio.canvas
@@ -191,7 +194,7 @@ function handleStyle(rect: Rect, handle: typeof handles[number]) {
         />
 
         <div
-          v-for="handle in handles"
+          v-for="handle in visibleHandles"
           :key="handle.id"
           class="studio-handle"
           :style="{ left: `${handle.x * 100}%`, top: `${handle.y * 100}%`, cursor: handle.cursor }"

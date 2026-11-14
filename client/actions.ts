@@ -34,7 +34,7 @@ export function isPositioned(content: string, range: SourceRange): boolean {
 }
 
 export function editText() {
-  if (selection.value?.range)
+  if (selection.value?.range && selection.value.element !== 'image')
     editing.value = true
 }
 

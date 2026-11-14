@@ -7,6 +7,7 @@ import { ref, shallowRef } from 'vue'
 import { mappedElements } from '../dom'
 import { onDomEvent } from './useDomEvent'
 import { DRAG_WRAPPER_PADDING, readDrag, writeDrag } from '../md/drag'
+import { readElement } from '../md/elements'
 import { gridEnabled, gridSize, snapEnabled } from '../state'
 import { snapBox } from './useSnapping'
 
@@ -71,6 +72,7 @@ export function useTransformGizmo(context: {
   let hadPosition = false
   let startRotate = 0
   let autoHeight = true
+  let imageRatio = false
   /** The position will be written as a `<v-drag>` wrapper around the block. */
   let wrapped = false
   /** Units the written box has that the painted element does not. */
@@ -91,6 +93,8 @@ export function useTransformGizmo(context: {
 
     const current = context.getTarget()
     if (!current || !current.range)
+      return
+    if (current.element === 'text' && next.type === 'resize' && !['e', 'w'].includes(next.handle))
       return
 
     // The second press of a double click is not a gesture. Left armed, a hand
@@ -127,6 +131,7 @@ export function useTransformGizmo(context: {
     startBox = canvas.boxOf(painted)
     startRotate = existing?.pos?.rotate ?? 0
     autoHeight = existing?.pos ? existing.pos.h === null : true
+    imageRatio = readElement(context.getContent(), current.range)?.lockRatio ?? false
     pointerStart = { x: event.clientX, y: event.clientY }
     preview.value = { ...startBox }
 
@@ -186,7 +191,7 @@ export function useTransformGizmo(context: {
       const angle = (-startRotate * Math.PI) / 180
       const localX = dx * Math.cos(angle) - dy * Math.sin(angle)
       const localY = dx * Math.sin(angle) + dy * Math.cos(angle)
-      box = resize(startBox, gesture.handle, localX, localY, event.shiftKey)
+      box = resize(startBox, gesture.handle, localX, localY, target.element === 'text' ? false : target.element === 'image' ? imageRatio : event.shiftKey)
       edges = {
         left: gesture.handle.includes('w'),
         right: gesture.handle.includes('e'),
@@ -195,7 +200,7 @@ export function useTransformGizmo(context: {
       }
     }
 
-    if (snapEnabled.value && !event.altKey) {
+    if (snapEnabled.value && !event.altKey && !(imageRatio && gesture.type === 'resize')) {
       const result = snapBox(box, {
         canvas: { w: canvas.slideWidth.value, h: canvas.slideHeight.value },
         others,
@@ -446,8 +451,15 @@ export function resize(box: Box, handle: ResizeHandle, dx: number, dy: number, k
       h = w / ratio
   }
 
-  w = Math.max(MIN_SIZE, w)
-  h = Math.max(MIN_SIZE, h)
+  if (keepRatio && box.w > 0 && box.h > 0) {
+    const ratio = box.w / box.h
+    w = Math.max(MIN_SIZE, MIN_SIZE * ratio, w)
+    h = w / ratio
+  }
+  else {
+    w = Math.max(MIN_SIZE, w)
+    h = Math.max(MIN_SIZE, h)
+  }
 
   return {
     x: handle.includes('w') ? right - w : box.x,

@@ -7,13 +7,16 @@ import { useCatalog } from '../../composables/useCatalog'
 import { useStudio } from '../../context'
 import { readProp, writeProp } from '../../md/props'
 import { readDrag, writeDrag } from '../../md/drag'
+import { readElement, resizeElement } from '../../md/elements'
 import { getBlock, replaceBlock } from '../../md/lines'
 import { canStyle, readClasses, writeClasses } from '../../md/classes'
 import { canReorder, deleteBlock, duplicateBlock, freePosition, moveBlockBy, returnToFlow } from '../../actions'
-import { missed, selection } from '../../state'
+import { busy, editing, missed, selection } from '../../state'
 import PropField from '../parts/PropField.vue'
 import StudioField from '../parts/StudioField.vue'
 import StudioIcon from '../parts/StudioIcon.vue'
+import TextElementFields from '../parts/TextElementFields.vue'
+import ImageElementFields from '../parts/ImageElementFields.vue'
 
 /**
  * The properties panel: where the selected block lives, how it is styled, and
@@ -23,6 +26,7 @@ import StudioIcon from '../parts/StudioIcon.vue'
 const studio = useStudio()
 const { components } = useCatalog()
 
+const element = computed(() => selection.value?.range ? readElement(studio.content(), selection.value.range) : null)
 const range = computed(() => selection.value?.range ?? null)
 
 /** Whether this block can carry a class at all, in Markdown or as an attribute. */
@@ -80,8 +84,12 @@ watch([block, range], () => {
 
 /** An emptied height means "size to content", which is `null`, not zero. */
 async function setPos(field: 'x' | 'y' | 'w' | 'h' | 'rotate', value: number | null) {
-  if (!range.value || !pos.value)
+  if (!range.value || !pos.value || busy.value || editing.value)
     return
+  if (element.value) {
+    await studio.commit(resizeElement(studio.content(), range.value, field, value), action('actionSetPosition'))
+    return
+  }
   await studio.commit(
     writeDrag(studio.content(), range.value, { ...pos.value, [field]: value }),
     action('actionSetPosition'),
@@ -162,6 +170,9 @@ async function remove() {
       </h3>
     </section>
 
+    <section v-if="element?.kind === 'text'" class="studio-section"><h3 class="studio-section__title">{{ t('textFormat') }}</h3><TextElementFields /></section>
+    <section v-else-if="element?.kind === 'image'" class="studio-section"><ImageElementFields /></section>
+
     <section class="studio-section">
       <h3 class="studio-section__title">
         {{ t('position') }}
@@ -181,7 +192,7 @@ async function remove() {
         <StudioField :label="t('width')">
           <input type="number" :value="Math.round(pos.w)" @change="setPos('w', +($event.target as HTMLInputElement).value)">
         </StudioField>
-        <StudioField :label="t('height')">
+        <StudioField v-if="element?.kind !== 'text'" :label="t('height')">
           <input
             type="number"
             :value="pos.h === null ? '' : Math.round(pos.h)"
@@ -192,7 +203,7 @@ async function remove() {
         <StudioField :label="t('rotation')">
           <input type="number" :value="Math.round(pos.rotate)" @change="setPos('rotate', +($event.target as HTMLInputElement).value)">
         </StudioField>
-        <button class="studio-button" @click="toFlow">
+        <button v-if="!element" class="studio-button" @click="toFlow">
           <StudioIcon name="flow" :size="14" /> {{ t('returnFlow') }}
         </button>
         <p class="studio-hint">

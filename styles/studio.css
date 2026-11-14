@@ -868,3 +868,22 @@ html.slidev-studio-docked #slide-container { cursor: default; }
   .studio-navigation { position: absolute; left: 0; top: 162px; bottom: 32px; width: 210px; box-shadow: var(--studio-shadow); }
   .studio-statusbar { gap: 8px; padding: 0 8px; }
 }
+
+/* Text and image properties use the same controls in the ribbon and inspector. */
+.studio-element-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
+.studio-element-fields:disabled { opacity: .55; }
+.studio-element-fields .studio-button-row { margin-bottom: 12px; }
+.studio-color-field { display: flex; align-items: center; gap: 8px; }
+.studio-text-button { color: var(--studio-accent); font-size: 11px; }
+.studio-text-tools { min-width: 310px; }
+.studio-text-compact { display: flex; align-items: center; gap: 12px; height: 54px; }
+.studio-text-compact .studio-field { margin: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.studio-text-compact .studio-field__label { flex: none; font-size: 10px; }
+.studio-text-compact .studio-field__control { flex: none; }
+.studio-text-compact input[type="number"] { width: 70px; height: 28px; }
+.studio-text-compact .studio-segmented button { padding: 4px 9px; }
+.studio-picture-menu summary { list-style: none; cursor: pointer; }
+.studio-picture-menu summary::-webkit-details-marker { display: none; }
+.studio-picture-menu__items { position: fixed; top: 154px; left: 14px; z-index: 105; min-width: 160px; padding: 4px; background: var(--studio-bg); border: 1px solid var(--studio-border); border-radius: 5px; box-shadow: var(--studio-shadow); }
+.studio-picture-menu__items button { display: block; width: 100%; text-align: left; padding: 8px 12px; border-radius: 3px; }
+.studio-picture-menu__items button:hover:not(:disabled) { background: var(--studio-bg-hover); }

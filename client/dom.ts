@@ -23,7 +23,12 @@ export function mappedElements(no: number): HTMLElement[] {
   // `data-studio-prop` is how a theme says "these words are a frontmatter key".
   // Such an element has no line range, so it would never be found by the first
   // selector, and text rendered from a layout's props could not be clicked.
-  return root ? [...root.querySelectorAll<HTMLElement>('[data-studio-src], [data-studio-prop]')] : []
+  return root ? [...root.querySelectorAll<HTMLElement>('[data-studio-src], [data-studio-prop]')].filter(el => elementRoot(el) === el) : []
+}
+
+/** A text box owns its paragraphs and marks as one object. */
+export function elementRoot(el: HTMLElement): HTMLElement {
+  return el.closest<HTMLElement>('div[data-studio-element="text"], img[data-studio-element="image"]') ?? el
 }
 
 /** Whether a node belongs to the slide currently being edited. */

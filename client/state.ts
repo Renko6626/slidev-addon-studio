@@ -33,6 +33,7 @@ export const missed = shallowRef(false)
 
 /** The selection's text is being edited in place. */
 export const editing = ref(false)
+export const selectAllOnEdit = ref(false)
 export const hovered = shallowRef<StudioTarget | null>(null)
 
 /** A write is in flight; the UI blocks further edits until it lands. */

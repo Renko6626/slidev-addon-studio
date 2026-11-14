@@ -48,6 +48,8 @@ export function actionText(label: ActionLabel): string {
 
 /** Names supplied by the deck (tags, prop keys) stay exactly as authored. */
 export function targetName(target: StudioTarget): string | { key: MessageKey } {
+  if (target.element)
+    return { key: target.element === 'text' ? 'textBox' : 'picture' }
   if (target.tag || target.prop || target.kind === 'heading')
     return target.label
   const keys: Partial<Record<StudioTarget['kind'], MessageKey>> = {

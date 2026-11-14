@@ -81,6 +81,38 @@ Studio works with a normal local Slidev project. It has no account, Git,
 collaboration-service or workbench dependency. Desktop packaging, manual view
 zoom, multi-selection and object grouping are outside this version.
 
+### Text boxes and pictures
+
+Insert → Text box creates a freely positioned box and starts editing with its
+placeholder selected. Click once to select the whole box; double-click to edit
+its words. Side handles change the width while the height grows with the text.
+The inspector offers a theme/default font or a generic font family, size in
+canvas CSS pixels, text colour, alignment and line spacing. The Home ribbon
+provides the same size, colour and alignment controls. Apply the text edit before
+changing whole-box formatting; inline bold, italic and underline stay available
+in the existing floating text toolbar. Pasted text keeps its line breaks without
+importing external formatting.
+
+Insert → Picture offers a local file picker and the asset library. Uploaded or
+selected pictures are placed on the canvas and selected immediately. Their
+initial size keeps the original aspect ratio and fits the canvas. Pictures lock
+their frame ratio by default, including changes to numeric width and height;
+uncheck Lock ratio for independent dimensions.
+
+The picture inspector can replace the source from a file or the library, keeping
+the frame's position, dimensions, rotation, alternative text and display mode.
+Show entire image keeps the whole image visible with space left over when
+necessary; Fill frame centres the picture and hides what falls outside the frame.
+Neither option modifies the source image file. Deleting a picture or undoing a
+replacement changes the Markdown reference, not the files in `public/`.
+
+These new objects are ordinary HTML with Slidev's `v-drag` and readable
+`data-studio-element` attributes. Their appearance is stored in the Markdown,
+so it also renders when Studio is closed or the deck is built. Existing Markdown
+blocks and unmarked pictures retain their existing editing behaviour. SVG files
+can be inserted as whole pictures; path editing, interactive cropping, custom
+font installation and editable SVG shapes are outside this update.
+
 Page insertion, duplication, deletion and reordering still reload the editor
 and clear undo history. The first entry slide and cross-file move restrictions
 described below still apply. Document order commands do not implement a general
