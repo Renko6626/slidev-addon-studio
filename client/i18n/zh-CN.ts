@@ -1,6 +1,8 @@
 import type en from './en'
 
 export default {
+  "actionPasteObject": "粘贴对象",
+  "clipboardPageLoading": "当前页仍在读取，请稍后再粘贴。",
   "textBox": "文本框",
   "picture": "图片",
   "textBoxPlaceholder": "输入文字",
@@ -42,7 +44,7 @@ export default {
   "newSlide": "新建页",
   "duplicateSlide": "复制页",
   "deleteSlide": "删除页",
-  "duplicateObject": "复制对象",
+  "duplicateObject": "创建副本",
   "deleteObject": "删除对象",
   "editTextCommand": "编辑文字",
   "editingGroup": "编辑",
@@ -90,7 +92,7 @@ export default {
   "language": "界面语言",
   "moveEarlier": "向前移动",
   "moveLater": "向后移动",
-  "duplicate": "复制",
+  "duplicate": "创建副本",
   "delete": "删除",
   "remove": "移除",
   "moveUp": "上移",
@@ -234,7 +236,7 @@ export default {
   "actionFreePosition": "自由定位",
   "actionReturnFlow": "恢复文档流",
   "actionDuplicateItem": "复制列表项",
-  "actionDuplicateBlock": "复制内容块",
+  "actionDuplicateBlock": "创建副本",
   "actionDelete": "删除 {name}",
   "actionNudge": "微调位置",
   "actionReorderItem": "调整列表项顺序",

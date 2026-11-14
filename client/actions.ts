@@ -1,9 +1,10 @@
 import { action, t, targetLabel, targetName } from './i18n'
 import type { StudioContext } from './context'
 import type { SourceRange, StudioTarget } from './types'
-import { readDrag, removeDrag, writeDrag } from './md/drag'
-import { duplicateListItem, getBlock, insertAfter, moveBlock, moveListItem, removeBlock } from './md/lines'
-import { editing, reportError, selection } from './state'
+import { positionedUnit, readDrag, removeDrag, writeDrag } from './md/drag'
+import { duplicateListItem, listItemUnit, moveBlock, moveListItem, removeBlock } from './md/lines'
+import { captureBlock, insertCopiedBlock } from './md/clipboard'
+import { activePanel, busy, editing, reportError, selection } from './state'
 
 /**
  * What can be done to the selected block, in one place.
@@ -21,12 +22,7 @@ import { editing, reportError, selection } from './state'
  * out and left an empty wrapper behind, holding a position and nothing to
  * position. Moving, duplicating or deleting takes the whole wrapper.
  */
-export function positionedUnit(content: string, range: SourceRange): SourceRange {
-  const wrapper = readDrag(content, range)
-  return wrapper?.via === 'wrapper' && wrapper.open !== undefined && wrapper.close !== undefined
-    ? [wrapper.open, wrapper.close + 1]
-    : range
-}
+export { positionedUnit } from './md/drag'
 
 /** Whether the block already carries a position of its own. */
 export function isPositioned(content: string, range: SourceRange): boolean {
@@ -98,20 +94,28 @@ export function canReorder(target: StudioTarget): boolean {
 }
 
 export async function duplicateBlock(studio: StudioContext, target: StudioTarget) {
-  if (!target.range)
+  if (!target.range || !canReorder(target) || editing.value || busy.value)
     return
 
   if (target.kind === 'list-item') {
+    const unit = listItemUnit(studio.content(), target.range[0])
     const next = duplicateListItem(studio.content(), target.range[0])
-    if (next)
+    if (next && unit) {
+      const no = studio.no()
       await studio.commit(next, action('actionDuplicateItem'))
+      if (studio.no() === no)
+        await studio.selectInserted(target.tag, [unit[1], unit[1] + target.range[1] - target.range[0]])
+    }
     return
   }
-  const unit = positionedUnit(studio.content(), target.range)
-  await studio.commit(
-    insertAfter(studio.content(), unit, getBlock(studio.content(), unit)),
-    action('actionDuplicateBlock'),
-  )
+  const no = studio.no()
+  const copied = captureBlock(studio.content(), target.range, { deck: '', page: no, tag: target.tag })
+  const start = target.range[0] - copied.range[0]
+  const unit: SourceRange = [start, start + copied.source.split('\n').length]
+  const inserted = insertCopiedBlock(studio.content(), copied, 20, unit)
+  await studio.commit(inserted.content, action('actionDuplicateBlock'))
+  if (studio.no() === no && await studio.selectInserted(target.tag, inserted.range))
+    activePanel.value = 'inspect'
 }
 
 export async function deleteBlock(studio: StudioContext, target: StudioTarget) {

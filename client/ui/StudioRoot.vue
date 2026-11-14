@@ -16,6 +16,7 @@ import { busy, dockWidth, editing, inspectorVisible, lastError, notesVisible, se
 import { fitSlide } from '../editor-view'
 import { t } from '../i18n'
 import { useEditorMode } from '../composables/useEditorMode'
+import { useObjectClipboard } from '../composables/useObjectClipboard'
 import InlineEditor from './InlineEditor.vue'
 import SelectionLayer from './SelectionLayer.vue'
 import StudioDock from './StudioDock.vue'
@@ -69,6 +70,7 @@ const gizmo = useTransformGizmo({
 const context: StudioContext = {
   no: () => no.value,
   content: () => source.content.value,
+  sourceReady: () => source.info.value != null,
   frontmatter: () => source.frontmatter.value,
   note: () => source.note.value,
   canvas,
@@ -83,6 +85,7 @@ const context: StudioContext = {
 }
 
 provide(studioKey, context)
+useObjectClipboard(context)
 
 // Also outside the component tree, for Slidev's setup files: the context menu
 // is built there and has no way to inject.
@@ -110,7 +113,7 @@ onDomEvent<KeyboardEvent>(document, 'keydown', (event) => {
   if (!target?.range)
     return
   // A key pressed in a panel field belongs to that field.
-  if (event.target instanceof Element && event.target.closest('input, textarea, [contenteditable="true"]'))
+  if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"]'))
     return
 
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {

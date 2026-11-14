@@ -13,6 +13,7 @@ import { inject, shallowRef } from 'vue'
 export interface StudioContext {
   no: () => number
   content: () => string
+  sourceReady: () => boolean
   frontmatter: () => Record<string, any>
   note: () => string
   canvas: ReturnType<typeof useSlideCanvas>

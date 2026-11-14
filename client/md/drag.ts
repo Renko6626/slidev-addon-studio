@@ -66,6 +66,14 @@ export interface DragInfo {
   close?: number
 }
 
+/** A positioned Markdown block travels with its complete v-drag wrapper. */
+export function positionedUnit(content: string, range: SourceRange): SourceRange {
+  const wrapper = readDrag(content, range)
+  return wrapper?.via === 'wrapper' && wrapper.open !== undefined && wrapper.close !== undefined
+    ? [wrapper.open, wrapper.close + 1]
+    : range
+}
+
 export function readDrag(content: string, range: SourceRange): DragInfo | null {
   const block = getBlock(content, range)
   const tag = opensWithTag(block)

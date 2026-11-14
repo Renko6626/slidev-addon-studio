@@ -283,6 +283,9 @@ own `components/` directory.
 | Double click | Edit the text of a block in place |
 | Drag | Move the selection. A click on its own never repositions anything |
 | <kbd>Backspace</kbd> or <kbd>Delete</kbd> | Delete the selected element |
+| <kbd>Ctrl/Cmd</kbd> + <kbd>C</kbd> | Copy the selected complete object to the clipboard |
+| <kbd>Ctrl/Cmd</kbd> + <kbd>V</kbd> | Paste the copied object into the current slide |
+| <kbd>Ctrl/Cmd</kbd> + <kbd>D</kbd> | Create a copy directly on the current slide |
 | <kbd>Esc</kbd> | Back out one layer: the drag in progress, then the text editor, then the selection |
 | <kbd>Ctrl</kbd> + <kbd>Z</kbd> | Undo |
 | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> | Redo |
@@ -293,6 +296,23 @@ Undo history lives in the page, so a reload clears it, and so does anything that
 renumbers the deck: adding, duplicating, deleting, reordering or skipping a
 slide. Undo replays a whole slide by its number, and after a renumbering those
 numbers point somewhere else. Your deck is a file in git; that is the real undo.
+
+Object copy and paste work across slides served from the same presentation
+entry (origin and Vite base path). Studio puts both the Markdown source and its
+object metadata on the native clipboard, so adding a page and reloading the
+editor does not discard the copied object. Paste selects the new object. Free
+positioned objects are offset by 20 canvas units on the same page; the first
+paste on another page retains the coordinates, and repeated pastes are offset.
+Images reuse their existing asset paths rather than duplicating files.
+
+Create copy is separate from clipboard copy: it immediately duplicates the
+selection, offsets free positioning and selects the result. Whole top-level
+blocks, components, text boxes and images support clipboard copying. Nested
+sub-elements and frontmatter text are not independent clipboard objects.
+Text editing and panel fields retain their normal text clipboard behaviour;
+external text is not automatically inserted as an object. If an external app
+replaces or strips Studio's custom clipboard format, copy the object again in
+Studio before pasting it on the canvas.
 
 ## Teaching Studio about your components
 
