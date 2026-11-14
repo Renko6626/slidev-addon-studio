@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { action, t } from '../../i18n'
 import { catalogOrigin } from '../../i18n/catalog'
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import type { ObjectRow } from '../../md/literals'
 import { formatObjectArray, formatStringArray, parseObjectArray, parseStringArray } from '../../md/literals'
 import { useCatalog } from '../../composables/useCatalog'
@@ -113,8 +113,6 @@ function coerce(type: string | undefined, value: string | boolean | null) {
   return value
 }
 
-const note = ref('')
-watch(() => studio.note(), value => (note.value = value), { immediate: true })
 
 /**
  * Skipping a slide is a one way door from in here.
@@ -229,10 +227,4 @@ function numberOrNull(value: string) {
     </p>
   </section>
 
-  <section class="studio-section">
-    <h3 class="studio-section__title">
-      {{ t('presenterNotes') }}
-    </h3>
-    <textarea v-model="note" rows="6" spellcheck="false" @change="studio.setNote(note)" />
-  </section>
 </template>

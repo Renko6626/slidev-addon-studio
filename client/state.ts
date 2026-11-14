@@ -2,11 +2,17 @@ import type { StudioTarget } from './types'
 import { useLocalStorage } from '@vueuse/core'
 import { ref, shallowRef } from 'vue'
 
-export type PanelId = 'inspect' | 'components' | 'animate' | 'layout' | 'slides' | 'assets'
+export type PanelId = 'inspect' | 'animate' | 'layout' | 'transition'
+export type RibbonTab = 'home' | 'insert' | 'design' | 'transition' | 'animate' | 'view' | 'object'
 
 /** Studio is off until asked for, so a normal `slidev` session is unchanged. */
 export const studioOpen = useLocalStorage('slidev-studio:open', false)
-export const activePanel = useLocalStorage<PanelId>('slidev-studio:panel', 'inspect')
+export const activePanel = ref<PanelId>('inspect')
+export const ribbonTab = ref<RibbonTab>('home')
+export const library = ref<'components' | 'assets' | null>(null)
+export const slidesVisible = useLocalStorage('slidev-studio:slides-visible', true)
+export const inspectorVisible = useLocalStorage('slidev-studio:inspector-visible', true)
+export const notesVisible = useLocalStorage('slidev-studio:notes-visible', false)
 export const dockWidth = useLocalStorage('slidev-studio:dock-width', 320)
 
 /** Snap a dragged element to the canvas and to its neighbours. Hold Alt to skip. */

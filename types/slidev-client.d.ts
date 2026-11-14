@@ -9,11 +9,15 @@
  */
 
 declare module '@slidev/client' {
-  import type { ClicksContext, SlideRoute } from '@slidev/types'
+  import type { ClicksContext, SlideInfo, SlideRoute } from '@slidev/types'
   import type { ComputedRef, Ref, ShallowRef } from 'vue'
 
   export interface SlidevNav {
-    slides: ShallowRef<SlideRoute[]>
+    router: {
+      currentRoute: Ref<{ query: Record<string, string | null | (string | null)[] | undefined> }>
+      replace: (location: { query: Record<string, string | null | (string | null)[] | undefined> }) => Promise<unknown>
+    }
+    slides: ShallowRef<(SlideRoute & { meta: { slide: SlideInfo } })[]>
     total: ComputedRef<number>
     currentSlideNo: ComputedRef<number>
     currentSlideRoute: ComputedRef<SlideRoute>
@@ -32,6 +36,26 @@ declare module '@slidev/client' {
   }
 
   export function useNav(): SlidevNav
+}
+
+declare module '@slidev/client/composables/useClicks.ts' {
+  import type { ClicksContext, SlideRoute } from '@slidev/types'
+  export function createFixedClicks(route: SlideRoute, current: number): ClicksContext
+}
+
+declare module '@slidev/client/internals/SlideWrapper.vue' {
+  import type { DefineComponent } from 'vue'
+  const component: DefineComponent<{
+    route: import('@slidev/types').SlideRoute
+    clicksContext: import('@slidev/types').ClicksContext
+    renderContext: import('@slidev/types').RenderContext
+  }>
+  export default component
+}
+
+declare module '@slidev/client/state/index.ts' {
+  import type { Ref } from 'vue'
+  export const fullscreen: { isFullscreen: Ref<boolean>, enter: () => Promise<void> }
 }
 
 declare module '@slidev/client/env.ts' {

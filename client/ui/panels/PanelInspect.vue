@@ -160,9 +160,6 @@ async function remove() {
       <h3 class="studio-section__title">
         {{ targetLabel(selection) }}
       </h3>
-      <p class="studio-hint">
-        {{ t('inspectLines', { start: range[0] + 1, end: range[1] }) }}
-      </p>
     </section>
 
     <section class="studio-section">
@@ -226,21 +223,6 @@ async function remove() {
 
     <section class="studio-section">
       <h3 class="studio-section__title">
-        {{ t('style') }}
-      </h3>
-      <StudioField v-if="styleable" :label="t('classes')">
-        <input v-model="classes" type="text" placeholder="text-xl opacity-80" @change="applyClasses">
-      </StudioField>
-      <p v-if="!selection.tag && !configs.mdc" class="studio-hint">
-        {{ t('classesMdc', { setting: 'mdc: true' }) }}
-      </p>
-      <p v-else-if="!styleable" class="studio-hint">
-        {{ t('classesWrap', { syntax: '{.class}', tag: '<div>' }) }}
-      </p>
-    </section>
-
-    <section class="studio-section">
-      <h3 class="studio-section__title">
         {{ t('arrange') }}
       </h3>
       <div class="studio-button-row">
@@ -262,6 +244,24 @@ async function remove() {
       </p>
     </section>
 
+    <details class="studio-advanced">
+      <summary>{{ t('advanced') }}</summary>
+      <p class="studio-hint studio-source-location">{{ t('inspectLines', { start: range[0] + 1, end: range[1] }) }}</p>
+    <section class="studio-section">
+      <h3 class="studio-section__title">
+        {{ t('style') }}
+      </h3>
+      <StudioField v-if="styleable" :label="t('classes')">
+        <input v-model="classes" type="text" placeholder="text-xl opacity-80" @change="applyClasses">
+      </StudioField>
+      <p v-if="!selection.tag && !configs.mdc" class="studio-hint">
+        {{ t('classesMdc', { setting: 'mdc: true' }) }}
+      </p>
+      <p v-else-if="!styleable" class="studio-hint">
+        {{ t('classesWrap', { syntax: '{.class}', tag: '<div>' }) }}
+      </p>
+    </section>
+
     <section class="studio-section">
       <h3 class="studio-section__title">
         Markdown
@@ -276,5 +276,6 @@ async function remove() {
         </button>
       </div>
     </section>
+    </details>
   </template>
 </template>

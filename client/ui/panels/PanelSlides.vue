@@ -2,71 +2,38 @@
 import { t } from '../../i18n'
 import { useNav } from '@slidev/client'
 import { useLocalStorage } from '@vueuse/core'
-import { computed, ref } from 'vue'
-import { deckApi } from '../../composables/useDeckApi'
+import { computed, nextTick, ref, watch } from 'vue'
+import { useElementSize } from '@vueuse/core'
+import { useDeckActions } from '../../composables/useDeckActions'
 import { onDomEvent } from '../../composables/useDomEvent'
-import { useStudioHistory } from '../../composables/useSlideSource'
-import { clearSelection } from '../../state'
+import { busy, editing } from '../../state'
 import { useStudio } from '../../context'
 import SlideThumbnail from '../parts/SlideThumbnail.vue'
 import StudioIcon from '../parts/StudioIcon.vue'
 
-/**
- * The deck outline.
- *
- * Adding, removing and reordering slides rewrites the Markdown file itself,
- * which Slidev's per-slide endpoint cannot do, so these go through Studio's own
- * dev API and come back as a normal file change.
- */
 const studio = useStudio()
 const nav = useNav()
-const history = useStudioHistory()
-
+const { add, duplicate, remove, move } = useDeckActions()
 const slides = computed(() => nav.slides.value)
 const showThumbnails = useLocalStorage('slidev-studio:slide-thumbnails', true)
+const list = ref<HTMLElement | null>(null)
+const { width } = useElementSize(list)
+const thumbnailWidth = computed(() => Math.max(80, width.value - 48))
 
-/** Titles are taken from the Markdown heading, so they can carry inline HTML. */
 function titleOf(slide: (typeof nav.slides.value)[number]) {
-  const raw = slide.meta.slide.title
-  const plain = raw?.replace(/<[^>]*>/g, '').trim()
+  const plain = slide.meta.slide.title?.replace(/<[^>]*>/g, '').trim()
   return plain || slide.meta.slide.frontmatter.layout || t('untitled')
 }
 
-const busy = ref(false)
+watch(() => studio.no(), async () => {
+  await nextTick()
+  list.value?.querySelector('[aria-current="true"]')?.scrollIntoView({ block: 'nearest' })
+}, { immediate: true })
 
-async function run(action: Promise<{ no: number } | null>) {
-  busy.value = true
-  try {
-    const result = await action
-    if (!result)
-      return
-
-    // Undo replays a whole slide by its number, and adding, duplicating,
-    // removing or moving a slide renumbers everything after it: replaying an
-    // older entry would then write that slide's text over a different slide.
-    // The history is dropped rather than left pointing at the wrong slides.
-    history.reset()
-    clearSelection()
-
-    // A change to the deck's shape rebuilds the page, because Slidev's own
-    // reload only refreshes slides it already knows and a new one came back
-    // showing whatever used to carry that number. The address is put on the
-    // new slide first, so the editor comes back where the action pointed:
-    // `go` alone would clamp, since this browser still thinks the deck is
-    // one slide shorter.
-    const path = window.location.pathname.replace(/\/\d+$/, `/${result.no}`)
-    window.history.replaceState(null, '', path + window.location.search)
-    nav.go(Math.min(result.no, nav.total.value))
-  }
-  finally {
-    busy.value = false
-  }
+function go(no: number) {
+  if (!editing.value && !busy.value)
+    nav.go(no)
 }
-
-const add = (after: number) => run(deckApi.insert(after))
-const duplicate = (no: number) => run(deckApi.duplicate(no))
-const remove = (no: number) => run(deckApi.remove(no))
-const move = (no: number, to: number) => run(deckApi.move(no, to))
 
 /*
  * Dragging a slide is the natural way to reorder one, and clicking an arrow
@@ -101,60 +68,39 @@ onDomEvent(window, 'dragend', () => {
 </script>
 
 <template>
-  <div>
-    <div class="studio-section" style="display: flex; align-items: center; justify-content: space-between; gap: 8px">
-      <span class="studio-card__meta">{{ t('slidesCount', slides.length) }}</span>
-      <button
-        class="studio-icon-button"
-        :aria-pressed="showThumbnails"
-        :title="t('showThumbnails')"
-        @click="showThumbnails = !showThumbnails"
-      >
+  <div class="studio-filmstrip">
+    <div class="studio-filmstrip__heading">
+      <strong>{{ t('slides') }}</strong>
+      <button class="studio-icon-button" :aria-pressed="showThumbnails" :title="t('showThumbnails')" @click="showThumbnails = !showThumbnails">
         <StudioIcon :name="showThumbnails ? 'slides' : 'flow'" />
       </button>
     </div>
-
-    <button
-      v-for="slide in slides"
-      :key="slide.no"
-      class="studio-slide-row"
-      :class="{
-        'studio-slide-row--thumb': showThumbnails,
-        'studio-slide-row--over': over === slide.no,
-        'studio-slide-row--dragging': dragging === slide.no,
-      }"
-      :aria-current="slide.no === studio.no()"
-      draggable="true"
-      @click="nav.go(slide.no)"
-      @dragstart="onDragStart(slide.no)"
-      @dragover.prevent="onDragOver(slide.no)"
-      @drop.prevent="onDrop(slide.no)"
-    >
-      <span class="studio-slide-row__no">{{ slide.no }}</span>
-
-      <SlideThumbnail v-if="showThumbnails" :route="slide" />
-
-      <span class="studio-slide-row__title">
-        {{ titleOf(slide) }}
-      </span>
-
-      <span class="studio-slide-row__actions">
-        <span class="studio-icon-button" role="button" :title="t('duplicate')" @click.stop="duplicate(slide.no)">
-          <StudioIcon name="copy" :size="14" />
+    <div ref="list" class="studio-filmstrip__list" :aria-label="t('slides')">
+      <div
+        v-for="slide in slides" :key="slide.no" class="studio-slide-item"
+        :class="{ 'is-current': slide.no === studio.no(), 'is-over': over === slide.no, 'is-dragging': dragging === slide.no }"
+        @dragover.prevent="onDragOver(slide.no)" @drop.prevent="onDrop(slide.no)"
+      >
+        <span class="studio-slide-item__no">{{ slide.no }}</span>
+        <button
+          class="studio-slide-item__preview" :aria-current="slide.no === studio.no()"
+          :aria-label="`${slide.no}: ${titleOf(slide)}`" :disabled="editing || busy"
+          :draggable="!editing && !busy && slide.no !== 1" @click="go(slide.no)" @dragstart="onDragStart(slide.no)"
+          @keydown.down.prevent="go(Math.min(slide.no + 1, slides.length))"
+          @keydown.up.prevent="go(Math.max(1, slide.no - 1))"
+        >
+          <SlideThumbnail v-if="showThumbnails" :route="slide" :width="thumbnailWidth" />
+          <span class="studio-slide-item__title">{{ titleOf(slide) }}</span>
+        </button>
+        <span class="studio-slide-item__actions">
+          <button class="studio-icon-button" :title="t('duplicateSlide')" :disabled="busy || editing" @click="duplicate(slide.no)"><StudioIcon name="copy" :size="14" /></button>
+          <button class="studio-icon-button" :title="slide.no === 1 ? t('firstSlideProtected') : t('deleteSlide')" :disabled="busy || editing || slide.no === 1" @click="remove(slide.no)"><StudioIcon name="trash" :size="14" /></button>
         </span>
-        <span class="studio-icon-button" role="button" :title="t('delete')" @click.stop="remove(slide.no)">
-          <StudioIcon name="trash" :size="14" />
-        </span>
-      </span>
-    </button>
-
-    <div class="studio-section">
-      <button class="studio-button" :disabled="busy" @click="add(studio.no())">
-        <StudioIcon name="plus" :size="14" /> {{ t('addSlideAfter', { number: studio.no() }) }}
-      </button>
-      <p class="studio-hint">
-        {{ t('reorderHint', { syntax: 'src:' }) }}
-      </p>
+      </div>
+    </div>
+    <div class="studio-filmstrip__footer">
+      <button class="studio-button" :disabled="busy || editing" @click="add(studio.no())"><StudioIcon name="plus" />{{ t('newSlide') }}</button>
+      <p class="studio-hint">{{ t('deckReloadHint') }}</p>
     </div>
   </div>
 </template>

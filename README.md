@@ -50,7 +50,41 @@ or in `package.json`, which applies it to every deck in the project:
 ```
 
 Start `slidev` as usual and press <kbd>E</kbd>, or use the pencil button in
-Slidev's bottom bar. Studio adds nothing to the slide while it is closed.
+Slidev's bottom bar. Add `?studio=1` to a slide URL (for example,
+`http://localhost:3030/1?studio=1`) to open directly in the editor. This also
+works under a Vite base path. `?studio=0` explicitly opens the presentation
+without the editor; ordinary URLs follow your previous editor preference.
+
+## Editing workspace
+
+Studio opens a full editing workspace with a slide filmstrip on the left,
+the real Slidev canvas in the centre and a collapsible properties pane on the
+right. A ribbon groups existing commands under Home, Insert, Design,
+Transitions, Animate and View. Selecting an object adds an Object tab for
+positioning, document order and properties. The filmstrip stays visible while
+you edit an object or browse components and assets.
+
+Use the Notes button on the bottom bar to edit the current slide's speaker
+notes. The canvas automatically fits the space left by the panels and notes;
+its displayed percentage is a view scale and does not change slide frontmatter.
+On narrow windows, the properties pane collapses; reopen it from View when
+needed. Source Markdown and utility classes remain available under Advanced
+in the element properties.
+
+Preview temporarily closes the workspace and provides a Return to editor
+button. Present starts fullscreen from the current slide; leaving fullscreen
+returns to editing when Studio started that fullscreen session. Apply or cancel
+an inline text edit before switching modes. Existing edit actions still write
+back to Markdown as before; there is no separate document-wide Save operation.
+
+Studio works with a normal local Slidev project. It has no account, Git,
+collaboration-service or workbench dependency. Desktop packaging, manual view
+zoom, multi-selection and object grouping are outside this version.
+
+Page insertion, duplication, deletion and reordering still reload the editor
+and clear undo history. The first entry slide and cross-file move restrictions
+described below still apply. Document order commands do not implement a general
+object layer stack. Studio adds nothing to the slide while it is closed.
 
 ## Interface language
 
@@ -90,7 +124,7 @@ included in the fork, so the workbench no longer needs a Studio package patch.
 | **Components** | Markdown basics plus every component this deck can use, with live previews. Click to insert, drag onto the canvas to place freely |
 | **Animate** | Click steps, reveal and hide, entrance animations, staggered lists, motion presets, slide transitions |
 | **Layout** | The layout, with a live thumbnail of each one, the frontmatter keys that layout reads, and the slide's title, classes, background, zoom, click count and notes |
-| **Slides** | Live thumbnails, drag to reorder, add, duplicate and delete |
+| **Slide filmstrip** | Live thumbnails, drag to reorder, add, duplicate and delete |
 | **Assets** | Drop images into `public/` and insert them |
 
 ### Selecting and moving

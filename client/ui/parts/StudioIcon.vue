@@ -7,6 +7,8 @@
 const props = withDefaults(defineProps<{ name: string, size?: number }>(), { size: 16 })
 
 const paths: Record<string, string> = {
+  notes: 'M4 3h16v18H4zM8 7h8M8 11h8M8 15h5',
+  fit: 'M8 3H3v5M16 3h5v5M3 16v5h5M21 16v5h-5M7 7h10v10H7z',
   cursor: 'M5 3l14 8-6 1.5L10 19z',
   components: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
   animate: 'M12 3v4M12 17v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M3 12h4M17 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8',

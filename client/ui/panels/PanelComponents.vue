@@ -20,6 +20,7 @@ import ComponentPreview from '../parts/ComponentPreview.vue'
  * Clicking inserts into the flow after whatever is selected. Dragging onto the
  * canvas inserts at the drop point as a free-positioned element.
  */
+const emit = defineEmits<{ inserted: [] }>()
 const studio = useStudio()
 const { query, groups, sources, toggleSource } = useCatalog()
 
@@ -54,6 +55,7 @@ async function insert(item: { name: string, snippet: string, tag?: string, label
   // panel came back holding a different block.
   await studio.selectInserted(item.tag)
   activePanel.value = 'inspect'
+  emit('inserted')
 }
 
 onDomEvent<DragEvent>(window, 'dragover', (event) => {
@@ -73,6 +75,8 @@ onDomEvent<DragEvent>(window, 'drop', async (event) => {
   await studio.commit(insertSnippet(studio.content(), snippet, { mode: 'append' }), action('actionPlace', {
     name: component.labelKey ? { key: component.labelKey } : component.label,
   }))
+  await studio.selectInserted()
+  emit('inserted')
 })
 </script>
 

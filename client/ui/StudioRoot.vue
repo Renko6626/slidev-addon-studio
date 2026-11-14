@@ -2,8 +2,9 @@
 import type { ActionLabel } from '../i18n'
 import type { StudioContext } from '../context'
 import { useNav } from '@slidev/client'
-import { useWindowSize } from '@vueuse/core'
-import { computed, onScopeDispose, provide, watch, watchEffect } from 'vue'
+import { useElementBounding, useWindowSize } from '@vueuse/core'
+import { slideWidth, slideHeight } from '@slidev/client/env.ts'
+import { computed, onScopeDispose, provide, ref, watch, watchEffect } from 'vue'
 import { duplicateBlock, nudgeBlock } from '../actions'
 import { onDomEvent } from '../composables/useDomEvent'
 import { useSelection } from '../composables/useSelection'
@@ -11,11 +12,18 @@ import { useSlideCanvas } from '../composables/useSlideCanvas'
 import { useSlideSource } from '../composables/useSlideSource'
 import { useTransformGizmo } from '../composables/useTransformGizmo'
 import { studioContext, studioKey } from '../context'
-import { dockWidth, editing, lastError, selection, studioOpen } from '../state'
+import { busy, dockWidth, editing, inspectorVisible, lastError, notesVisible, selection, slidesVisible, studioOpen } from '../state'
+import { fitSlide } from '../editor-view'
+import { t } from '../i18n'
+import { useEditorMode } from '../composables/useEditorMode'
 import InlineEditor from './InlineEditor.vue'
 import SelectionLayer from './SelectionLayer.vue'
 import StudioDock from './StudioDock.vue'
 import StudioToolbar from './StudioToolbar.vue'
+import PanelSlides from './panels/PanelSlides.vue'
+import StudioLibrary from './StudioLibrary.vue'
+import StudioNotes from './StudioNotes.vue'
+import StudioIcon from './parts/StudioIcon.vue'
 import '../../styles/studio.css'
 
 /**
@@ -140,47 +148,68 @@ watch(no, () => (selection.value = null))
 // the first click of every slide being the one that starts the request.
 watchEffect(() => void source.info.value)
 
-// Push the deck aside so the dock never covers what is being edited.
+const mode = useEditorMode()
 const viewport = useWindowSize()
+const stage = ref<HTMLElement | null>(null)
+const bounds = useElementBounding(stage)
+const fitted = computed(() => fitSlide({ left: bounds.left.value, top: bounds.top.value, width: bounds.width.value, height: bounds.height.value }, { width: slideWidth.value, height: slideHeight.value }))
+const shellStyle = computed(() => ({
+  '--studio-left-width': slidesVisible.value && viewport.width.value >= 700 ? '224px' : '0px',
+  '--studio-right-width': inspectorVisible.value && viewport.width.value >= 1000 ? `${dockWidth.value}px` : '0px',
+}))
+watch(() => viewport.width.value < 1000, narrow => { if (narrow) inspectorVisible.value = false }, { immediate: true })
+watch(() => viewport.width.value < 700, narrow => { if (narrow) slidesVisible.value = false }, { immediate: true })
 
+const viewProperties = ['left', 'top', 'width', 'height'] as const
+function resetView() {
+  document.documentElement.classList.remove('slidev-studio-docked')
+  for (const key of viewProperties)
+    document.documentElement.style.removeProperty(`--studio-page-${key}`)
+}
 watchEffect(() => {
-  const root = document.documentElement
-  root.classList.toggle('slidev-studio-docked', studioOpen.value)
-
   if (!studioOpen.value) {
-    root.style.removeProperty('--studio-dock-width')
-    root.style.removeProperty('--studio-deck-scale')
-    root.style.removeProperty('--studio-deck-offset')
+    resetView()
     return
   }
-
-  const scale = Math.max(0.3, (viewport.width.value - dockWidth.value) / viewport.width.value)
-  root.style.setProperty('--studio-dock-width', `${dockWidth.value}px`)
-  root.style.setProperty('--studio-deck-scale', String(scale))
-  root.style.setProperty('--studio-deck-offset', `${((1 - scale) * viewport.height.value) / 2}px`)
+  document.documentElement.classList.add('slidev-studio-docked')
+  for (const key of viewProperties)
+    document.documentElement.style.setProperty(`--studio-page-${key}`, `${fitted.value[key]}px`)
 })
+onScopeDispose(resetView)
 
 </script>
 
 <template>
-  <!--
-    Teleported to `body` on purpose. Studio scales the deck down with a CSS
-    transform to make room for the dock, and a transform makes its subtree the
-    containing block for `position: fixed`. Left where Slidev mounts global
-    layers, the editor's own chrome would be scaled and clipped along with the
-    slide.
-  -->
   <Teleport to="body">
     <div class="slidev-studio">
-      <StudioToolbar />
       <template v-if="studioOpen">
+        <div class="studio-backdrop" />
+        <div class="studio-workspace" :style="shellStyle">
+          <StudioToolbar @preview="mode.preview" @present="mode.present" @fit="bounds.update()" />
+          <aside v-if="slidesVisible" class="studio-navigation"><PanelSlides /></aside>
+          <main class="studio-center">
+            <div ref="stage" class="studio-stage" />
+            <StudioNotes v-if="notesVisible" :key="no" />
+          </main>
+          <StudioDock v-if="inspectorVisible" />
+          <footer class="studio-statusbar">
+            <span>{{ t('pageProgress', { current: no, total: nav.total.value }) }}</span>
+            <span v-if="busy" role="status">{{ t('writing') }}</span>
+            <span v-if="editing" class="studio-statusbar__editing">{{ t('finishEditing') }}</span>
+            <span class="studio-statusbar__spacer" />
+            <button :aria-pressed="notesVisible" @click="notesVisible = !notesVisible">{{ t('presenterNotes') }}</button>
+            <span>{{ Math.round(fitted.scale * 100) }}%</span>
+            <button class="studio-statusbar__fit" @click="bounds.update()"><StudioIcon name="fit" :size="14" />{{ t('fitWindow') }}</button>
+          </footer>
+        </div>
         <SelectionLayer />
         <InlineEditor />
-        <StudioDock />
+        <StudioLibrary />
       </template>
-      <div v-if="lastError" class="studio-toast">
-        {{ lastError }}
-      </div>
+      <button v-else-if="mode.previewing.value && !mode.isFullscreen.value" class="studio-return" @click="mode.returnToEditor">
+        <StudioIcon name="edit" />{{ t('returnEditor') }}
+      </button>
+      <div v-if="lastError" class="studio-toast" role="alert">{{ lastError }}</div>
     </div>
   </Teleport>
 </template>
