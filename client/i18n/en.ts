@@ -1,4 +1,8 @@
 export default {
+  "fontGroup": "Font",
+  "paragraphGroup": "Paragraph",
+  "selectTextBoxForFormat": "Select a Studio text box to format its text.",
+  "textFormatInHome": "Use Home for font and paragraph formatting.",
   "mixedFormat": "Mixed",
   "clearTextFormat": "Clear character formatting",
   "alignJustify": "Justify",

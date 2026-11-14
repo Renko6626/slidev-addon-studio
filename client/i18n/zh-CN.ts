@@ -1,6 +1,10 @@
 import type en from './en'
 
 export default {
+  "fontGroup": "字体",
+  "paragraphGroup": "段落",
+  "selectTextBoxForFormat": "选中 Studio 文本框后可调整文字格式。",
+  "textFormatInHome": "字体和段落格式请在“开始”中调整。",
   "mixedFormat": "混合",
   "clearTextFormat": "清除字符格式",
   "alignJustify": "两端对齐",

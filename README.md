@@ -97,9 +97,11 @@ windows and can be reopened from View.
 
 **Insert → Text box** creates a positioned box with its placeholder selected.
 Double-click or press F2 to edit; use the side handles to change its width.
-Height follows the text. The Home ribbon and inspector share font, size (canvas
-CSS pixels), colour, bold/italic/underline/strike, alignment, list, indent and line
-spacing controls. A text selection changes only those characters; a caret sets
+Height follows the text. Home keeps its Font and Paragraph groups visible, with
+font, size (canvas CSS pixels), colour, bold/italic/underline/strike, alignment,
+list, indent and line spacing controls. They are disabled when no supported
+Studio text box is selected. Entering text editing opens Home; the inspector
+retains position, dimensions and other detailed properties. A text selection changes only those characters; a caret sets
 the format of subsequent typing; selecting the box applies formatting to all its
 text. Mixed values are shown as Mixed. Font names use fonts available in the
 browser, with normal CSS fallback; fonts are not installed or downloaded.

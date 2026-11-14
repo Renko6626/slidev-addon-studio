@@ -42,6 +42,10 @@ watch(selection, value => {
   if (!value && ribbonTab.value === 'object')
     ribbonTab.value = 'home'
 })
+watch(editing, value => {
+  if (value && selection.value?.element === 'text')
+    ribbonTab.value = 'home'
+})
 function panel(id: PanelId) {
   activePanel.value = id
   inspectorVisible.value = true
@@ -69,7 +73,7 @@ async function insertTextBox() {
   editing.value = true
 }
 interface Command { label: MessageKey, icon: string, run: () => unknown, disabled?: boolean, pressed?: boolean, hint?: MessageKey }
-interface Group { label: MessageKey, commands: Command[] }
+interface Group { label: MessageKey, commands: Command[], text?: 'font' | 'paragraph' }
 const groups = computed<Group[]>(() => {
   const target = selection.value
   switch (ribbonTab.value) {
@@ -80,6 +84,8 @@ const groups = computed<Group[]>(() => {
         { label: 'deleteSlide', icon: 'trash', run: () => deck.remove(studio.no()), disabled: studio.no() === 1, hint: studio.no() === 1 ? 'firstSlideProtected' : 'deckReloadHint' },
         { label: 'layout', icon: 'layout', run: () => panel('layout') },
       ] },
+      { label: 'fontGroup', text: 'font', commands: [] },
+      { label: 'paragraphGroup', text: 'paragraph', commands: [] },
       { label: 'editingGroup', commands: [
         { label: 'editTextCommand', icon: 'edit', run: editText, disabled: !target || target.element === 'image' || (!mapped.value && !target.prop) },
         { label: 'duplicateObject', icon: 'copy', run: () => target && duplicateBlock(studio, target), disabled: !reorderable.value },
@@ -162,13 +168,10 @@ const groups = computed<Group[]>(() => {
         </details>
         <span class="studio-command-group__label">{{ t('picture') }}</span>
       </div>
-      <div v-if="ribbonTab === 'home' && selection?.element === 'text'" class="studio-command-group studio-text-tools">
-        <TextElementFields compact />
-        <span class="studio-command-group__label">{{ t('textFormat') }}</span>
-      </div>
       <fieldset v-if="ribbonTab === 'transition'" class="studio-transition-quick" :disabled="locked"><PanelTransition /></fieldset>
       <div v-for="group in groups" :key="group.label" class="studio-command-group">
-        <div class="studio-command-group__buttons">
+        <TextElementFields v-if="group.text" :group="group.text" />
+        <div v-else class="studio-command-group__buttons">
           <button
             v-for="command in group.commands" :key="command.label" class="studio-command"
             :disabled="locked || command.disabled" :aria-pressed="command.pressed" :title="t(command.hint || command.label)" @click="command.run()"

@@ -15,7 +15,6 @@ import { busy, editing, missed, selection } from '../../state'
 import PropField from '../parts/PropField.vue'
 import StudioField from '../parts/StudioField.vue'
 import StudioIcon from '../parts/StudioIcon.vue'
-import TextElementFields from '../parts/TextElementFields.vue'
 import ImageElementFields from '../parts/ImageElementFields.vue'
 
 /**
@@ -168,10 +167,10 @@ async function remove() {
       <h3 class="studio-section__title">
         {{ targetLabel(selection) }}
       </h3>
+      <p v-if="element?.kind === 'text'" class="studio-hint">{{ studio.text.supported.value ? t('textFormatInHome') : t('textSourceFallback') }}</p>
     </section>
 
-    <section v-if="element?.kind === 'text'" class="studio-section"><h3 class="studio-section__title">{{ t('textFormat') }}</h3><TextElementFields /></section>
-    <section v-else-if="element?.kind === 'image'" class="studio-section"><ImageElementFields /></section>
+    <section v-if="element?.kind === 'image'" class="studio-section"><ImageElementFields /></section>
 
     <section class="studio-section">
       <h3 class="studio-section__title">

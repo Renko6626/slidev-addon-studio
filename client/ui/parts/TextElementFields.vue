@@ -8,10 +8,13 @@ import ColorSwatch from './ColorSwatch.vue'
 import StudioField from './StudioField.vue'
 import StudioIcon from './StudioIcon.vue'
 
-defineProps<{ compact?: boolean }>()
+defineProps<{ group: 'font' | 'paragraph' }>()
 const { text } = useStudio()
 const { editor, format, supported, scope } = text
 const disabled = computed(() => busy.value || !supported.value || (editing.value && !editor.value))
+const hint = computed(() => selection.value?.element !== 'text' ? t('selectTextBoxForFormat')
+  : !supported.value ? t('textSourceFallback') : t(scope.value))
+const emptyLabel = computed(() => format.value ? t('mixedFormat') : '—')
 const fontId = useId()
 const sizeId = useId()
 const fonts = ['sans-serif', 'serif', 'monospace', 'Arial', 'Calibri', 'Verdana', 'Georgia', 'Times New Roman', 'Microsoft YaHei', 'SimSun', 'SimHei', 'Noto Sans CJK SC']
@@ -29,23 +32,23 @@ function run(command: TextCommand, value?: string) { void text.run(command, valu
 </script>
 
 <template>
-  <fieldset v-if="selection?.element === 'text'" class="studio-element-fields studio-rich-fields" :class="{ 'studio-rich-fields--compact': compact }" :disabled="disabled" data-studio-text-controls :title="supported ? t(scope) : t('textSourceFallback')">
-    <div class="studio-rich-fields__font">
+  <fieldset class="studio-element-fields studio-rich-fields" :disabled="disabled" data-studio-text-controls :title="hint" :aria-label="t(group === 'font' ? 'fontGroup' : 'paragraphGroup')">
+    <div v-if="group === 'font'" class="studio-rich-fields__font">
       <StudioField :label="t('fontFamily')">
-        <input type="text" class="studio-font-name" :list="fontId" :value="format?.fontFamily ?? ''" :placeholder="t('mixedFormat')" @change="run('fontFamily', ($event.target as HTMLInputElement).value)">
+        <input type="text" class="studio-font-name" :list="fontId" :value="format?.fontFamily ?? ''" :placeholder="emptyLabel" :title="t('fontFamily')" @change="run('fontFamily', ($event.target as HTMLInputElement).value)">
         <datalist :id="fontId"><option v-for="font in fonts" :key="font" :value="font" /></datalist>
       </StudioField>
       <StudioField :label="t('fontSizePx')">
-        <input type="number" min="8" max="200" step="1" :list="sizeId" :value="format?.fontSize ?? ''" :placeholder="t('mixedFormat')" @change="run('fontSize', ($event.target as HTMLInputElement).value)">
+        <input type="number" min="8" max="200" step="1" :list="sizeId" :value="format?.fontSize ?? ''" :placeholder="emptyLabel" :title="t('fontSizePx')" @change="run('fontSize', ($event.target as HTMLInputElement).value)">
         <datalist :id="sizeId"><option v-for="size in sizes" :key="size" :value="size" /></datalist>
       </StudioField>
-      <StudioField :label="t('textColor')"><ColorSwatch :value="format?.color ?? ''" :placeholder="format?.color === null ? t('mixedFormat') : undefined" @change="run('color', $event)" /></StudioField>
+      <StudioField :label="t('textColor')"><ColorSwatch :value="format?.color ?? ''" :placeholder="!format || format.color === null ? emptyLabel : undefined" @change="run('color', $event)" /></StudioField>
       <div class="studio-text-buttons" role="group" :aria-label="t('textFormat')">
         <button v-for="mark in marks" :key="mark.id" class="studio-icon-button" :aria-pressed="format?.[mark.id] ?? false" :title="t(mark.label)" @click="run(mark.id)"><StudioIcon :name="mark.id" /></button>
         <button class="studio-icon-button" :title="t('clearTextFormat')" @click="run('clear')"><StudioIcon name="clear-format" /></button>
       </div>
     </div>
-    <div class="studio-rich-fields__paragraph">
+    <div v-else class="studio-rich-fields__paragraph">
       <div class="studio-text-buttons" role="group" :aria-label="t('textAlignment')">
         <button v-for="align in alignments" :key="align.id" class="studio-icon-button" :aria-pressed="format?.align === align.id" :title="t(align.label)" @click="run('align', align.id)"><StudioIcon :name="`align-${align.id}`" /></button>
       </div>
@@ -56,14 +59,12 @@ function run(command: TextCommand, value?: string) { void text.run(command, valu
         <button class="studio-icon-button" :title="t('increaseIndent')" @click="run('indent')"><StudioIcon name="indent" /></button>
       </div>
       <StudioField :label="t('lineSpacing')">
-        <select :value="format?.lineHeight ?? ''" @change="run('lineHeight', ($event.target as HTMLSelectElement).value)">
-          <option v-if="format?.lineHeight === null" value="" disabled>{{ t('mixedFormat') }}</option>
+        <select :value="format?.lineHeight ?? ''" :title="t('lineSpacing')" @change="run('lineHeight', ($event.target as HTMLSelectElement).value)">
+          <option v-if="!format || format.lineHeight === null" value="" disabled>{{ emptyLabel }}</option>
           <option v-if="format?.lineHeight && !lineHeights.includes(format.lineHeight)" :value="format.lineHeight">{{ format.lineHeight }}</option>
           <option v-for="height in lineHeights" :key="height" :value="height">{{ height }}</option>
         </select>
       </StudioField>
     </div>
-    <p v-if="!compact" class="studio-hint">{{ supported ? t(scope) : t('textSourceFallback') }}</p>
-    <p v-if="!compact" class="studio-hint">{{ t('textBoxSizingHint') }}</p>
   </fieldset>
 </template>
