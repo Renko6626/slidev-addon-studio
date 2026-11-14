@@ -27,9 +27,17 @@ Select one and the Element panel shows the exact Markdown behind it.
 
 ---
 
+<v-drag pos="30,242,878,_">
+
 # Pr~~o1ps, w~~ithout leaving the canvas111
 
+</v-drag>
+
+<v-drag pos="90,72,876,_">
+
 Select thent panel offers its props. The picker below is not hardcoded: `Shape.vue` declares that its `name` prop comes from `./shapes/*.svg`, so thitor lists whatever is in that folder.
+
+</v-drag>
 
 <Shape name="hexagon" :size="150" caption="A hexagon" v-drag="[243,136,150,NaN]" motion :initial="{'y':60,'opacity':0}" :enter="{'y':0,'opacity':1}" v-click.fade-in />
 
@@ -41,7 +49,7 @@ Select the shape and the Element panel offers its props. The picker below is not
 hardcoded: `Shape.vue` declares that its `name` prop comes from `./shapes/*.svg`,
 so the editor lists whatever is in that folder.
 
-<Shape name="hexagon" :size="150" caption="A hexagon" v-drag="[243,136,150,NaN]" />
+<Shape name="hexagon" :size="150" caption="A hexagon" v-drag="[216,267,150,NaN]" />
 
 ---
 
