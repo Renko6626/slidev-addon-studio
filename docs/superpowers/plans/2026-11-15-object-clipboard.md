@@ -1,5 +1,7 @@
 # 对象复制粘贴实施计划
 
+> 历史阶段记录。当前功能、版本状态和已知限制见 [阶段状态](../../status.md)。后续阶段可能已完成文中的暂缓项。
+
 > **For agentic workers:** Use superpowers:executing-plans. 用户已确认以下功能并要求阶段性提交之后直接实施。
 
 **Goal:** 当前文稿中的完整对象可以通过 Ctrl/Cmd+C、V 跨页复制粘贴；直接创建副本会错位并选中新对象。
@@ -42,7 +44,7 @@
 - 功能在其后的独立提交交付，沿用 `codex/studio-workspace`，未发布或合并。
 - `pnpm test`：197 通过，1 个依赖 `STUDIO_QA_URL` 的真实服务 QA 跳过。
 - `pnpm typecheck`：通过。
-- Vue SFC 检查通过：沿用临时 vue-tsc 与项目 TypeScript 5.9.3，命令为 `node -e "require('/data/sunyunbo/.npm/_npx/d98b0549d8187273/node_modules/vue-tsc').run(require.resolve('typescript/lib/tsc'))" -- --noEmit`。
+- Vue SFC 检查通过：沿用临时 vue-tsc 与项目 TypeScript 5.9.3，命令为 `vue-tsc --noEmit`（当时使用临时工具并显式指定项目 TypeScript）。
 - `pnpm exec slidev build playground/slides.md --out /tmp/studio-clipboard-build`：通过。
 - 事件测试调用生产处理器，验证跨页无选区粘贴、连续偏移、输入态保留和未读取完成的目标页保护。它们不代表真实系统剪贴板验收，未做自动浏览器交互。
 - 一次只读审阅发现嵌套 Markdown 子列表未被原有 nested 标记覆盖；回归测试复现后，按顶层对象范围排除。相同修正轮验证并保留原始缩进，以及 Studio 的单对象 v-click/v-clicks 与 v-drag 包装器，已有动画写回规则不变。

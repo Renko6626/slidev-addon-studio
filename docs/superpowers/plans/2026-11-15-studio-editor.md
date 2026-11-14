@@ -1,5 +1,7 @@
 # Studio 完整编辑模式实施计划
 
+> 历史阶段记录。当前功能、版本状态和已知限制见 [阶段状态](../../status.md)。后续阶段可能已完成文中的暂缓项。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 在现有 addon 内完成 PowerPoint 式编辑外壳，保留真实 Slidev 画布与 Markdown 编辑能力。
@@ -84,10 +86,10 @@
 
 - `pnpm test`：179 通过，1 个要求 `STUDIO_QA_URL` 的真实服务 QA 跳过。
 - `pnpm typecheck`：通过。
-- Vue SFC 类型检查：通过；临时使用 vue-tsc，显式调用项目已有 TypeScript 5.9.3，未改项目依赖。运行入口为 `node -e "require('/data/sunyunbo/.npm/_npx/d98b0549d8187273/node_modules/vue-tsc').run(require.resolve('typescript/lib/tsc'))" -- --noEmit`。
+- Vue SFC 类型检查：通过；临时使用 vue-tsc，显式调用项目已有 TypeScript 5.9.3，未改项目依赖。运行入口为 `vue-tsc --noEmit`（当时使用临时工具并显式指定项目 TypeScript）。
 - `pnpm exec slidev build playground/slides.md --out /tmp/studio-build`：通过。
 - 开发页面 `/3?studio=1`：1440×900 和 960×720 截图检查通过；窄窗口中原生 Slidev 控制条已隐藏。
 - 一次只读完整审阅完成。关闭保护的同步回调重入导致选区丢失，通过实际模式 composable 的回归测试复现并修复；预览往返保留其他查询参数也得到覆盖。
 - 同一修正轮恢复新备注和目录区域的浏览器右键菜单。这是新界面引入的实际编辑回归，修复只调整选择器，没有增加 DOM 测试基础设施。
 - 按用户约定集中验证，仅为关键新行为和具体故障增加永久测试。未做自动点击、输入、拖动或放映流程验收；这些交互待用户试用。截图环境中既有 Slidev Wake Lock 权限被 headless 浏览器拒绝，未修改上游权限行为。
-- 桌面和较窄窗口截图保存在 `../release/studio-editor-2026-11-15/`。未接入工作台/Git、未新增依赖、未发布或合并。
+- 桌面和较窄窗口截图保存在 [仓库截图](../../images/workspace.png)。未接入工作台/Git、未新增依赖、未发布或合并。

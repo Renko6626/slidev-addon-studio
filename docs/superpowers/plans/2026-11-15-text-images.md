@@ -1,5 +1,7 @@
 # 文本框和图片编辑实施计划
 
+> 历史阶段记录。当前功能、版本状态和已知限制见 [阶段状态](../../status.md)。后续阶段可能已完成文中的暂缓项。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans when implementation is authorized. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 从空白幻灯片创建文本框和图片，完成输入、常用格式、位置尺寸调整和图片替换，全程无需手写 Markdown。
@@ -160,8 +162,8 @@
 - 图片流程只保存发起页面和替换目标的源码快照，目标变化时停止写入并提示，不引入恢复队列。
 - `pnpm test`：186 通过，1 个需要 `STUDIO_QA_URL` 的真实服务 QA 跳过。
 - `pnpm typecheck`：通过。
-- Vue SFC 类型检查通过：`node -e "require('/data/sunyunbo/.npm/_npx/d98b0549d8187273/node_modules/vue-tsc').run(require.resolve('typescript/lib/tsc'))" -- --noEmit`。沿用前阶段临时工具及项目 TypeScript，不改依赖。
+- Vue SFC 类型检查通过：`vue-tsc --noEmit`（当时使用临时工具并显式指定项目 TypeScript）。沿用前阶段临时工具及项目 TypeScript，不改依赖。
 - 构建通过：`pnpm exec slidev build playground/slides.md --base /studio-preview/ --out /tmp/studio-text-images-build/studio-preview`。
 - 截图检查：根路径 `/9?studio=1`、开发子路径 `/studio-preview/9?studio=1`、构建子路径 `/studio-preview/10`。新文本换行、图片显示和子路径素材正常；构建输出没有 Studio 界面。headless 环境仍会拒绝既有 Slidev Wake Lock 请求，不影响截图内容。
-- 截图保存于 `../release/studio-text-images-2026-11-15/`。浏览器仅导航并截图，未执行自动输入、选择文件、拖动、更换或撤销流程；这些交互待用户试用。
+- 截图保存于 [仓库截图](../../images/text-images.png)。浏览器仅导航并截图，未执行自动输入、选择文件、拖动、更换或撤销流程；这些交互待用户试用。
 - 一次独立只读代码审阅完成，未发现阻断问题。暂缓的轻微问题：新要素属性面板隐藏“回到文档流”，通用工具栏和右键菜单仍保留入口；使用该入口会移除自由定位及其尺寸，后续统一入口可见性。本次不扩大为新的布局转换机制。
