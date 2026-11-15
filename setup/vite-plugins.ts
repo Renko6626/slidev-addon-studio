@@ -1,5 +1,6 @@
 import type { ResolvedSlidevOptions } from '@slidev/types'
 import { studioPlugin } from '../node/plugin'
+import { presentationDragPlugin } from '../node/presentation-drag'
 
 /**
  * Slidev calls this with the fully resolved options, including every theme
@@ -9,4 +10,4 @@ import { studioPlugin } from '../node/plugin'
  * Written as a plain default export rather than through `defineVitePluginsSetup`
  * so `@slidev/types` stays a types-only dependency.
  */
-export default (options: ResolvedSlidevOptions) => [studioPlugin(options)]
+export default (options: ResolvedSlidevOptions) => [studioPlugin(options), presentationDragPlugin()]
