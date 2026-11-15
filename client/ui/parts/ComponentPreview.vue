@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { CatalogComponent } from '../../types'
-import { compile, computed, defineComponent, h, shallowRef, watchEffect } from 'vue'
+import { compile, computed, defineComponent, h, onScopeDispose, shallowRef, watchEffect } from 'vue'
 import { useDeckPaint } from '../../composables/useDeckPaint'
+import { createPreviewRuntime, disposePreviewRuntime, providePreviewRuntime } from '../../../runtime/preview'
 
 /**
  * Renders the real component, not a screenshot, by compiling its example at
@@ -17,6 +18,10 @@ import { useDeckPaint } from '../../composables/useDeckPaint'
  * this component.
  */
 const props = defineProps<{ component: CatalogComponent }>()
+
+const previewRuntime = createPreviewRuntime()
+providePreviewRuntime(previewRuntime)
+onScopeDispose(() => disposePreviewRuntime(previewRuntime))
 
 const PLACEHOLDER = defineComponent({
   name: 'StudioPlaceholder',

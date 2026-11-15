@@ -92,3 +92,10 @@ declare module '@slidev/client/logic/contextMenu.ts' {
   export function openContextMenu(x: number, y: number): void
   export function closeContextMenu(): void
 }
+
+declare module '@slidev/client/constants' {
+  import type { RenderContext } from '@slidev/types'
+  import type { InjectionKey, Ref } from 'vue'
+  export const injectionCurrentPage: InjectionKey<Ref<number>>
+  export const injectionRenderContext: InjectionKey<Ref<RenderContext>>
+}

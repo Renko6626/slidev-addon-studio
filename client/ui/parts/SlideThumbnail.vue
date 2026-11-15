@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { SlideRoute } from '@slidev/types'
-import { computed, onErrorCaptured, ref } from 'vue'
+import { computed, onErrorCaptured, onScopeDispose, ref } from 'vue'
 import { slideHeight, slideWidth } from '@slidev/client/env.ts'
 import { createFixedClicks } from '@slidev/client/composables/useClicks.ts'
 import SlideWrapper from '@slidev/client/internals/SlideWrapper.vue'
 import { useDeckPaint } from '../../composables/useDeckPaint'
+import { createPreviewRuntime, disposePreviewRuntime, providePreviewRuntime } from '../../../runtime/preview'
 
 /**
  * A slide rendered small.
@@ -15,6 +16,10 @@ import { useDeckPaint } from '../../composables/useDeckPaint'
  * this, and it keeps click animations from advancing in the panel.
  */
 const props = defineProps<{ route: SlideRoute, width?: number }>()
+
+const previewRuntime = createPreviewRuntime()
+providePreviewRuntime(previewRuntime)
+onScopeDispose(() => disposePreviewRuntime(previewRuntime))
 
 const THUMBNAIL_WIDTH = 132
 const failed = ref(false)

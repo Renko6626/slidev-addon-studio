@@ -1,5 +1,6 @@
 import type { App, Ref } from 'vue'
 import { createPinia, disposePinia } from 'pinia'
+import type { Pinia } from 'pinia'
 import { computed, readonly, ref } from 'vue'
 import type { StudioMode, StudioRuntime } from './types'
 
@@ -20,9 +21,16 @@ export function installStudioRuntime(app: App): StudioRuntime {
   if (installed) return installed
 
   const existingPinia = app.config.globalProperties.$pinia
-  const pinia = existingPinia ?? createPinia()
-  if (!existingPinia) app.use(pinia)
+  const { runtime, dispose } = createRuntimeHost(existingPinia, () => { apps.delete(app) })
+  if (!existingPinia) app.use(runtime.pinia)
+  apps.set(app, runtime)
+  app.onUnmount(dispose)
+  return runtime
+}
 
+/** Internal host factory shared by the application and isolated preview subtrees. */
+export function createRuntimeHost(existingPinia?: Pinia, onDispose?: () => void): { runtime: StudioRuntime, dispose: () => void } {
+  const pinia = existingPinia ?? createPinia()
   const state: RuntimeState = { mode: ref('edit'), ready: ref(false), viewEligible: ref(false), disposed: false }
   const resets = new Set<() => void>()
   const runtime: StudioRuntime = {
@@ -43,14 +51,12 @@ export function installStudioRuntime(app: App): StudioRuntime {
     state.ready.value = false
     resets.clear()
     if (!existingPinia) disposePinia(pinia)
-    apps.delete(app)
+    onDispose?.()
     disposals.delete(dispose)
   }
   states.set(runtime, state)
-  apps.set(app, runtime)
   disposals.add(dispose)
-  app.onUnmount(dispose)
-  return runtime
+  return { runtime, dispose }
 }
 
 export function getStudioRuntime(app: App): StudioRuntime {
