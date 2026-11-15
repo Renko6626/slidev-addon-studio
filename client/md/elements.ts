@@ -6,7 +6,22 @@ import { findAttr, opensWithTag, writeAttr } from './tags'
 
 export type ElementKind = 'text' | 'image' | 'shape'
 export interface Size { width: number, height: number }
-const STYLE_KEYS = ['font-family', 'font-size', 'color', 'text-align', 'line-height', 'object-fit'] as const
+const STYLE_KEYS = ['font-family', 'font-size', 'color', 'text-align', 'line-height', 'object-fit', 'object-position'] as const
+
+/** Percentage controls cover Studio's saved positions and ordinary CSS keywords. */
+export function readImagePosition(value: string) {
+  const parts = value.trim().toLowerCase().split(/\s+/)
+  if (parts.length === 1)
+    parts.push('center')
+  if (parts[0] === 'top' || parts[0] === 'bottom' || parts[1] === 'left' || parts[1] === 'right')
+    parts.reverse()
+  function percent(part: string | undefined, start: string, end: string) {
+    if (part === start) return 0
+    if (part === end) return 100
+    return part && /^\d+(?:\.\d+)?%$/.test(part) ? Math.min(100, Number.parseFloat(part)) : 50
+  }
+  return { x: percent(parts[0], 'left', 'right'), y: percent(parts[1], 'top', 'bottom') }
+}
 
 function decode(value: string): string {
   return value.replace(/&(amp|quot|apos|lt|gt|#39);/g, (_, name: string) => ({ amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', '#39': "'" })[name]!)

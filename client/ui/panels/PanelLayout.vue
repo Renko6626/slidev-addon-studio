@@ -7,6 +7,11 @@ import { useCatalog } from '../../composables/useCatalog'
 import { useStudio } from '../../context'
 import PropField from '../parts/PropField.vue'
 import StudioField from '../parts/StudioField.vue'
+import ColorSwatch from '../parts/ColorSwatch.vue'
+import { imagePending, useImageInsertion } from '../../composables/useImageInsertion'
+import { changePageBackground, isFreeCanvasPage, usePageBackground } from '../../composables/usePageBackground'
+import { readPageBackground } from '../../md/background'
+import { busy, editing } from '../../state'
 
 /**
  * Page name and the parameters the existing layout actually uses.
@@ -15,6 +20,18 @@ import StudioField from '../parts/StudioField.vue'
  */
 const studio = useStudio()
 const { layouts } = useCatalog()
+const images = useImageInsertion()
+const { available: backgroundAvailable } = usePageBackground()
+const background = computed(() => readPageBackground(studio.content()))
+
+function setBackgroundColor(value: string) {
+  if (busy.value || editing.value || imagePending.value || studio.frontmatter().layout !== 'none' || !isFreeCanvasPage(studio.no(), studio.content())) return
+  return changePageBackground(studio, value ? { kind: 'color', value } : null)
+}
+function clearBackground() {
+  if (busy.value || editing.value || imagePending.value) return
+  return changePageBackground(studio, null)
+}
 
 const frontmatter = computed(() => studio.frontmatter())
 const currentLayout = computed(() => frontmatter.value.layout ?? (studio.no() === 1 ? 'cover' : 'default'))
@@ -102,6 +119,17 @@ function set(key: string, value: unknown) {
       <input type="text" :value="frontmatter.title ?? ''" :placeholder="t('titlePlaceholder')" @change="set('title', ($event.target as HTMLInputElement).value)">
     </StudioField>
     <p class="studio-hint">{{ t('pageNameHint') }}</p>
+  </section>
+
+  <section v-if="currentLayout === 'none' || background" class="studio-section">
+    <h3 class="studio-section__title">{{ t('background') }}</h3>
+    <fieldset class="studio-element-fields" :disabled="busy || editing || imagePending || !backgroundAvailable">
+      <StudioField :label="t('backgroundColor')"><ColorSwatch :value="background?.kind === 'color' ? background.value : ''" @change="setBackgroundColor" /></StudioField>
+      <div class="studio-button-row"><button class="studio-button" @click="images.backgroundFromFile()">{{ t('imageFromFile') }}</button><button class="studio-button" @click="images.backgroundFromLibrary()">{{ t('imageFromLibrary') }}</button></div>
+    </fieldset>
+    <p v-if="background?.kind === 'image'" class="studio-hint">{{ t('backgroundImageHint') }}</p>
+    <button v-if="background" class="studio-button" :disabled="busy || editing || imagePending" @click="clearBackground">{{ t('clearBackground') }}</button>
+    <p class="studio-hint">{{ backgroundAvailable ? t('backgroundHint') : t('backgroundFreeCanvasOnly') }}</p>
   </section>
 
   <section v-if="layoutProps.length" class="studio-section">

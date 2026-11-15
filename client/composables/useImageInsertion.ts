@@ -4,20 +4,22 @@ import { useStudio } from '../context'
 import { action, t } from '../i18n'
 import { appendElement, createImageElement, patchElementAttribute, readElement } from '../md/elements'
 import { getBlock } from '../md/lines'
+import { changePageBackground, isFreeCanvasPage } from './usePageBackground'
 import { activePanel, busy, editing, inspectorVisible, library, reportError, selection } from '../state'
 import { assetApi, readAsBase64 } from './useDeckApi'
 
-interface ImageRequest { no: number, replace?: { range: SourceRange, source: string } }
+interface ImageRequest { no: number, background?: boolean, replace?: { range: SourceRange, source: string } }
 export const imageLibraryRequest = shallowRef<ImageRequest | null>(null)
 export const imagePending = ref(false)
 
 export function useImageInsertion() {
   const studio = useStudio()
-  function capture(replace: boolean): ImageRequest | null {
+  function capture(replace: boolean, background = false): ImageRequest | null {
     if (busy.value || editing.value || imagePending.value) return null
     const range = selection.value?.range
     if (replace && (!range || readElement(studio.content(), range)?.kind !== 'image')) return null
-    return { no: studio.no(), ...(replace && range ? { replace: { range: [...range], source: getBlock(studio.content(), range) } } : {}) }
+    if (background && (studio.frontmatter().layout !== 'none' || !isFreeCanvasPage(studio.no(), studio.content()))) return null
+    return { no: studio.no(), background, ...(replace && range ? { replace: { range: [...range], source: getBlock(studio.content(), range) } } : {}) }
   }
   function dimensions(url: string): Promise<{ width: number, height: number }> {
     return new Promise((resolve, reject) => {
@@ -33,6 +35,16 @@ export function useImageInsertion() {
     const natural = await dimensions(asset.url)
     if (studio.no() !== request.no)
       throw new Error(t('imagePageChanged'))
+    if (request.background) {
+      if (studio.frontmatter().layout !== 'none' || !isFreeCanvasPage(studio.no(), studio.content()))
+        throw new Error(t('backgroundFreeCanvasOnly'))
+      await changePageBackground(studio, { kind: 'image', value: asset.url })
+      library.value = null
+      imageLibraryRequest.value = null
+      activePanel.value = 'layout'
+      inspectorVisible.value = true
+      return
+    }
     let range: SourceRange
     let next: string
     if (request.replace) {
@@ -62,8 +74,8 @@ export function useImageInsertion() {
     catch (error) { reportError(error) }
     finally { imagePending.value = false }
   }
-  function fromFile(replace = false) {
-    const request = capture(replace)
+  function fromFile(replace = false, background = false) {
+    const request = capture(replace, background)
     if (!request) return
     const input = document.createElement('input')
     input.type = 'file'
@@ -85,11 +97,11 @@ export function useImageInsertion() {
     document.body.append(input)
     input.click()
   }
-  function fromLibrary(replace = false) {
-    const request = capture(replace)
+  function fromLibrary(replace = false, background = false) {
+    const request = capture(replace, background)
     if (!request) return
     imageLibraryRequest.value = request
     library.value = 'assets'
   }
-  return { fromFile, fromLibrary, chooseAsset }
+  return { fromFile, fromLibrary, chooseAsset, backgroundFromFile: () => fromFile(false, true), backgroundFromLibrary: () => fromLibrary(false, true) }
 }

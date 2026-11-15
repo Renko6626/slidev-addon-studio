@@ -58,6 +58,8 @@ export function useSelection(
   function targetFrom(node: EventTarget | null): StudioTarget | null {
     if (!(node instanceof Element))
       return null
+    if (node.closest('[data-studio-background]'))
+      return null
 
     // Only the slide being edited: a click on the pre-rendered next slide
     // would otherwise be traced against the wrong Markdown.
