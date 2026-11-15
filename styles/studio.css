@@ -964,3 +964,14 @@ html.slidev-studio-docked #slide-container { cursor: default; }
 .studio-layer-label small { color: var(--studio-text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .studio-layer-select-only { color: var(--studio-text-dim); font-size: 10px; }
 .studio-layer-list svg { flex-shrink: 0; }
+
+/* Question authoring reuses the inspector's existing fields. */
+.studio-interaction-fields { min-width: 0; border: 0; padding: 0; margin: 0; }
+.studio-interaction-fields:disabled { opacity: .5; }
+.studio-quiz-options { display: grid; gap: 7px; margin: 12px 0; }
+.studio-quiz-options > strong { font-size: 12px; }
+.studio-quiz-option { display: grid; grid-template-columns: 16px 18px minmax(0, 1fr); gap: 6px; align-items: center; }
+.studio-quiz-option > input:first-child { width: 14px; height: 14px; padding: 0; margin: 0; }
+.studio-quiz-preview { display: flex; gap: 4px; flex-wrap: wrap; margin: 6px 0 12px; }
+.studio-quiz-preview button { padding: 5px 8px; border: 1px solid var(--studio-border); border-radius: 4px; }
+.studio-quiz-preview button[aria-pressed="true"] { color: var(--studio-accent); background: var(--studio-accent-soft); border-color: var(--studio-accent); }
