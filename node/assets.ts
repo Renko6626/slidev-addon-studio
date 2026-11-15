@@ -89,10 +89,14 @@ export async function saveAsset(options: ResolvedSlidevOptions, payload: UploadP
 }
 
 function sanitizeFileName(name: string) {
-  return basename(name)
+  const file = basename(name)
+  const ext = extname(file).toLowerCase()
+  // Clean the stem separately so a name like 图片.jpg cannot lose its dot.
+  const stem = file.slice(0, file.length - ext.length)
     .replace(/[^\w.\-]+/g, '-')
     .replace(/^[-.]+/, '')
     .toLowerCase() || 'asset'
+  return `${stem}${ext}`
 }
 
 function sanitizeSegment(dir: string) {
