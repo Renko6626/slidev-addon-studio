@@ -1,3 +1,4 @@
+import { resizeShapeBox } from '../../shared/shapes'
 import { action } from '../i18n'
 import type { ActionLabel } from '../i18n'
 import type { DragPos, StudioTarget } from '../types'
@@ -72,6 +73,7 @@ export function useTransformGizmo(context: {
   let startBox: Box = { x: 0, y: 0, w: 0, h: 0 }
   let hadPosition = false
   let startRotate = 0
+  let originalRotate = 0
   let autoHeight = true
   let imageRatio = false
   /** The position will be written as a `<v-drag>` wrapper around the block. */
@@ -102,7 +104,7 @@ export function useTransformGizmo(context: {
     // Only a completed click on this same object can start a double click.
     // A previous drag or a press on another handle must not swallow this one.
     const now = Date.now()
-    const doubleClick = next.type === 'move' && current.element !== 'image'
+    const doubleClick = next.type === 'move' && current.element !== 'image' && current.element !== 'shape'
       && lastClick?.el === current.el && now - lastClick.at < 350
       && Math.hypot(event.clientX - lastClick.x, event.clientY - lastClick.y) < 6
     lastClick = null
@@ -137,6 +139,7 @@ export function useTransformGizmo(context: {
 
     startBox = canvas.boxOf(painted)
     startRotate = existing?.pos?.rotate ?? 0
+    originalRotate = startRotate
     autoHeight = existing?.pos ? existing.pos.h === null : true
     imageRatio = readElement(context.getContent(), current.range)?.lockRatio ?? false
     pointerStart = { x: event.clientX, y: event.clientY }
@@ -198,7 +201,7 @@ export function useTransformGizmo(context: {
       const angle = (-startRotate * Math.PI) / 180
       const localX = dx * Math.cos(angle) - dy * Math.sin(angle)
       const localY = dx * Math.sin(angle) + dy * Math.cos(angle)
-      box = resize(startBox, gesture.handle, localX, localY, target.element === 'text' ? false : target.element === 'image' ? imageRatio : event.shiftKey)
+      box = target.element === 'shape' ? resizeShapeBox(startBox, gesture.handle, localX, localY, startRotate, event.shiftKey) : resize(startBox, gesture.handle, localX, localY, target.element === 'text' ? false : target.element === 'image' ? imageRatio : event.shiftKey)
       edges = {
         left: gesture.handle.includes('w'),
         right: gesture.handle.includes('e'),
@@ -207,7 +210,7 @@ export function useTransformGizmo(context: {
       }
     }
 
-    if (snapEnabled.value && !event.altKey && !(imageRatio && gesture.type === 'resize')) {
+    if (snapEnabled.value && !event.altKey && !(imageRatio && gesture.type === 'resize') && !(target.element === 'shape' && gesture.type === 'resize' && (startRotate !== 0 || event.shiftKey))) {
       const result = snapBox(box, {
         canvas: { w: canvas.slideWidth.value, h: canvas.slideHeight.value },
         others,
@@ -328,10 +331,11 @@ export function useTransformGizmo(context: {
       return
 
     event.preventDefault()
+    event.stopImmediatePropagation()
     if (painted && !hadPosition)
       painted.setAttribute('style', restore)
     else if (painted)
-      paint(startBox, startRotate)
+      paint(startBox, originalRotate)
 
     armed.value = false
     active.value = false
@@ -340,7 +344,7 @@ export function useTransformGizmo(context: {
     preview.value = null
     target = null
     painted = null
-  })
+  }, { capture: true })
 
   /**
    * The element Slidev positions for a wrapped block, if it is on screen.

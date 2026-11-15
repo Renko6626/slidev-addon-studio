@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { shapeHandles } from '../../shared/shapes'
 import { t, targetLabel } from '../i18n'
 import type { ResizeHandle } from '../composables/useTransformGizmo'
 import { useRafFn } from '@vueuse/core'
@@ -102,7 +103,13 @@ const handles: { id: ResizeHandle, x: number, y: number, cursor: string }[] = [
   { id: 'sw', x: 0, y: 1, cursor: 'nesw-resize' },
   { id: 'w', x: 0, y: 0.5, cursor: 'ew-resize' },
 ]
-const visibleHandles = computed(() => selection.value?.element === 'text'
+const shapePoints = computed(() => {
+  const rect = selectionRect.value, shape = studio.shapes.parameters.value
+  if (!rect || !shape) return []
+  const scale = studio.canvas.scale.value
+  return shapeHandles(shape, rect.width / scale, rect.height / scale).map(handle => ({ ...handle, left: handle.x * scale, top: handle.y * scale }))
+})
+const visibleHandles = computed(() => studio.shapes.parameters.value?.kind === 'line' ? [] : selection.value?.element === 'text'
   ? handles.filter(handle => handle.id === 'e' || handle.id === 'w')
   : handles)
 
@@ -202,6 +209,15 @@ function handleStyle(rect: Rect, handle: typeof handles[number]) {
         />
 
         <div
+          v-for="point in shapePoints" :key="point.id"
+          class="studio-handle studio-shape-handle"
+          :class="{ 'studio-shape-handle--endpoint': point.id === 'start' || point.id === 'end' }"
+          :style="{ left: `${point.left}px`, top: `${point.top}px` }"
+          :title="t('shapeAdjust')"
+          @pointerdown="studio.shapes.startHandle($event, point.id)"
+        />
+        <div
+          v-if="studio.shapes.parameters.value?.kind !== 'line'"
           class="studio-handle studio-handle--rotate"
           style="left: 50%; top: -22px"
           :title="t('rotateHint')"

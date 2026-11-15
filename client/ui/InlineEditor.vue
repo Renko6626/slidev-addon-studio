@@ -9,7 +9,7 @@ import { replaceInnerHtml, stripStudioAttrs } from '../md/html'
 import { getBlock, replaceBlock } from '../md/lines'
 import { editing, editPointer, reportError, selectAllOnEdit, selection } from '../state'
 import { replaceTextContent } from '../md/elements'
-import { readEditableText } from '../text/source'
+import { readEditableText, editableTextTarget } from '../text/source'
 import { useStudio } from '../context'
 import { onDomEvent } from '../composables/useDomEvent'
 import StudioIcon from './parts/StudioIcon.vue'
@@ -121,7 +121,8 @@ watch(editing, async (open) => {
     return
   }
 
-  const textTarget = selection.value
+  const textTarget = selection.value ? editableTextTarget(selection.value) : null
+  if (textTarget && textTarget !== selection.value) selection.value = textTarget
   const richSource = textTarget ? readEditableText(studio.content(), textTarget) : null
   if (textTarget?.range && (textTarget.element === 'text' || richSource)) {
     heldKind = 'text'
@@ -716,6 +717,12 @@ onScopeDispose(release)
           <StudioIcon :name="action.icon" :size="14" />
         </button>
       </template>
+
+      <select v-if="mode === 'rich'" v-model="studio.text.pasteMode.value" :title="t('textPasteMode')" :aria-label="t('textPasteMode')" @change="studio.text.editor.value?.commands.focus(undefined, { scrollIntoView: false })">
+        <option value="source">{{ t('pasteSource') }}</option>
+        <option value="match">{{ t('pasteMatch') }}</option>
+        <option value="plain">{{ t('pastePlain') }}</option>
+      </select>
 
       <span v-if="mode !== 'rich'" class="studio-toolbar__divider" />
 

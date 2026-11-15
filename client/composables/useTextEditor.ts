@@ -5,15 +5,16 @@ import type { StudioContext } from '../context'
 import type { StudioTarget } from '../types'
 import { action } from '../i18n'
 import { busy, editing, selection } from '../state'
-import { readEditableText, writeEditableText } from '../text/source'
+import { readEditableText, writeEditableText, editableTextTarget } from '../text/source'
 import type { EditableTextSource } from '../text/source'
-import { applyTextCommand, createTextEditor, prepareTextHTML, readTextFormat } from '../text/editor'
+import { applyTextCommand, createTextEditor, prepareTextHTML, readTextFormat, selectTextWord, pasteText } from '../text/editor'
 import type { TextCommand, TextDefaults } from '../text/editor'
 
 /** Text boxes and native prose share commands, selection and editing history. */
 export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> & Partial<Pick<StudioContext, 'selectInserted'>>) {
   const editor = shallowRef<Editor | null>(null)
   const revision = ref(0)
+  const pasteMode = ref<'source' | 'match' | 'plain'>('source')
   const activeDefaults = shallowRef<TextDefaults | null>(null)
   const activeSource = shallowRef<EditableTextSource | null>(null)
   let originalDoc: TextNode | null = null
@@ -69,6 +70,7 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
   }
 
   function start(target: StudioTarget, html: string, selectAll: boolean, finish: () => void, point?: { x: number, y: number } | null): boolean {
+    target = editableTextTarget(target)
     const source = readEditableText(studio.content(), target)
     if (!source || prepareTextHTML(html) === null) return false
     const inherited = defaults.value
@@ -80,6 +82,13 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
       element: target.el,
       editorProps: {
         attributes: { class: `studio-rich-editor${source.kind === 'native' ? ' studio-rich-editor--native' : ''}`, style: 'outline:none;white-space:pre-wrap;min-height:1em;font:inherit;color:inherit;' },
+        handlePaste: (_view, event) => {
+          if (pasteMode.value === 'source') return false
+          const text = event.clipboardData?.getData('text/plain')
+          if (text === undefined) return false
+          event.preventDefault()
+          return pasteText(instance, text, pasteMode.value === 'match')
+        },
         handleKeyDown: (_view, event) => {
           if (event.isComposing || instance.view.composing) return false
           const modifier = event.ctrlKey || event.metaKey
@@ -109,6 +118,7 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
     else {
       const clicked = point ? instance.view.posAtCoords({ left: point.x, top: point.y }) : null
       instance.commands.setTextSelection(clicked?.pos ?? instance.state.doc.content.size - 1)
+      if (clicked) selectTextWord(instance, clicked.pos)
     }
     instance.commands.focus(undefined, { scrollIntoView: false })
     return true
@@ -154,7 +164,7 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
   function redo() { editor.value?.commands.redo(); editor.value?.commands.focus(undefined, { scrollIntoView: false }) }
   onScopeDispose(stop)
   return {
-    editor, supported, format, scope, canUndo, canRedo, start, stop, run, apply, undo, redo,
+    pasteMode, editor, supported, format, scope, canUndo, canRedo, start, stop, run, apply, undo, redo,
     draft: () => editor.value && textSource.value ? writeEditableText(studio.content(), textSource.value, editor.value.getHTML()).block : null,
     html: () => editor.value?.getHTML() ?? '',
     changed: () => !!editor.value && !!originalDoc && !originalDoc.eq(editor.value.state.doc),

@@ -29,6 +29,7 @@
   },
   "include": [
     "client",
+    "components",
     "node",
     "setup",
     "test",

@@ -28,7 +28,7 @@ export function mappedElements(no: number): HTMLElement[] {
 
 /** A text box owns its paragraphs and marks as one object. */
 export function elementRoot(el: HTMLElement): HTMLElement {
-  return el.closest<HTMLElement>('div[data-studio-element="text"], img[data-studio-element="image"]') ?? el
+  return el.closest<HTMLElement>('div[data-studio-element="text"], img[data-studio-element="image"], div[data-studio-element="shape"]') ?? el
 }
 
 /** Whether a node belongs to the slide currently being edited. */

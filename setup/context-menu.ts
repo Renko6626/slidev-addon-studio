@@ -9,8 +9,6 @@ import {
   editText,
   freePosition,
   isPositioned,
-  moveBlockBy,
-  returnToFlow,
 } from '../client/actions'
 import { studioContext } from '../client/context'
 import { selection, studioOpen } from '../client/state'
@@ -18,10 +16,8 @@ import { selection, studioOpen } from '../client/state'
 /**
  * Right-click on the canvas.
  *
- * Slidev already puts navigation, drawing and presenter mode there, and a
- * canvas editor is exactly the kind of tool where the menu is expected to know
- * what you are pointing at. So the block's own actions come first when
- * something is selected, and Slidev's own follow.
+ * Editing shows only applicable object actions and an exit command. Slidev's
+ * presentation menu stays available outside Studio.
  *
  * Nothing here is new behaviour: every item calls the same function the Element
  * panel calls, so the menu cannot drift away from the panel.
@@ -54,19 +50,16 @@ export default (items: ComputedRef<ContextMenuItem[]>): ComputedRef<ContextMenuI
 
     const studio = studioContext.value
     const target = selection.value
+    const close: ContextMenuItem = {
+      icon: 'i-carbon:close',
+      label: t('closeStudioMenu'),
+      action: () => (studioOpen.value = false),
+    }
 
     // Studio is open but nothing is selected, or the block could not be traced
     // back to the Markdown, in which case none of these could be honoured.
     if (!studio || !target?.range) {
-      return [
-        ...slidev,
-        'separator',
-        {
-          icon: 'i-carbon:close',
-          label: t('closeStudioMenu'),
-          action: () => (studioOpen.value = false),
-        },
-      ]
+      return [close]
     }
 
     const positioned = isPositioned(studio.content(), target.range)
@@ -76,24 +69,22 @@ export default (items: ComputedRef<ContextMenuItem[]>): ComputedRef<ContextMenuI
     // so a heading is named for what it is.
     const name = target.kind === 'heading' ? t('kindHeading') : targetLabel(target)
 
-    const mine: ContextMenuItem[] = [
-      {
+    const mine: ContextMenuItem[] = []
+    if (target.element !== 'image' && target.element !== 'shape') {
+      mine.push({
         icon: 'i-carbon:text-annotation-toggle',
         label: t('editTarget', { name }),
         action: () => editText(),
-          disabled: target.element === 'image',
-      },
-      positioned
-        ? {
-            icon: 'i-carbon:align-box-top-left',
-            label: t('returnFlow'),
-            action: () => returnToFlow(studio, target),
-          }
-        : {
-            icon: 'i-carbon:move',
-            label: t('freePosition'),
-            action: () => freePosition(studio, target),
-          },
+      })
+    }
+    if (!positioned) {
+      mine.push({
+        icon: 'i-carbon:move',
+        label: t('freePosition'),
+        action: () => freePosition(studio, target),
+      })
+    }
+    mine.push(
       {
         icon: 'i-carbon:copy',
         label: t('duplicate'),
@@ -105,24 +96,8 @@ export default (items: ComputedRef<ContextMenuItem[]>): ComputedRef<ContextMenuI
         label: t('deleteTarget', { name }),
         action: () => deleteBlock(studio, target),
       },
-      // An element sharing a Markdown block with its siblings has no line range
-      // of its own to move, so reordering it would move the wrong thing.
-      {
-        small: true,
-        icon: 'i-carbon:arrow-up',
-        label: t('moveEarlier'),
-        action: () => moveBlockBy(studio, target, -1),
-        disabled: !canReorder(target),
-      },
-      {
-        small: true,
-        icon: 'i-carbon:arrow-down',
-        label: t('moveLater'),
-        action: () => moveBlockBy(studio, target, 1),
-        disabled: !canReorder(target),
-      },
-    ]
+    )
 
-    return [...mine, 'separator', ...slidev]
+    return [...mine, 'separator', close]
   })
 }

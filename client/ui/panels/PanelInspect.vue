@@ -10,11 +10,12 @@ import { readDrag, writeDrag } from '../../md/drag'
 import { readElement, resizeElement } from '../../md/elements'
 import { getBlock, replaceBlock } from '../../md/lines'
 import { canStyle, readClasses, writeClasses } from '../../md/classes'
-import { canReorder, deleteBlock, duplicateBlock, freePosition, moveBlockBy, returnToFlow } from '../../actions'
+import { canReorder, deleteBlock, duplicateBlock, freePosition } from '../../actions'
 import { busy, editing, missed, selection } from '../../state'
 import PropField from '../parts/PropField.vue'
 import StudioField from '../parts/StudioField.vue'
 import StudioIcon from '../parts/StudioIcon.vue'
+import ShapeFields from '../parts/ShapeFields.vue'
 import ImageElementFields from '../parts/ImageElementFields.vue'
 
 /**
@@ -100,11 +101,6 @@ async function toFreePosition() {
     await freePosition(studio, selection.value)
 }
 
-async function toFlow() {
-  if (selection.value)
-    await returnToFlow(studio, selection.value)
-}
-
 async function applyClasses() {
   if (!range.value)
     return
@@ -115,11 +111,6 @@ async function applyDraft() {
   if (!range.value || !dirty.value)
     return
   await studio.commit(replaceBlock(studio.content(), range.value, draft.value), action('actionEditBlock'))
-}
-
-async function move(direction: -1 | 1) {
-  if (selection.value)
-    await moveBlockBy(studio, selection.value, direction)
 }
 
 async function duplicate() {
@@ -170,6 +161,8 @@ async function remove() {
       <p v-if="element?.kind === 'text'" class="studio-hint">{{ studio.text.supported.value ? t('textFormatInHome') : t('textSourceFallback') }}</p>
     </section>
 
+    <section v-if="element?.kind === 'shape'" class="studio-section"><ShapeFields /></section>
+
     <section v-if="element?.kind === 'image'" class="studio-section"><ImageElementFields /></section>
 
     <section class="studio-section">
@@ -191,7 +184,7 @@ async function remove() {
         <StudioField :label="t('width')">
           <input type="number" :value="Math.round(pos.w)" @change="setPos('w', +($event.target as HTMLInputElement).value)">
         </StudioField>
-        <StudioField v-if="element?.kind !== 'text'" :label="t('height')">
+        <StudioField v-if="element?.kind !== 'text' && studio.shapes.parameters.value?.kind !== 'line'" :label="t('height')">
           <input
             type="number"
             :value="pos.h === null ? '' : Math.round(pos.h)"
@@ -202,9 +195,6 @@ async function remove() {
         <StudioField :label="t('rotation')">
           <input type="number" :value="Math.round(pos.rotate)" @change="setPos('rotate', +($event.target as HTMLInputElement).value)">
         </StudioField>
-        <button v-if="!element" class="studio-button" @click="toFlow">
-          <StudioIcon name="flow" :size="14" /> {{ t('returnFlow') }}
-        </button>
         <p class="studio-hint">
           {{ t('canvasUnits', { width: studio.canvas.slideWidth.value }) }}
         </p>
@@ -233,15 +223,9 @@ async function remove() {
 
     <section class="studio-section">
       <h3 class="studio-section__title">
-        {{ t('arrange') }}
+        {{ t('objectTab') }}
       </h3>
       <div class="studio-button-row">
-        <button class="studio-button" :title="t('moveEarlier')" :disabled="!canReorder(selection)" @click="move(-1)">
-          <StudioIcon name="up" :size="14" />
-        </button>
-        <button class="studio-button" :title="t('moveLater')" :disabled="!canReorder(selection)" @click="move(1)">
-          <StudioIcon name="down" :size="14" />
-        </button>
         <button class="studio-button" :title="t('duplicate')" :disabled="!canReorder(selection)" @click="duplicate">
           <StudioIcon name="copy" :size="14" />
         </button>

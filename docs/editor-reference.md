@@ -9,11 +9,11 @@ left filmstrip and right inspector; see the [current workspace](images/workspace
 
 | Panel | What it edits |
 | --- | --- |
-| **Element** | Position, size, rotation, component props, utility classes, order, duplicate, delete, and the raw Markdown of the selection |
+| **Element** | Position, size, rotation, component props, utility classes, duplicate, delete, and the raw Markdown of the selection |
 | **Components** | Markdown basics plus every component this deck can use, with live previews. Click to insert, drag onto the canvas to place freely |
 | **Animate** | Click steps, reveal and hide, entrance animations, staggered lists and motion presets |
 | **Transitions** | The effect used when leaving the current slide |
-| **Layout** | The layout, with a live thumbnail of each one, the frontmatter keys that layout reads, and the slide's title, classes, background, zoom and click count |
+| **Page settings** | The page name and parameters used by the page's existing layout; background is offered only when that layout declares it |
 | **Slide filmstrip** | Live thumbnails, drag to reorder, add, duplicate and delete |
 | **Assets** | Drop images into `public/` and insert them |
 | **Notes** | The current slide's speaker notes, below the canvas |
@@ -27,8 +27,9 @@ Drag a flow block to give it a free position in slide canvas units. Markdown
 blocks use a `v-drag` wrapper with `pos="x,y,w,h"`; HTML elements and components
 use the directive form. Handles resize, the top handle rotates, and Backspace
 deletes. New text boxes expose width handles and automatic height; new pictures
-have a frame-ratio lock. Return to flow removes positioning, subject to the
-[current entry-point limitation](limitations.md#current-editor-boundaries).
+have a frame-ratio lock. Return to flow and source-order controls are currently
+hidden from the editor. Editing context menus contain applicable object actions
+and Close Studio; Slidev presentation menus remain available outside Studio.
 
 Elements snap to the canvas edges, its centre and thirds, and to the edges and
 centres of everything else on the slide. Hold <kbd>Alt</kbd> to place something
@@ -100,19 +101,17 @@ Studio writes whichever form fits the block:
 </v-clicks>
 ```
 
-### Choosing a layout
+### Page settings and existing layouts
 
-A layout is picked from thumbnails rather than from a list of names. Each one
-renders the layout at full slide size with this slide's own frontmatter, title
-and lead line, then scales it down, so what you compare is the composition you
-would get.
+Use **New slide** to choose a ready-to-edit page of text boxes and pictures.
+The right sidebar edits the page name and any parameters declared by its current
+layout. The old layout gallery and switcher are no longer shown. Existing
+layouts keep rendering; change `layout` and other Slidev configuration in the
+Markdown source when needed.
 
-![The Layout panel showing a thumbnail per layout, each rendering the current slide's title](framed/layout.png)
-
-A layout's props are the frontmatter keys it reads, and they are edited in the
-same panel. On a slide like `layout: fact`, whose entire visible text lives in
-`value:` and `label:`, use that panel unless the layout marks its rendered text
-with `data-studio-prop`. See [layout text metadata](components.md#text-a-layout-renders).
+Layout parameters still use the existing forms, including list and numeric
+fields. Text marked with `data-studio-prop` can also be edited on the canvas.
+See [layout text metadata](components.md#text-a-layout-renders).
 
 ### Working with slides
 

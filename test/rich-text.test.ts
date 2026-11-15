@@ -314,3 +314,90 @@ it('reopens native paragraph indentation and can remove it without replacing unr
   expect(result.style.color).toBe('navy')
   expect(result.className).toBe('body')
 })
+
+it('selects a whole word across character marks, including Chinese words', async () => {
+  const { selectTextWord } = await import('../client/text/editor')
+  const e = editor('<p>he<strong>llo</strong> world</p><p>编辑文字</p>')
+  selectTextWord(e, 4)
+  expect(e.state.doc.textBetween(e.state.selection.from, e.state.selection.to)).toBe('hello')
+  selectTextWord(e, 14)
+  expect(e.state.doc.textBetween(e.state.selection.from, e.state.selection.to)).toBe('编辑')
+})
+
+it('round-trips paragraph spacing and changes only selected paragraphs', () => {
+  const e = editor('<p>one</p><p>two</p>')
+  e.commands.setTextSelection(2)
+  applyTextCommand(e, 'spaceBefore', '12')
+  applyTextCommand(e, 'spaceAfter', '8')
+  const html = e.getHTML()
+  const ps = rendered(html).querySelectorAll('p')
+  expect(ps[0].style.marginTop).toBe('12px')
+  expect(ps[0].style.marginBottom).toBe('8px')
+  expect(ps[1].style.marginTop).toBe('0px')
+  const reopened = editor(html)
+  reopened.commands.setTextSelection(2)
+  expect(readTextFormat(reopened.state)).toMatchObject({ spaceBefore: 12, spaceAfter: 8 })
+})
+
+it('opens an ordinary Markdown list and preserves its items when formatting it', () => {
+  const source = '- one\n- two'
+  const target = nativeTarget(source, 'ul', '<li>one</li><li>two</li>', 'list')
+  const read = readEditableText(source, target)!
+  expect(read).not.toBeNull()
+  const e = editor(read.html)
+  e.commands.selectAll()
+  applyTextCommand(e, 'fontSize', '32')
+  const result = writeEditableText(source, read, e.getHTML())
+  const list = rendered(result.content).querySelector('ul')!
+  expect([...list.querySelectorAll('li')].map(li => li.textContent)).toEqual(['one', 'two'])
+  expect(readEditableText(result.content, nativeTarget(result.content, 'ul', list.innerHTML, 'html'))).not.toBeNull()
+})
+
+it('pastes plain text literally with line breaks and optional destination marks', async () => {
+  const { pasteText } = await import('../client/text/editor')
+  const e = editor('<p><strong>hello</strong></p>')
+  e.commands.setTextSelection(3)
+  pasteText(e, 'X\nY', true)
+  expect([...rendered(e.getHTML()).querySelectorAll('p')].map(p => p.textContent)).toEqual(['heX', 'Yllo'])
+  e.commands.undo()
+  e.commands.setTextSelection(6)
+  pasteText(e, '<b>X</b>\nY', true)
+  expect(e.getText()).toContain('<b>X</b>')
+  expect([...rendered(e.getHTML()).querySelectorAll('strong')].map(n => n.textContent).join('')).toContain('<b>X</b>')
+  e.commands.selectAll()
+  pasteText(e, 'plain', false)
+  expect(rendered(e.getHTML()).querySelector('strong')).toBeNull()
+  expect(e.getText()).toBe('plain')
+})
+
+
+it('clears native paragraph spacing inherited from a margin shorthand', () => {
+  const source = '<p style="margin:12px;color:navy">one</p>'
+  const read = readEditableText(source, nativeTarget(source, 'p', 'one', 'html'))!
+  const e = editor(read.html)
+  e.commands.selectAll()
+  applyTextCommand(e, 'spaceBefore', '0')
+  const result = rendered(writeEditableText(source, read, e.getHTML()).content).firstElementChild as HTMLElement
+  expect(result.style.marginTop).toBe('0px')
+  expect(result.style.marginBottom).toBe('12px')
+  expect(result.style.color).toBe('navy')
+})
+
+it('formats the mapped Markdown list when a list item is selected', () => {
+  const source = '- one\n- two'
+  const target = nativeTarget(source, 'ul', '<li>one</li><li>two</li>', 'list')
+  target.el.dataset.studioKind = 'list'
+  target.el.dataset.studioSrc = '0,2'
+  const item = { ...target, el: target.el.children[1] as HTMLElement, kind: 'list-item' as const, range: [1, 2] as [number, number] }
+  expect(readEditableText(source, item)?.range).toEqual([0, 2])
+})
+
+
+it('saves a single Markdown list item as a paragraph after toggling the list off', () => {
+  const source = '- one'
+  const read = readEditableText(source, nativeTarget(source, 'ul', '<li>one</li>', 'list'))!
+  const e = editor(read.html)
+  e.commands.selectAll()
+  applyTextCommand(e, 'bulletList')
+  expect(writeEditableText(source, read, e.getHTML()).content).toBe('one')
+})

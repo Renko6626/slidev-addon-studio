@@ -185,3 +185,18 @@ it.each(['reselect', 'selectInserted'] as const)('stops %s waiting for rendering
   await pending
   expect(selection.value).toBe(chosen)
 })
+
+it('restores a shape rotation when Escape cancels the gesture', () => {
+  const s = setup('<StudioShape kind="rect" v-drag="[10,20,100,80,30]" />')
+  s.select.select(s.first)
+  const press = new Event('pointerdown', { cancelable: true })
+  Object.defineProperties(press, { button: { value: 0 }, clientX: { value: 60 }, clientY: { value: 0 } })
+  s.gizmo.startRotate(press as PointerEvent)
+  s.pointer('pointermove', s.first, 160, 60)
+  expect(s.first.style.transform).toBe('rotate(90deg)')
+  const escape = new Event('keydown', { cancelable: true })
+  Object.defineProperty(escape, 'key', { value: 'Escape' })
+  window.dispatchEvent(escape)
+  expect(s.first.style.transform).toBe('rotate(30deg)')
+  expect(s.writes()).toBe(0)
+})

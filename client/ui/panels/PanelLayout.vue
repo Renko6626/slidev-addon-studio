@@ -1,23 +1,19 @@
 <script setup lang="ts">
 import { action, t } from '../../i18n'
-import { catalogOrigin } from '../../i18n/catalog'
 import { computed } from 'vue'
 import type { ObjectRow } from '../../md/literals'
 import { formatObjectArray, formatStringArray, parseObjectArray, parseStringArray } from '../../md/literals'
 import { useCatalog } from '../../composables/useCatalog'
 import { useStudio } from '../../context'
-import { useStudioHistory } from '../../composables/useSlideSource'
-import LayoutPreview from '../parts/LayoutPreview.vue'
 import PropField from '../parts/PropField.vue'
 import StudioField from '../parts/StudioField.vue'
 
 /**
- * Slide-level settings: the layout it uses and the frontmatter keys that
- * change how the whole slide looks. These write to the slide's frontmatter,
- * which Slidev patches key by key, so untouched keys keep their formatting.
+ * Page name and the parameters the existing layout actually uses.
+ * Layout selection and generic Slidev configuration stay in source. Writes
+ * patch frontmatter key by key, so untouched keys keep their formatting.
  */
 const studio = useStudio()
-const history = useStudioHistory()
 const { layouts } = useCatalog()
 
 const frontmatter = computed(() => studio.frontmatter())
@@ -35,28 +31,8 @@ const layoutProps = computed(() => {
   return (active?.props ?? []).filter(p => !p.hidden && !RESERVED.has(p.name))
 })
 
-/**
- * Thumbnails read better as this slide under another layout than as a generic
- * diagram, so they borrow the slide's own heading and first line of prose.
- * Taken from the Markdown rather than the DOM, which keeps it reactive and
- * costs nothing when the slide changes.
- */
-const sample = computed(() => {
-  const lines = studio.content().split(/\r?\n/)
-  const heading = lines.find(line => /^#{1,3}\s+\S/.test(line))
-  const body = lines.find(line => /^[A-Za-z(\u00C0-\u024F"']/.test(line.trim()) && !/^#{1,6}\s/.test(line.trim()))
-  const clip = (text: string, max: number) => {
-    const flat = text.replace(/[*_`]/g, '').replace(/\s+/g, ' ').trim()
-    return flat.length > max ? `${flat.slice(0, max).trimEnd()}\u2026` : flat
-  }
-  return {
-    title: heading ? clip(heading.replace(/^#+\s*/, ''), 60) : t('layoutTitle'),
-    body: body ? clip(body, 120) : t('layoutBody'),
-  }
-})
-
-/** Keys Slidev owns, already offered below under Slide. */
-const RESERVED = new Set(['title', 'class', 'clicks', 'hide', 'level', 'layout', 'transition', 'zoom', 'preload', 'src', 'routeAlias'])
+/** Slidev control fields are edited in source, not exposed as page options. */
+const RESERVED = new Set(['title', 'class', 'layoutClass', 'clicks', 'hide', 'level', 'layout', 'transition', 'zoom', 'preload', 'src', 'routeAlias'])
 
 function propValue(name: string): string | boolean | null {
   const value = frontmatter.value[name]
@@ -114,66 +90,22 @@ function coerce(type: string | undefined, value: string | boolean | null) {
 }
 
 
-/**
- * Skipping a slide is a one way door from in here.
- *
- * Slidev drops hidden slides from the deck, so the slide loses its number the
- * moment this is written: the editor cannot show it, the Slides panel cannot
- * list it, and the control could not be set back. Studio moves to the
- * neighbouring slide rather than sitting on one that no longer exists.
- */
-async function hide(skip: boolean) {
-  const previous = Math.max(1, studio.no() - 1)
-  await set('hide', skip ? true : null)
-  if (!skip)
-    return
-
-  // Every later slide is renumbered, and undo replays a slide by its number,
-  // so an older entry would write its text over a different slide.
-  history.reset()
-  studio.go(previous)
-}
-
 function set(key: string, value: unknown) {
   return studio.setFrontmatter({ [key]: value === '' ? null : value }, action('actionSet', { name: key }))
 }
 
-/**
- * An emptied number field means "unset", not zero. Coercing the empty string
- * with `+` wrote `zoom: 0`, which renders the slide as nothing at all.
- */
-function numberOrNull(value: string) {
-  return value.trim() === '' ? null : Number(value)
-}
 </script>
 
 <template>
   <section class="studio-section">
-    <h3 class="studio-section__title">
-      {{ t('layout') }}
-    </h3>
-    <div class="studio-grid studio-grid--thumbnails" style="padding: 0">
-      <button
-        v-for="layout in layouts"
-        :key="layout.name"
-        class="studio-card"
-        :class="{ 'studio-card--active': layout.name === currentLayout }"
-        :title="layout.description ?? `${layout.name} (${catalogOrigin(layout)})`"
-        @click="set('layout', layout.name)"
-      >
-        <LayoutPreview :layout="layout" :frontmatter="frontmatter" :sample="sample" />
-        <span class="studio-card__label">
-          <span class="studio-card__name">{{ layout.name }}</span>
-          <span class="studio-card__meta">{{ catalogOrigin(layout) }}</span>
-        </span>
-      </button>
-    </div>
+    <StudioField :label="t('pageName')">
+      <input type="text" :value="frontmatter.title ?? ''" :placeholder="t('titlePlaceholder')" @change="set('title', ($event.target as HTMLInputElement).value)">
+    </StudioField>
+    <p class="studio-hint">{{ t('pageNameHint') }}</p>
   </section>
 
   <section v-if="layoutProps.length" class="studio-section">
-    <h3 class="studio-section__title">
-      {{ t('layoutOptions', { name: currentLayout }) }}
-    </h3>
+    <h3 class="studio-section__title">{{ t('currentPageOptions') }}</h3>
     <PropField
       v-for="prop in layoutProps"
       :key="prop.name"
@@ -181,50 +113,5 @@ function numberOrNull(value: string) {
       :value="propValue(prop.name)"
       @change="setProp(prop, $event)"
     />
-    <p class="studio-hint">
-      {{ t('frontmatterHint') }}
-    </p>
   </section>
-
-  <section class="studio-section">
-    <h3 class="studio-section__title">
-      {{ t('slide') }}
-    </h3>
-    <StudioField :label="t('title')">
-      <input type="text" :value="frontmatter.title ?? ''" :placeholder="t('titlePlaceholder')" @change="set('title', ($event.target as HTMLInputElement).value)">
-    </StudioField>
-    <StudioField :label="t('classes')">
-      <input type="text" :value="frontmatter.class ?? ''" placeholder="dark text-center" @change="set('class', ($event.target as HTMLInputElement).value)">
-    </StudioField>
-    <StudioField :label="t('background')">
-      <input type="text" :value="frontmatter.background ?? ''" :placeholder="t('backgroundPlaceholder')" @change="set('background', ($event.target as HTMLInputElement).value)">
-    </StudioField>
-    <StudioField :label="t('zoom')">
-      <input type="number" step="0.05" min="0.2" max="3" :value="frontmatter.zoom ?? 1" @change="set('zoom', numberOrNull(($event.target as HTMLInputElement).value))">
-    </StudioField>
-    <StudioField :label="t('clicks')">
-      <input
-        type="number"
-        min="0"
-        :value="frontmatter.clicks ?? ''"
-        :placeholder="t('auto')"
-        :title="t('clicksHint')"
-        @change="set('clicks', numberOrNull(($event.target as HTMLInputElement).value))"
-      >
-    </StudioField>
-    <StudioField :label="t('hide')">
-      <select :value="frontmatter.hide ? 'yes' : 'no'" @change="hide(($event.target as HTMLSelectElement).value === 'yes')">
-        <option value="no">
-          {{ t('showSlide') }}
-        </option>
-        <option value="yes">
-          {{ t('skipSlide') }}
-        </option>
-      </select>
-    </StudioField>
-    <p class="studio-hint">
-      {{ t('hiddenSlideHint', { setting: 'hide: true' }) }}
-    </p>
-  </section>
-
 </template>

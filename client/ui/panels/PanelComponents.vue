@@ -30,6 +30,7 @@ const dragging = ref<{ label: string, snippet: string, labelKey?: MessageKey } |
 const blocks = computed(() => {
   const needle = query.value.trim().toLowerCase()
   return BASIC_BLOCKS
+    .filter(b => b.labelKey === 'blockCode' || b.labelKey === 'blockQuote' || b.labelKey === 'blockDivider')
     .map(b => ({ ...b, search: `${b.name} ${b.description}`.toLowerCase(), name: t(b.labelKey), description: t(`${b.labelKey}Description`) }))
     .filter(b => !needle || b.name.toLowerCase().includes(needle) || b.description.toLowerCase().includes(needle)
       || b.search.includes(needle))
@@ -98,7 +99,7 @@ onDomEvent<DragEvent>(window, 'drop', async (event) => {
 
   <section v-if="blocks.length">
     <h3 class="studio-section__title" style="padding: 12px 12px 0">
-      {{ t('basic') }}
+      {{ t('extendedContent') }}
     </h3>
     <div class="studio-grid">
       <button

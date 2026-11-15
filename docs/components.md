@@ -81,7 +81,7 @@ it resolves to nothing at the slide root.
 
 Layouts are read the same way. A layout's props are the frontmatter keys it
 understands, so a slide like `layout: fact`, whose entire visible text lives in
-`value:` and `label:`, is edited under Layout rather than on the canvas.
+`value:` and `label:`, is edited under Page settings rather than on the canvas.
 
 The `files` glob is resolved against the component's own directory, so a
 component that ships a folder of assets can offer them as choices with nothing
@@ -106,4 +106,23 @@ formatting controls are not offered on one, and it opens with the whole value
 selected the way a title placeholder does.
 
 Keys holding a list rather than a string, such as an agenda's `items`, stay in
-the Layout panel, where they are edited as rows.
+Page settings, where they are edited as rows.
+
+
+## Built-in editable shapes
+
+`StudioShape` is shipped in this addon's `components/` directory. It renders in
+presentations and static builds without the editor. Use the Shapes menu for
+insertion; it is hidden from the generic component palette to avoid duplicate
+entries. `playground/shapes.md` contains working examples.
+
+The public props are `kind` (`rect`, `ellipse`, `triangle`, `diamond`, `hexagon`,
+`line`, `arrow`), `fill`, `stroke`, `stroke-width`, `dash` (`solid`, `dashed`,
+`dotted`), `radius` in px, `head` and `shaft` as fractions, and boolean
+`start-arrow` / `end-arrow`. Use bound numeric and boolean props. The editor
+reads literal values; dynamic expressions should be edited in source.
+
+The component measures its rendered frame to draw its geometry, so `v-drag`
+remains the single source for position and size. A line runs horizontally in
+its local frame; its frame rotation controls direction. Shared geometry lives
+in `shared/shapes.ts`, independently of editor state.

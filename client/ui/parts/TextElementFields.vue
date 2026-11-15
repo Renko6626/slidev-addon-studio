@@ -28,14 +28,35 @@ const alignments = [
   { id: 'left', label: 'alignLeft' }, { id: 'center', label: 'alignCenter' },
   { id: 'right', label: 'alignRight' }, { id: 'justify', label: 'alignJustify' },
 ] as const
+function keepTextFocus(event: MouseEvent) {
+  if (event.target instanceof Element && event.target.closest('button')) event.preventDefault()
+}
+function fieldKey(event: KeyboardEvent) {
+  if (event.isComposing || !editor.value || !(event.target instanceof HTMLInputElement)) return
+  if (event.key !== 'Enter' && event.key !== 'Escape') return
+  event.preventDefault()
+  event.stopPropagation()
+  if (event.key === 'Escape') event.target.value = event.target.dataset.beforeEdit ?? event.target.value
+  event.target.blur()
+  editor.value.commands.focus(undefined, { scrollIntoView: false })
+}
+function rememberField(event: FocusEvent) {
+  if (event.target instanceof HTMLInputElement) event.target.dataset.beforeEdit = event.target.value
+}
+function resizeFont(direction: number) {
+  const current = format.value?.fontSize ?? 28
+  const next = direction > 0 ? sizes.find(size => size > current) ?? current + 4
+    : [...sizes].reverse().find(size => size < current) ?? current - 1
+  run('fontSize', String(next))
+}
 function run(command: TextCommand, value?: string) { void text.run(command, value) }
 </script>
 
 <template>
-  <fieldset class="studio-element-fields studio-rich-fields" :disabled="disabled" data-studio-text-controls :title="hint" :aria-label="t(group === 'font' ? 'fontGroup' : 'paragraphGroup')">
+  <fieldset class="studio-element-fields studio-rich-fields" :disabled="disabled" data-studio-text-controls @mousedown="keepTextFocus" @keydown="fieldKey" @focusin="rememberField" :title="hint" :aria-label="t(group === 'font' ? 'fontGroup' : 'paragraphGroup')">
     <div v-if="group === 'font'" class="studio-rich-fields__font">
       <StudioField :label="t('fontFamily')">
-        <input type="text" class="studio-font-name" :list="fontId" :value="format?.fontFamily ?? ''" :placeholder="emptyLabel" :title="t('fontFamily')" @change="run('fontFamily', ($event.target as HTMLInputElement).value)">
+        <input type="text" class="studio-font-name" :style="{ fontFamily: format?.fontFamily || undefined }" :list="fontId" :value="format?.fontFamily ?? ''" :placeholder="emptyLabel" :title="t('fontFamily')" @change="run('fontFamily', ($event.target as HTMLInputElement).value)">
         <datalist :id="fontId"><option v-for="font in fonts" :key="font" :value="font" /></datalist>
       </StudioField>
       <StudioField :label="t('fontSizePx')">
@@ -46,6 +67,8 @@ function run(command: TextCommand, value?: string) { void text.run(command, valu
       <div class="studio-text-buttons" role="group" :aria-label="t('textFormat')">
         <button v-for="mark in marks" :key="mark.id" class="studio-icon-button" :aria-pressed="format?.[mark.id] ?? false" :title="t(mark.label)" @click="run(mark.id)"><StudioIcon :name="mark.id" /></button>
         <button class="studio-icon-button" :title="t('clearTextFormat')" @click="run('clear')"><StudioIcon name="clear-format" /></button>
+        <button class="studio-icon-button" :title="t('decreaseFontSize')" :aria-label="t('decreaseFontSize')" @click="resizeFont(-1)">A−</button>
+        <button class="studio-icon-button" :title="t('increaseFontSize')" :aria-label="t('increaseFontSize')" @click="resizeFont(1)">A+</button>
       </div>
     </div>
     <div v-else class="studio-rich-fields__paragraph">
@@ -65,6 +88,12 @@ function run(command: TextCommand, value?: string) { void text.run(command, valu
           <option v-for="height in lineHeights" :key="height" :value="height">{{ height }}</option>
         </select>
       </StudioField>
+      <div class="studio-paragraph-spacing">
+        <StudioField v-for="field in (['spaceBefore', 'spaceAfter'] as const)" :key="field" :label="t(field)">
+          <span class="studio-spacing-label">{{ t(field) }}</span>
+          <input type="number" min="0" max="200" step="2" :value="format?.[field] ?? ''" :placeholder="emptyLabel" :title="t(field)" @change="run(field, ($event.target as HTMLInputElement).value)">
+        </StudioField>
+      </div>
     </div>
   </fieldset>
 </template>

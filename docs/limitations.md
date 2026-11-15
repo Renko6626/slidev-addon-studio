@@ -111,9 +111,9 @@
   format. Copy the object again in Studio if canvas paste no longer recognises it.
 - Create copy remains available for individual list items under the existing
   list-editing rules; this is separate from cross-slide clipboard copying.
-- The new-element inspector hides Return to flow, while the generic Object tab
-  and context menu still offer it. Using that command removes free positioning
-  and its frame dimensions. Entry visibility is a known minor follow-up.
+- Return to flow and source-order movement are temporarily hidden in the
+  ribbon, inspector and context menu. Their underlying source operations remain
+  available in code; existing positioning is unchanged.
 - Multiple selection, grouping, a general layer stack, manual viewport zoom and
   hidden-slide management remain future work. Windows desktop ZIP packaging is
   available as a preview, without an installer, signing or automatic updates.

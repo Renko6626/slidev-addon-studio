@@ -5,15 +5,14 @@ import { computed, watch } from 'vue'
 import { configs } from '@slidev/client/env.ts'
 import { useNav } from '@slidev/client'
 import { action, actionText, studioLocale, t } from '../i18n'
-import { canReorder, deleteBlock, duplicateBlock, editText, freePosition, moveBlockBy, returnToFlow } from '../actions'
-import { BASIC_BLOCKS } from '../blocks'
+import { canReorder, deleteBlock, duplicateBlock, editText, freePosition } from '../actions'
 import { useStudio } from '../context'
 import { useDeckActions } from '../composables/useDeckActions'
 import { projectSaving } from '../project-save'
 import { canRedo, canUndo, lastAction, useStudioHistory } from '../composables/useSlideSource'
-import { insertSnippet } from '../md/insert'
-import { appendElement, createTextElement } from '../md/elements'
+import { appendElement, createTextElement, patchElementStyle } from '../md/elements'
 import { imageLibraryRequest, imagePending, useImageInsertion } from '../composables/useImageInsertion'
+import ShapePicker from './parts/ShapePicker.vue'
 import TextElementFields from './parts/TextElementFields.vue'
 import { activePanel, busy, clearSelection, editing, gridEnabled, inspectorVisible, library, notesVisible, outlineEnabled, ribbonTab, selectAllOnEdit, selection, slidesVisible, snapEnabled, studioOpen } from '../state'
 import PanelTransition from './panels/PanelTransition.vue'
@@ -61,22 +60,17 @@ function panel(id: PanelId) {
   inspectorVisible.value = true
   library.value = null
 }
-function openLibrary(id: 'components' | 'assets') {
+function openLibrary(id: 'components' | 'assets' | 'pagePresets') {
   imageLibraryRequest.value = null
   library.value = library.value === id ? null : id
 }
-async function insertBasic(index: number) {
-  const block = BASIC_BLOCKS[index]
-  const range = selection.value?.range
-  await studio.commit(insertSnippet(studio.content(), block.snippet, range ? { mode: 'after', range } : { mode: 'append' }), action('actionInsert', { name: { key: block.labelKey } }))
-  await studio.selectInserted()
-  panel('inspect')
-}
-async function insertTextBox() {
+async function insertTextBox(heading = false) {
   if (locked.value) return
   const no = studio.no()
-  const inserted = appendElement(studio.content(), createTextElement({ width: studio.canvas.slideWidth.value, height: studio.canvas.slideHeight.value }, t('textBoxPlaceholder')))
-  await studio.commit(inserted.content, action('actionInsert', { name: { key: 'textBox' } }))
+  let snippet = createTextElement({ width: studio.canvas.slideWidth.value, height: studio.canvas.slideHeight.value }, t(heading ? 'presetTitleText' : 'textBoxPlaceholder'))
+  if (heading) snippet = patchElementStyle(snippet, [0, 1], { 'font-size': '40px' })
+  const inserted = appendElement(studio.content(), snippet)
+  await studio.commit(inserted.content, action('actionInsert', { name: { key: heading ? 'blockHeading' : 'textBox' } }))
   if (studio.no() !== no || !await studio.selectInserted('div', inserted.range)) return
   panel('inspect')
   selectAllOnEdit.value = true
@@ -90,25 +84,22 @@ const groups = computed<Group[]>(() => {
     case 'file': return []
     case 'home': return [
       { label: 'slides', commands: [
-        { label: 'newSlide', icon: 'plus', run: () => deck.add(studio.no()), hint: 'deckReloadHint' },
+        { label: 'newSlide', icon: 'plus', run: () => openLibrary('pagePresets'), pressed: library.value === 'pagePresets', hint: 'pagePresetsHint' },
         { label: 'duplicateSlide', icon: 'copy', run: () => deck.duplicate(studio.no()), hint: 'deckReloadHint' },
         { label: 'deleteSlide', icon: 'trash', run: () => deck.remove(studio.no()), disabled: studio.no() === 1, hint: studio.no() === 1 ? 'firstSlideProtected' : 'deckReloadHint' },
-        { label: 'layout', icon: 'layout', run: () => panel('layout') },
       ] },
       { label: 'fontGroup', text: 'font', commands: [] },
       { label: 'paragraphGroup', text: 'paragraph', commands: [] },
       { label: 'editingGroup', commands: [
-        { label: 'editTextCommand', icon: 'edit', run: editText, disabled: !target || target.element === 'image' || (!mapped.value && !target.prop) },
+        { label: 'editTextCommand', icon: 'edit', run: editText, disabled: !target || (target.element === 'image' || target.element === 'shape') || (!mapped.value && !target.prop) },
         { label: 'duplicateObject', icon: 'copy', run: () => target && duplicateBlock(studio, target), disabled: !reorderable.value },
         { label: 'deleteObject', icon: 'trash', run: () => target && deleteBlock(studio, target), disabled: !mapped.value },
       ] },
     ]
     case 'insert': return [
       { label: 'textGroup', commands: [
-        { label: 'blockHeading', icon: 'h1', run: () => insertBasic(0) },
-        { label: 'textBox', icon: 'edit', run: insertTextBox },
-        { label: 'blockList', icon: 'list', run: () => insertBasic(2) },
-        { label: 'blockCode', icon: 'code', run: () => insertBasic(7) },
+        { label: 'blockHeading', icon: 'h1', run: () => insertTextBox(true) },
+        { label: 'textBox', icon: 'edit', run: () => insertTextBox() },
       ] },
       { label: 'insertTab', commands: [
         { label: 'assets', icon: 'assets', run: () => openLibrary('assets'), pressed: library.value === 'assets' },
@@ -116,12 +107,9 @@ const groups = computed<Group[]>(() => {
       ] },
     ]
     case 'design': return [{ label: 'slide', commands: [
-      { label: 'layout', icon: 'layout', run: () => panel('layout') },
       { label: 'pageSettings', icon: 'settings', run: () => panel('layout') },
     ] }]
-    case 'transition': return [{ label: 'slideTransition', commands: [
-      { label: 'properties', icon: 'settings', run: () => panel('transition') },
-    ] }]
+    case 'transition': return []
     case 'animate': return [{ label: 'clickSequence', commands: [
       { label: 'animation', icon: 'animate', run: () => panel('animate') },
       { label: 'previousStep', icon: 'up', disabled: nav.clicks.value <= nav.clicksContext.value.clicksStart, run: () => nav.go(studio.no(), nav.clicks.value - 1) },
@@ -141,9 +129,7 @@ const groups = computed<Group[]>(() => {
       ] },
     ]
     case 'object': return [{ label: 'objectTab', commands: [
-      { label: target?.positioned ? 'returnFlow' : 'freePosition', icon: target?.positioned ? 'flow' : 'free', disabled: !mapped.value, run: () => target && (target.positioned ? returnToFlow(studio, target) : freePosition(studio, target)) },
-      { label: 'moveEarlier', icon: 'up', run: () => target && moveBlockBy(studio, target, -1), disabled: !reorderable.value, hint: 'documentOrderHint' },
-      { label: 'moveLater', icon: 'down', run: () => target && moveBlockBy(studio, target, 1), disabled: !reorderable.value, hint: 'documentOrderHint' },
+      ...(!target?.positioned ? [{ label: 'freePosition' as const, icon: 'free', disabled: !mapped.value, run: () => target && freePosition(studio, target) }] : []),
       { label: 'properties', icon: 'settings', run: () => panel('inspect') },
     ] }]
   }
@@ -181,6 +167,7 @@ const groups = computed<Group[]>(() => {
         </details>
         <span class="studio-command-group__label">{{ t('picture') }}</span>
       </div>
+      <div v-if="ribbonTab === 'insert'" class="studio-command-group"><ShapePicker /><span class="studio-command-group__label">{{ t('shapes') }}</span></div>
       <fieldset v-if="ribbonTab === 'transition'" class="studio-transition-quick" :disabled="locked"><PanelTransition /></fieldset>
       <div v-for="group in groups" :key="group.label" class="studio-command-group">
         <TextElementFields v-if="group.text" :group="group.text" />

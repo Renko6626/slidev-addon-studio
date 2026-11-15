@@ -235,7 +235,7 @@ export function useSelection(
         return
       event.preventDefault()
       selection.value = beneath
-      if (beneath.element !== 'image') {
+      if (beneath.element !== 'image' && beneath.element !== 'shape') {
         editPointer.value = { x: event.clientX, y: event.clientY }
         editing.value = true
       }
@@ -250,7 +250,7 @@ export function useSelection(
       return
     event.preventDefault()
     selection.value = target
-    if (target.element !== 'image') {
+    if (target.element !== 'image' && target.element !== 'shape') {
       editPointer.value = { x: event.clientX, y: event.clientY }
       editing.value = true
     }

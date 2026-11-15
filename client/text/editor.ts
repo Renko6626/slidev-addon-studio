@@ -3,13 +3,14 @@ import type { EditorOptions } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import { Color, FontFamily, FontSize, TextStyle } from '@tiptap/extension-text-style'
 import TextAlign from '@tiptap/extension-text-align'
+import { Fragment, Slice } from '@tiptap/pm/model'
 import type { Mark, Node as TextNode } from '@tiptap/pm/model'
 import type { EditorState } from '@tiptap/pm/state'
 import { closeHistory } from '@tiptap/pm/history'
 
 export type TextCommand = 'bold' | 'italic' | 'underline' | 'strike' | 'clear'
   | 'fontFamily' | 'fontSize' | 'color' | 'align' | 'lineHeight'
-  | 'bulletList' | 'orderedList' | 'indent' | 'outdent'
+  | 'bulletList' | 'orderedList' | 'indent' | 'outdent' | 'spaceBefore' | 'spaceAfter'
 type Toggle = boolean | 'mixed'
 export interface TextDefaults {
   fontFamily?: string
@@ -32,6 +33,8 @@ export interface TextFormat {
   strike: Toggle
   align: string | null
   lineHeight: string | null
+  spaceBefore: number | null
+  spaceAfter: number | null
   bulletList: Toggle
   orderedList: Toggle
 }
@@ -57,12 +60,13 @@ export function prepareTextHTML(html: string): string | null {
     }
     const keys = [...(el.getAttribute('style') ?? '').matchAll(/(?:^|;)\s*([\w-]+)\s*:/g)].map(match => match[1].toLowerCase())
     const allowed = tag === 'span' ? fontStyles
-      : tag === 'p' || tag === 'div' ? [...fontStyles, 'text-align', 'line-height', 'margin', 'margin-left', 'min-height']
+      : tag === 'p' || tag === 'div' ? [...fontStyles, 'text-align', 'line-height', 'margin', 'margin-left', 'margin-top', 'margin-bottom', 'min-height']
         : tag === 'ul' || tag === 'ol' ? ['margin', 'padding-left', 'list-style-type']
           : tag === 'li' ? ['margin'] : []
     if (keys.some(key => !allowed.includes(key))) return null
     // Only our own spacing defaults may be normalised on load.
-    if (el.style.margin && [el.style.marginTop, el.style.marginRight, el.style.marginBottom].some(value => value && !/^0(px)?$/.test(value))) return null
+    if (el.style.margin && (['p', 'div'].includes(tag) ? [el.style.marginRight] : [el.style.marginTop, el.style.marginRight, el.style.marginBottom]).some(value => value && !/^0(px)?$/.test(value))) return null
+    if (['p', 'div'].includes(tag) && [el.style.marginTop, el.style.marginBottom].some(value => value && !/^(0|\d+(\.\d+)?px)$/.test(value))) return null
     if (el.style.paddingLeft && el.style.paddingLeft !== '1.5em') return null
     if (el.style.marginLeft && !/^(0(px)?|\d+(\.\d+)?em)$/.test(el.style.marginLeft)) return null
     if (['ul', 'ol', 'li'].includes(tag) && el.style.marginLeft && !/^0(px)?$/.test(el.style.marginLeft)) return null
@@ -125,6 +129,11 @@ const ParagraphFormat = Extension.create({
         parseHTML: (el: HTMLElement) => el.style.lineHeight || null,
         renderHTML: (attrs: Record<string, string>) => attrs.lineHeight ? { style: `line-height:${attrs.lineHeight}` } : {},
       },
+      ...Object.fromEntries([['spaceBefore', 'margin-top'], ['spaceAfter', 'margin-bottom']].map(([name, css]) => [name, {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.style.getPropertyValue(css) || null,
+        renderHTML: (attrs: Record<string, string>) => attrs[name] ? { style: `${css}:${attrs[name]}` } : {},
+      }])),
       indent: {
         default: 0,
         parseHTML: (el: HTMLElement) => Number.parseFloat(el.style.marginLeft) / 1.5 || 0,
@@ -221,6 +230,8 @@ export function readTextFormat(state: EditorState, defaults: TextDefaults = {}):
     strike: toggle(styles.map((style, i) => has('strike', i) || (style.textDecoration ? style.textDecoration.includes('line-through') : !!defaults.strike))),
     align: common(ps.map(p => p.node.attrs.textAlign || defaults.align || 'left')),
     lineHeight: common(ps.map(p => p.node.attrs.lineHeight || defaults.lineHeight || '1.3')),
+    spaceBefore: common(ps.map(p => Number.parseFloat(p.node.attrs.spaceBefore) || 0)),
+    spaceAfter: common(ps.map(p => Number.parseFloat(p.node.attrs.spaceAfter) || 0)),
     bulletList: toggle(ps.map(p => p.list === 'bulletList')),
     orderedList: toggle(ps.map(p => p.list === 'orderedList')),
   }
@@ -250,6 +261,12 @@ export function applyTextCommand(editor: Editor, command: TextCommand, value?: s
     case 'color': if (value?.trim()) result = editor.commands.setColor(value.trim()); break
     case 'align': if (value) result = editor.commands.setTextAlign(value); break
     case 'lineHeight': if (value && Number(value) > 0 && Number(value) <= 10) result = editor.commands.updateAttributes('paragraph', { lineHeight: value }); break
+    case 'spaceBefore': case 'spaceAfter': {
+      const n = Number(value)
+      if (value?.trim() && Number.isFinite(n) && n >= 0 && n <= 200)
+        result = editor.commands.updateAttributes('paragraph', { [command]: `${n}px` })
+      break
+    }
     case 'bulletList': result = editor.commands.toggleBulletList(); break
     case 'orderedList': result = editor.commands.toggleOrderedList(); break
     case 'indent': case 'outdent': {
@@ -267,4 +284,28 @@ export function applyTextCommand(editor: Editor, command: TextCommand, value?: s
   }
   editor.view.dispatch(closeHistory(editor.state.tr))
   return result
+}
+
+/** Segment the clicked paragraph so marks do not split words. */
+export function selectTextWord(editor: Editor, pos: number) {
+  const at = editor.state.doc.resolve(pos)
+  if (!at.parent.isTextblock) return
+  const text = at.parent.textBetween(0, at.parent.content.size, '', '\n')
+  const offset = Math.min(at.parentOffset, Math.max(0, text.length - 1))
+  for (const part of new Intl.Segmenter(undefined, { granularity: 'word' }).segment(text)) {
+    if (part.index <= offset && offset < part.index + part.segment.length) {
+      if (part.isWordLike) editor.commands.setTextSelection({ from: at.start() + part.index, to: at.start() + part.index + part.segment.length })
+      return
+    }
+  }
+}
+
+/** Clipboard text is inserted as nodes, never interpreted as HTML. */
+export function pasteText(editor: Editor, text: string, matchFormat: boolean) {
+  const { state } = editor
+  const marks = matchFormat ? state.storedMarks ?? state.selection.$from.marks() : []
+  const content = text.replace(/\r\n?/g, '\n').split('\n').map(line =>
+    state.schema.nodes.paragraph.create(null, line ? state.schema.text(line, marks) : null))
+  editor.view.dispatch(state.tr.replaceSelection(new Slice(Fragment.fromArray(content), 1, 1)).scrollIntoView())
+  return true
 }

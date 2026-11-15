@@ -1,9 +1,10 @@
+import { readShape } from './shapes'
 import type { SourceRange } from '../types'
 import { append, getBlock, replaceBlock } from './lines'
 import { formatPos, readDrag, writeDrag } from './drag'
 import { findAttr, opensWithTag, writeAttr } from './tags'
 
-export type ElementKind = 'text' | 'image'
+export type ElementKind = 'text' | 'image' | 'shape'
 export interface Size { width: number, height: number }
 const STYLE_KEYS = ['font-family', 'font-size', 'color', 'text-align', 'line-height', 'object-fit'] as const
 
@@ -23,8 +24,9 @@ function setAttribute(block: string, key: string, value: string | null) {
 export function readElement(content: string, range: SourceRange) {
   const block = getBlock(content, range)
   const tag = opensWithTag(block)
-  const kind = attribute(block, 'data-studio-element')
-  if (!((kind === 'text' && tag?.name === 'div') || (kind === 'image' && tag?.name === 'img')))
+  const shape = tag?.name === 'StudioShape' ? readShape(content, range) : null
+  const kind = shape ? 'shape' : attribute(block, 'data-studio-element')
+  if (!(kind === 'shape' || (kind === 'text' && tag?.name === 'div') || (kind === 'image' && tag?.name === 'img')))
     return null
   const style = attribute(block, 'style')
   const styles: Record<string, string> = {}
@@ -107,6 +109,8 @@ export function resizeElement(content: string, range: SourceRange, field: 'x' | 
   const pos = readDrag(content, range)?.pos
   if (!element || !pos || (value !== null && !Number.isFinite(value)))
     return content
+  if (element.kind === 'shape' && (field === 'w' || field === 'h') && value === null) return content
+  if (element.kind === 'shape' && field === 'h' && readShape(content, range)?.kind === 'line') return content
   if (field === 'h' && element.kind === 'text')
     return content
   if ((field === 'w' || field === 'h') && (value === null || value <= 0))

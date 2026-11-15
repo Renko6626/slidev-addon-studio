@@ -119,6 +119,23 @@ The canvas fits the space left by the panels. Its display percentage does not
 change the slide's frontmatter `zoom`. The properties pane collapses on narrow
 windows and can be reopened from View.
 
+## New slides and layouts
+
+**Home → New slide** and the filmstrip's **New slide** open the same gallery:
+Blank, Title slide, Title and text, Two columns, Picture on the left, Picture on
+the right, and Full-page picture. Choosing one inserts a page after the current
+slide. Previews and inserted pages share object geometry and placeholder text.
+Text uses editable Studio text boxes; select a picture placeholder and use
+**Replace picture** in its properties. Placeholders are embedded images and need
+no external files. **Design → Page settings** edits the page name and parameters
+used by its existing layout. The layout gallery and switcher have been removed;
+existing layouts keep rendering unchanged. Layout selection and generic Slidev
+configuration remain available in Markdown source.
+
+**Insert → Heading** creates a larger text box. Use paragraph formatting for
+lists and the dedicated picture/shape tools for visual objects. The component
+library keeps quotes, dividers and code under **More content**.
+
 ## Text boxes and pictures
 
 **Insert → Text box** creates a positioned box with its placeholder selected.
@@ -214,9 +231,9 @@ Studio clipboard format, copy the object again in Studio.
   not every rendered element can be traced to an independently editable block.
 - Multiple selection, grouping, a general layer stack, manual viewport zoom,
   font installation, interactive cropping and desktop packaging remain future work.
-- New-element properties hide Return to flow, but the generic Object tab and
-  context menu still offer it. That command removes free positioning and frame
-  dimensions; entry visibility is a known follow-up.
+- Return to flow and source-order controls are temporarily hidden throughout
+  the editor. Unpositioned content still offers Free position. Editing context
+  menus show object actions and Close Studio; presentation menus remain in preview.
 
 See [all limitations](docs/limitations.md) and the [stage status](docs/status.md)
 for validation scope. Native clipboard, IME, file-picker, dragging and fullscreen

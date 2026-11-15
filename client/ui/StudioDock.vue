@@ -12,10 +12,11 @@ import StudioIcon from './parts/StudioIcon.vue'
 const panels = {
   inspect: { title: 'element', component: PanelInspect },
   animate: { title: 'animation', component: PanelAnimate },
-  layout: { title: 'slideLayout', component: PanelLayout },
+  layout: { title: 'pageSettings', component: PanelLayout },
   transition: { title: 'slideTransition', component: PanelTransition },
 } as const
-const current = computed(() => panels[activePanel.value === 'inspect' && !selection.value && !missed.value ? 'layout' : activePanel.value])
+const currentId = computed(() => activePanel.value === 'inspect' && !selection.value && !missed.value ? 'layout' : activePanel.value)
+const current = computed(() => panels[currentId.value])
 const resizing = ref(false)
 onDomEvent<PointerEvent>(window, 'pointermove', event => {
   if (resizing.value)
@@ -32,9 +33,9 @@ onDomEvent(window, 'pointerup', () => (resizing.value = false))
       <button class="studio-icon-button" :title="t('hideInspector')" @click="inspectorVisible = false"><StudioIcon name="close" /></button>
     </header>
     <nav class="studio-inspector-tabs" :aria-label="t('properties')">
-      <button :aria-pressed="activePanel === 'inspect'" @click="activePanel = 'inspect'">{{ t('properties') }}</button>
-      <button :aria-pressed="activePanel === 'layout'" @click="activePanel = 'layout'">{{ t('slide') }}</button>
-      <button :aria-pressed="activePanel === 'animate'" @click="activePanel = 'animate'">{{ t('animate') }}</button>
+      <button :disabled="!selection && !missed" :aria-pressed="currentId === 'inspect'" @click="activePanel = 'inspect'">{{ t('objectProperties') }}</button>
+      <button :aria-pressed="currentId === 'layout'" @click="activePanel = 'layout'">{{ t('pageSettings') }}</button>
+      <button :aria-pressed="currentId === 'animate'" @click="activePanel = 'animate'">{{ t('animate') }}</button>
     </nav>
     <div class="studio-dock__body"><component :is="current.component" /></div>
   </aside>

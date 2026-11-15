@@ -21,6 +21,8 @@ import { fitSlide } from '../editor-view'
 import { t } from '../i18n'
 import { useEditorMode } from '../composables/useEditorMode'
 import { useObjectClipboard } from '../composables/useObjectClipboard'
+import { useShapeTools } from '../composables/useShapeTools'
+import ShapeDrawingLayer from './ShapeDrawingLayer.vue'
 import InlineEditor from './InlineEditor.vue'
 import SelectionLayer from './SelectionLayer.vue'
 import StudioDock from './StudioDock.vue'
@@ -92,6 +94,7 @@ const context: StudioContext = {
   note: () => source.note.value,
   canvas,
   gizmo,
+  shapes: useShapeTools({ canvas, no: () => no.value, content: () => source.content.value, sourceReady: () => source.info.value != null, commit, selectInserted: (tag, range) => selectionApi.selectInserted(tag, range) }),
   text: useTextEditor({ content: () => source.content.value, commit, selectInserted: (tag, range) => selectionApi.selectInserted(tag, range) }),
   commit,
   setFrontmatter: (values, label) => source.setFrontmatter(values, label),
@@ -250,6 +253,7 @@ onScopeDispose(resetView)
           </footer>
         </div>
         <SelectionLayer v-if="ribbonTab !== 'file'" />
+        <ShapeDrawingLayer v-if="ribbonTab !== 'file'" />
         <InlineEditor ref="inlineEditor" />
         <StudioLibrary v-if="ribbonTab !== 'file'" />
       </template>

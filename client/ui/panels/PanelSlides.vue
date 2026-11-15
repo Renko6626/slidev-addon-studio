@@ -6,14 +6,14 @@ import { computed, nextTick, ref, watch } from 'vue'
 import { useElementSize } from '@vueuse/core'
 import { useDeckActions } from '../../composables/useDeckActions'
 import { onDomEvent } from '../../composables/useDomEvent'
-import { busy, editing } from '../../state'
+import { busy, editing, library } from '../../state'
 import { useStudio } from '../../context'
 import SlideThumbnail from '../parts/SlideThumbnail.vue'
 import StudioIcon from '../parts/StudioIcon.vue'
 
 const studio = useStudio()
 const nav = useNav()
-const { add, duplicate, remove, move } = useDeckActions()
+const { duplicate, remove, move } = useDeckActions()
 const slides = computed(() => nav.slides.value)
 const showThumbnails = useLocalStorage('slidev-studio:slide-thumbnails', true)
 const list = ref<HTMLElement | null>(null)
@@ -99,7 +99,7 @@ onDomEvent(window, 'dragend', () => {
       </div>
     </div>
     <div class="studio-filmstrip__footer">
-      <button class="studio-button" :disabled="busy || editing" @click="add(studio.no())"><StudioIcon name="plus" />{{ t('newSlide') }}</button>
+      <button class="studio-button" :disabled="busy || editing" @click="library = library === 'pagePresets' ? null : 'pagePresets'"><StudioIcon name="plus" />{{ t('newSlide') }} ▾</button>
       <p class="studio-hint">{{ t('deckReloadHint') }}</p>
     </div>
   </div>

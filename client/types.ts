@@ -17,7 +17,7 @@ export type TargetKind =
 
 export interface StudioTarget {
   /** Only explicitly marked, editor-created basic elements get dedicated controls. */
-  element?: 'text' | 'image'
+  element?: 'text' | 'image' | 'shape'
   /** The rendered element the user picked. */
   el: HTMLElement
   /** Slide this element belongs to. */

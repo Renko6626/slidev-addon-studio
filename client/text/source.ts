@@ -6,7 +6,7 @@ import { getBlock, replaceBlock } from '../md/lines'
 import { findAttr, opensWithTag, writeAttr } from '../md/tags'
 import { prepareTextHTML } from './editor'
 
-const PARAGRAPH_STYLES = ['text-align', 'line-height', 'margin-left']
+const PARAGRAPH_STYLES = ['text-align', 'line-height', 'margin-left', 'margin-top', 'margin-bottom']
 const NATIVE_TAG = /^(h[1-6]|p|ul|ol)$/
 
 export interface EditableTextSource {
@@ -25,6 +25,7 @@ export interface TextReplacement { content: string, block: string, range: Source
 
 /** Read authored HTML directly; rendered components cannot stand in for source. */
 export function readEditableText(content: string, target: StudioTarget): EditableTextSource | null {
+  target = editableTextTarget(target)
   if (!target.range || target.nested || target.prop) return null
   const range: SourceRange = [...target.range]
   if (target.element === 'text') {
@@ -60,16 +61,16 @@ export function readEditableText(content: string, target: StudioTarget): Editabl
     if (prepareTextHTML(html) === null) return null
     return { kind: 'native', range, html, tag, opening: block.slice(0, opening.end), closing: block.slice(end.index), paragraphStyles: styles }
   }
-  if (target.kind !== 'heading' && target.kind !== 'paragraph') return null
+  if (!['heading', 'paragraph', 'list'].includes(target.kind)) return null
   const shape = blockShape(block)
-  if (!shape || (shape.kind !== 'heading' && shape.kind !== 'paragraph')) return null
+  if (!shape || !['heading', 'paragraph', 'list'].includes(shape.kind)) return null
   if (!canEditVisually(block, target.el, shape)) return null
-  const tag = shape.kind === 'heading' ? `h${shape.prefix.trim().length}` : 'p'
+  const tag = shape.kind === 'heading' ? `h${shape.prefix.trim().length}` : shape.kind === 'list' ? target.el.tagName.toLowerCase() : 'p'
   if (tag !== target.el.tagName.toLowerCase()) return null
   const copy = target.el.cloneNode(true) as HTMLElement
   for (const el of [copy, ...copy.querySelectorAll('*')])
     for (const attr of [...el.attributes]) if (attr.name.startsWith('data-studio-')) el.removeAttribute(attr.name)
-  const html = `<p>${copy.innerHTML}</p>`
+  const html = shape.kind === 'list' ? copy.outerHTML : `<p>${copy.innerHTML}</p>`
   if (prepareTextHTML(html) === null) return null
   return { kind: 'native', range, html, tag, opening: `<${tag}>`, closing: `</${tag}>`, markdown: shape, paragraphStyles: {} }
 }
@@ -81,7 +82,7 @@ function rootOpening(source: EditableTextSource, node: HTMLElement, tag: string)
   const list = tag === 'ul' || tag === 'ol'
   const keys = list && tag !== source.tag ? [...PARAGRAPH_STYLES, 'list-style-type', 'padding-left'] : PARAGRAPH_STYLES
   for (const key of keys) {
-    const value = paragraphValue(node, key)
+    const value = paragraphValue(node, key) || (source.paragraphStyles[key] && ['margin-top', 'margin-bottom'].includes(key) ? node.style.getPropertyValue(key) : '')
     if (!value && !source.paragraphStyles[key]) continue
     const pattern = new RegExp(`(^|;)\\s*${key}\\s*:[^;]*`, 'i')
     style = pattern.test(style)
@@ -103,7 +104,7 @@ function paragraphValue(node: HTMLElement, key: string) {
   const value = node.style.getPropertyValue(key)
   // The editor's margin:0 shorthand also reports margin-left:0px. It is not
   // an authored indent and must not force plain Markdown into HTML.
-  return key === 'margin-left' && /^0(px)?$/.test(value) ? '' : value
+  return key.startsWith('margin-') && /^0(px)?$/.test(value) ? '' : value
 }
 
 /** Write only the selected block. Multiple editor paragraphs become siblings. */
@@ -128,7 +129,7 @@ export function writeEditableText(content: string, source: EditableTextSource, h
     const safe = text && !/[<>&#$\n]/.test(text)
       && (source.markdown.kind === 'heading' || !/^(?:[\s+*>`~:|=\-]|\d+[.)]\s)/.test(text))
     if (safe && !text.includes('{{')) {
-      const written = source.markdown.prefix + text
+      const written = (source.markdown.kind === 'list' ? '' : source.markdown.prefix) + text
       return { content: replaceBlock(content, source.range, written), block: written, range: [source.range[0], source.range[0] + written.split('\n').length] }
     }
   }
@@ -136,7 +137,11 @@ export function writeEditableText(content: string, source: EditableTextSource, h
     const tag = node.tagName === 'P' ? index === 0 && /^h[1-6]$/.test(source.tag) ? source.tag : 'p' : node.tagName.toLowerCase()
     if (index > 0) {
       if (node.tagName === 'P') {
+        const before = node.style.marginTop
+        const after = node.style.marginBottom
         node.style.removeProperty('margin')
+        if (before && !/^0(px)?$/.test(before)) node.style.marginTop = before
+        if (after && !/^0(px)?$/.test(after)) node.style.marginBottom = after
         node.style.removeProperty('min-height')
         if (!node.getAttribute('style')) node.removeAttribute('style')
       }
@@ -149,4 +154,13 @@ export function writeEditableText(content: string, source: EditableTextSource, h
   const written = blocks.join('\n\n').replace(/\{\{/g, '&#123;&#123;')
   const tag = opensWithTag(blocks[0])?.name
   return { content: replaceBlock(content, source.range, written), block: written, range: [source.range[0], source.range[0] + blocks[0].split('\n').length], tag }
+}
+
+/** A list item edits its mapped list, following the existing inline editor scope. */
+export function editableTextTarget(target: StudioTarget): StudioTarget {
+  if (target.kind !== 'list-item' || target.nested) return target
+  const el = target.el.closest<HTMLElement>('[data-studio-kind="list"]')
+  const range = el?.dataset.studioSrc?.split(',').map(Number)
+  return el && range?.length === 2 && range.every(Number.isFinite)
+    ? { ...target, el, kind: 'list', range: [range[0], range[1]] } : target
 }
