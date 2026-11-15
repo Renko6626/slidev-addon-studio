@@ -47,7 +47,7 @@ export async function listAssets(options: ResolvedSlidevOptions): Promise<AssetE
     if (!kind)
       continue
     const full = resolve(entry.parentPath ?? root, entry.name)
-    const url = `/${full.slice(root.length + 1).split(/[\\/]/).join('/')}`
+    const url = assetUrl(full.slice(root.length + 1))
     assets.push({ url, name: entry.name, size: (await stat(full)).size, kind })
   }
 
@@ -63,7 +63,8 @@ export interface UploadPayload {
 }
 
 export async function saveAsset(options: ResolvedSlidevOptions, payload: UploadPayload): Promise<AssetEntry> {
-  const ext = extname(payload.name).toLowerCase()
+  const file = basename(payload.name.replace(/\\/g, '/')).replace(/[ .]+$/, '')
+  const ext = extname(file).toLowerCase()
   if (!IMAGE_EXTENSIONS.has(ext) && !VIDEO_EXTENSIONS.has(ext))
     throw new StudioError('unsupportedAssetType', `Unsupported file type "${ext || payload.name}"`, { type: ext || payload.name })
 
@@ -77,26 +78,30 @@ export async function saveAsset(options: ResolvedSlidevOptions, payload: UploadP
   const targetDir = dir ? join(publicRoot, dir) : publicRoot
   await mkdir(targetDir, { recursive: true })
 
-  const name = await uniqueName(targetDir, sanitizeFileName(payload.name))
+  const name = await uniqueName(targetDir, sanitizeFileName(file, ext))
   await writeFile(join(targetDir, name), buffer)
 
   return {
-    url: `/${[dir, name].filter(Boolean).join('/')}`,
+    url: assetUrl([dir, name].filter(Boolean).join('/')),
     name,
     size: buffer.byteLength,
     kind: IMAGE_EXTENSIONS.has(ext) ? 'image' : 'video',
   }
 }
 
-function sanitizeFileName(name: string) {
-  const file = basename(name)
-  const ext = extname(file).toLowerCase()
-  // Clean the stem separately so a name like 图片.jpg cannot lose its dot.
-  const stem = file.slice(0, file.length - ext.length)
-    .replace(/[^\w.\-]+/g, '-')
-    .replace(/^[-.]+/, '')
-    .toLowerCase() || 'asset'
+function sanitizeFileName(file: string, ext: string) {
+  // Preserve readable names; remove Windows-invalid characters and Vite URL delimiters.
+  let stem = file.slice(0, file.length - ext.length)
+    .replace(/[\u0000-\u001f<>:"/\\|?*#%]+/g, '-')
+    .replace(/[ .]+$/, '') || 'asset'
+  if (/^(con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\.|$)/i.test(stem))
+    stem = `asset-${stem}`
   return `${stem}${ext}`
+}
+
+/** File names stay readable on disk; URL syntax is escaped per path segment. */
+function assetUrl(path: string) {
+  return `/${path.split(/[\\/]/).map(encodeURIComponent).join('/')}`
 }
 
 function sanitizeSegment(dir: string) {
