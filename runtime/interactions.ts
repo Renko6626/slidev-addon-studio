@@ -1,12 +1,10 @@
-import { computed, reactive, readonly, ref, shallowReactive } from 'vue'
+import { computed, readonly, shallowReactive } from 'vue'
 import type { ComputedRef, DeepReadonly } from 'vue'
-import { applyQuizSignal, createQuizState } from '../shared/quiz'
-import type { QuizConfiguration, QuizSignal, QuizState } from '../shared/quiz'
+import type { QuizConfiguration, QuizSignal } from '../shared/quiz'
+import type { InteractionQuestion, StudioRuntime } from './types'
+import { quizStore } from './stores/quiz'
 
-export interface InteractionQuestion {
-  configuration: QuizConfiguration
-  state: QuizState
-}
+export type { InteractionQuestion } from './types'
 export interface InteractionPage {
   active: ComputedRef<boolean>
   question: (id: string) => DeepReadonly<InteractionQuestion> | undefined
@@ -15,55 +13,39 @@ export interface InteractionPage {
   dispatch: (signal: QuizSignal) => boolean
   dispose: () => void
 }
-interface RegisteredPage extends InteractionPage {
-  receive: (signal: QuizSignal) => boolean
-  reset: () => void
-}
-
-const editing = ref(false)
-export const interactionEditing = readonly(editing)
-const pages = new Set<RegisteredPage>()
-
-/** Start a fresh trial only when crossing the editor/presentation boundary. */
-export function setInteractionEditing(value: boolean) {
-  if (editing.value === value) return
-  editing.value = value
-  for (const page of pages) page.reset()
-}
+interface RegisteredPage extends InteractionPage { receive: (signal: QuizSignal) => boolean }
+const pages = new WeakMap<StudioRuntime, Set<RegisteredPage>>()
 
 /** Route one signal to one active main slide instance; never broadcast or queue. */
-export function dispatchInteraction(signal: QuizSignal): boolean {
-  const candidates = [...pages].filter(page => page.active.value && page.question(signal.question))
+export function dispatchInteraction(runtime: StudioRuntime, signal: QuizSignal): boolean {
+  if (!runtime.canRunServices.value) return false
+  const candidates = [...(pages.get(runtime) ?? [])].filter(page => page.active.value && page.question(signal.question))
   return candidates.length === 1 ? candidates[0].receive(signal) : false
 }
 
-/** A mounted SlideWrapper owns this session, separate from previews of the same page. */
-export function createInteractionPage(isActive: () => boolean): InteractionPage {
-  const questions = shallowReactive(new Map<string, InteractionQuestion>())
-  const active = computed(() => !editing.value && isActive())
+/** Mounted wrappers own receivers; the store retains trial records after unmount. */
+export function createInteractionPage(runtime: StudioRuntime, pageNumber: () => number, isActive: () => boolean): InteractionPage {
+  const store = quizStore(runtime)
+  const questions = shallowReactive(new Map<string, symbol>())
+  const active = computed(() => runtime.canRunServices.value && isActive())
+  let registered = pages.get(runtime)
+  if (!registered) { registered = new Set(); pages.set(runtime, registered) }
   const page: RegisteredPage = {
     active,
     question: id => {
-      const question = questions.get(id)
+      const question = questions.has(id) ? store.records[pageNumber()]?.[id] : undefined
       return question ? readonly(question) : undefined
     },
     registerQuestion(id, configuration) {
-      const question = reactive({ configuration, state: createQuizState() })
-      questions.set(id, question)
-      return () => { if (questions.get(id) === question) questions.delete(id) }
+      const token = Symbol()
+      store.register(pageNumber(), id, configuration)
+      questions.set(id, token)
+      return () => { if (questions.get(id) === token) questions.delete(id) }
     },
-    dispatch: signal => active.value && questions.has(signal.question) && dispatchInteraction(signal),
-    receive(signal) {
-      const question = questions.get(signal.question)
-      if (!active.value || !question) return false
-      const next = applyQuizSignal(question.configuration, question.state, signal)
-      if (!next) return false
-      question.state = next
-      return true
-    },
-    reset() { for (const question of questions.values()) question.state = createQuizState() },
-    dispose() { pages.delete(page); questions.clear() },
+    dispatch: signal => active.value && questions.has(signal.question) && dispatchInteraction(runtime, signal),
+    receive: signal => active.value && questions.has(signal.question) && store.apply(pageNumber(), signal),
+    dispose() { registered.delete(page); questions.clear() },
   }
-  pages.add(page)
+  registered.add(page)
   return page
 }

@@ -141,6 +141,7 @@ The question components are hidden from the generic palette to avoid unbound cop
 | `StudioQuestion` | `question`, `mode` (`single` / `multiple`), `title`, `options` (`{ id, label, correct }[]`), `correctText`, `incorrectText`, `idleText`; owns and registers the question. `name` labels the control. `presentation` defaults to `hidden`; `summary` shows the name when presenting. The prompt is always rendered by `StudioQuestionTitle` |
 | `StudioQuestionTitle` | `question`; displays the bound question's `title`. Removing it does not unregister the question |
 | `StudioButton` | `question`, `action`, optional `option` and `label`; without `label`, option buttons use the question's option text. Appearance: `fill`, `color`, `selectedFill`, `correctFill`, `incorrectFill`, numeric `radius` |
+| `StudioCorrectCount` | `label` (default `已答对`), numeric `fontSize` (default `24`), `color` (default `inherit`); displays the first-correct question count across the current trial |
 | `StudioFeedback` | `question`, optional `effect` (`none` / `fade` / `pop`, default `fade`); renders the question's idle or result text |
 
 They are independent single-root objects positioned with `v-drag`; presentation
@@ -161,10 +162,13 @@ Advanced code can import the same signal entry used by the buttons. With the
 main slide has mounted:
 
 ```ts
-import { dispatchInteraction } from 'slidev-addon-studio/runtime/interactions'
+import { dispatchInteraction, useStudioContext } from 'slidev-addon-studio/runtime'
+
+// Inside component setup; services receive this runtime explicitly.
+const { runtime } = useStudioContext()
 
 export function chooseA() {
-  return dispatchInteraction({ question: 'question-1', action: 'choose', option: 'A' })
+  return dispatchInteraction(runtime, { question: 'question-1', action: 'choose', option: 'A' })
 }
 ```
 
@@ -174,11 +178,11 @@ page instances keep separate state. For a multiple-choice page, send explicit
 selection values and then submit:
 
 ```ts
-dispatchInteraction({ question: 'question-1', action: 'set-option', option: 'A', selected: true })
-dispatchInteraction({ question: 'question-1', action: 'set-option', option: 'C', selected: true })
-dispatchInteraction({ question: 'question-1', action: 'submit' })
+dispatchInteraction(runtime, { question: 'question-1', action: 'set-option', option: 'A', selected: true })
+dispatchInteraction(runtime, { question: 'question-1', action: 'set-option', option: 'C', selected: true })
+dispatchInteraction(runtime, { question: 'question-1', action: 'submit' })
 // Remove choices and feedback:
-dispatchInteraction({ question: 'question-1', action: 'clear-pending' })
+dispatchInteraction(runtime, { question: 'question-1', action: 'clear-pending' })
 ```
 
 Only the active main slide outside editing accepts signals. Thumbnails, next-page
@@ -188,3 +192,20 @@ events. Leaving a slide retains its state for the current trial; crossing the
 editing boundary resets the trial. Static builds use the runtime without Studio's
 editing code. No network transport or lifecycle management for arbitrary
 third-party scripts is supplied.
+
+`dispatchInteraction` now requires the runtime as its first argument. Component code
+can also use `useQuiz().dispatch(signal)` and read `useQuiz().question(id)` or
+`useQuiz().correctCount` from the public runtime entry. Global layers can read the
+count; their question lookup and dispatch are inactive.
+
+Insert `StudioCorrectCount` from the component palette to show the number of
+questions answered correctly at least once in this trial:
+
+```vue
+<StudioCorrectCount label="已答对" :font-size="24" color="inherit" v-drag="[40,40,240,48]" />
+```
+
+Each page/question pair contributes at most one, including after retries, clearing
+choices or remounting. Changing the question configuration resets its contribution.
+Switching between editing and running or calling `runtime.resetTrial()` clears all
+answers and credits. Palette previews and thumbnails use independent trial state.

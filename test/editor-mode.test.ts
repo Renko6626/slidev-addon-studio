@@ -22,7 +22,7 @@ import { useEditorMode } from '../client/composables/useEditorMode'
 import { editing, selection, studioOpen } from '../client/state'
 import type { StudioTarget } from '../client/types'
 import { fullscreen } from '@slidev/client/state/index.ts'
-import { createInteractionPage, setInteractionEditing } from '../runtime/interactions'
+import { createInteractionPage } from '../runtime/interactions'
 import { getStudioRuntime, initializeRuntime, installStudioRuntime } from '../runtime/app'
 
 const apps: App[] = []
@@ -42,7 +42,6 @@ afterEach(() => {
   selection.value = null
   studioOpen.value = false
   fullscreen.isFullscreen.value = false
-  setInteractionEditing(false)
   vi.restoreAllMocks()
 })
 
@@ -90,13 +89,12 @@ describe('editor mode', () => {
 
   it('resets at editor boundaries, preserves pages during preview and keeps the same fullscreen trial', async () => {
     const current = ref(1)
-    const pages = [1, 2].map(no => createInteractionPage(() => current.value === no))
-    const configuration = { mode: 'single' as const, options: [{ id: 'a', label: 'A', correct: true }], correctText: 'Correct', incorrectText: 'Retry', idleText: '' }
-    pages.forEach(page => page.registerQuestion('q1', configuration))
-    setInteractionEditing(false)
-    pages[0].dispatch({ question: 'q1', action: 'choose', option: 'a' })
     useNav().router.currentRoute.value.query = { studio: '1' }
     const mode = mountEditorMode()
+    const pages = [1, 2].map(no => createInteractionPage(mode.runtime, () => no, () => current.value === no))
+    const configuration = { mode: 'single' as const, options: [{ id: 'a', label: 'A', correct: true }], correctText: 'Correct', incorrectText: 'Retry', idleText: '' }
+    pages.forEach(page => page.registerQuestion('q1', configuration))
+    pages[0].dispatch({ question: 'q1', action: 'choose', option: 'a' })
     try {
       expect(pages[0].active.value).toBe(false)
       expect(pages[0].question('q1')?.state.attempts).toBe(0)

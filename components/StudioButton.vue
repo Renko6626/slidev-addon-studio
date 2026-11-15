@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { QuizSignal } from '../shared/quiz'
-import { interactionEditing } from '../runtime/interactions'
-import { useInteractionPage } from '../runtime/useInteractionPage'
+import { useStudioContext } from '../runtime'
+import { useInteractionPage } from '../runtime/composables/useInteractionPage'
 
 type Appearance = 'normal' | 'selected' | 'correct' | 'incorrect'
 const props = withDefaults(defineProps<{
@@ -17,7 +17,9 @@ const props = withDefaults(defineProps<{
   incorrectFill?: string
   radius?: number
 }>(), { fill: '#EFF6FF', color: '#1E293B', selectedFill: '#DBEAFE', correctFill: '#DCFCE7', incorrectFill: '#FEE2E2', radius: 10 })
-const page = useInteractionPage()
+const context = useStudioContext()
+const interactionEditing = computed(() => context.runtime.mode.value === 'edit')
+const page = useInteractionPage(context)
 const root = ref<HTMLButtonElement | null>(null)
 const temporary = ref<Appearance | null>(null)
 const question = computed(() => page.question(props.question))

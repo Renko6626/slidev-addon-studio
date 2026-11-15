@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onScopeDispose, watch } from 'vue'
+import { computed, onScopeDispose, watch } from 'vue'
 import type { QuestionPresentation, QuizMode, QuizOption } from '../shared/quiz'
-import { interactionEditing } from '../runtime/interactions'
-import { useInteractionPage } from '../runtime/useInteractionPage'
+import { useStudioContext } from '../runtime'
+import { useInteractionPage } from '../runtime/composables/useInteractionPage'
 
 const props = withDefaults(defineProps<{
   question: string
@@ -15,7 +15,9 @@ const props = withDefaults(defineProps<{
   incorrectText?: string
   idleText?: string
 }>(), { mode: 'single', title: '', name: '', presentation: 'hidden', options: () => [], correctText: 'Correct!', incorrectText: 'Try again.', idleText: '' })
-const page = useInteractionPage()
+const context = useStudioContext()
+const interactionEditing = computed(() => context.runtime.mode.value === 'edit')
+const page = useInteractionPage(context)
 let unregister = () => {}
 // Slidev can pass equal new arrays when its page rerenders; those are the same question.
 function configuration() {

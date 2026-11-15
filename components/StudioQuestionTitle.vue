@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { useInteractionPage } from '../runtime/useInteractionPage'
+import { useInteractionPage } from '../runtime/composables/useInteractionPage'
 
 const props = defineProps<{ question: string }>()
 const page = useInteractionPage()

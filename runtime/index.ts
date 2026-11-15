@@ -1,3 +1,6 @@
 export { getStudioRuntime, installStudioRuntime } from './app'
 export type { StudioContext, StudioMode, StudioRuntime, StudioView } from './types'
 export { useStudioContext } from './composables/useStudioContext'
+export { useQuiz } from './composables/useQuiz'
+export { dispatchInteraction } from './interactions'
+export type { InteractionQuestion, QuizConfiguration, QuizMode, QuizOption, QuizResult, QuizSignal, QuizState } from './types'
