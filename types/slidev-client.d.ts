@@ -16,10 +16,12 @@ declare module '@slidev/client' {
     router: {
       currentRoute: Ref<{ query: Record<string, string | null | (string | null)[] | undefined> }>
       replace: (location: { query: Record<string, string | null | (string | null)[] | undefined> }) => Promise<unknown>
+      isReady: () => Promise<void>
     }
     slides: ShallowRef<(SlideRoute & { meta: { slide: SlideInfo } })[]>
     total: ComputedRef<number>
     currentSlideNo: ComputedRef<number>
+    hasPrimarySlide: Ref<boolean>
     currentSlideRoute: ComputedRef<SlideRoute>
     currentLayout: ComputedRef<string>
     currentFrontmatter: ComputedRef<Record<string, any>>

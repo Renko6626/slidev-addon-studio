@@ -1,4 +1,6 @@
-import { effectScope, nextTick, ref } from 'vue'
+// @vitest-environment jsdom
+import { createApp, nextTick, ref } from 'vue'
+import type { App } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 // Supply the host's router/fullscreen; exercise Studio's actual watchers and state.
@@ -21,10 +23,21 @@ import { editing, selection, studioOpen } from '../client/state'
 import type { StudioTarget } from '../client/types'
 import { fullscreen } from '@slidev/client/state/index.ts'
 import { createInteractionPage, setInteractionEditing } from '../runtime/interactions'
+import { getStudioRuntime, initializeRuntime, installStudioRuntime } from '../runtime/app'
 
-let scope = effectScope()
+const apps: App[] = []
+function mountEditorMode() {
+  let mode!: ReturnType<typeof useEditorMode>
+  const app = createApp({ setup() { mode = useEditorMode(); return () => null } })
+  const runtime = installStudioRuntime(app)
+  initializeRuntime(runtime, { editing: true, canRunServices: true })
+  app.mount(document.createElement('div'))
+  apps.push(app)
+  return { ...mode, runtime: getStudioRuntime(app) }
+}
+
 afterEach(() => {
-  scope.stop()
+  for (const app of apps.splice(0)) app.unmount()
   editing.value = false
   selection.value = null
   studioOpen.value = false
@@ -36,8 +49,7 @@ afterEach(() => {
 describe('editor mode', () => {
   it('keeps the active title selected when a shortcut tries to close an unfinished edit', async () => {
     useNav().router.currentRoute.value.query = { studio: '1', clicks: '2' }
-    scope = effectScope()
-    scope.run(useEditorMode)
+    mountEditorMode()
     const title: StudioTarget = {
       el: {} as HTMLElement, no: 1, range: null, kind: 'frontmatter',
       prop: 'title', positioned: false, nested: false, label: 'Title',
@@ -56,18 +68,23 @@ describe('editor mode', () => {
 
   it('switches preview and editing without dropping other route parameters', async () => {
     useNav().router.currentRoute.value.query = { studio: '1', clicks: '2' }
-    scope = effectScope()
-    const mode = scope.run(useEditorMode)!
+    const mode = mountEditorMode()
+    const reset = vi.fn()
+    mode.runtime.onReset(reset)
     mode.preview()
     await nextTick()
     expect(studioOpen.value).toBe(false)
     expect(mode.previewing.value).toBe(true)
+    expect(mode.runtime.mode.value).toBe('run')
+    expect(reset).toHaveBeenCalledTimes(1)
     expect(useNav().router.currentRoute.value.query).toEqual({ studio: '0', clicks: '2' })
 
     mode.returnToEditor()
     await nextTick()
     expect(studioOpen.value).toBe(true)
     expect(mode.previewing.value).toBe(false)
+    expect(mode.runtime.mode.value).toBe('edit')
+    expect(reset).toHaveBeenCalledTimes(2)
     expect(useNav().router.currentRoute.value.query).toEqual({ studio: '1', clicks: '2' })
   })
 
@@ -79,8 +96,7 @@ describe('editor mode', () => {
     setInteractionEditing(false)
     pages[0].dispatch({ question: 'q1', action: 'choose', option: 'a' })
     useNav().router.currentRoute.value.query = { studio: '1' }
-    scope = effectScope()
-    const mode = scope.run(useEditorMode)!
+    const mode = mountEditorMode()
     try {
       expect(pages[0].active.value).toBe(false)
       expect(pages[0].question('q1')?.state.attempts).toBe(0)

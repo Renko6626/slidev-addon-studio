@@ -50,7 +50,7 @@
   },
   "peerDependencies": {
     "@slidev/cli": ">=52.0.0",
-    "vue": "^3.5.0"
+    "vue": "^3.5.11"
   },
   "dependencies": {
     "@tiptap/core": "3.34.0",
@@ -60,6 +60,7 @@
     "@tiptap/starter-kit": "3.34.0",
     "@vueuse/core": "^14.0.0",
     "jszip": "3.10.1",
+    "pinia": "3.0.4",
     "vue-i18n": "11.4.2",
     "yaml": "^2.9.0"
   },

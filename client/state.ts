@@ -1,12 +1,13 @@
 import type { StudioTarget } from './types'
 import { useLocalStorage } from '@vueuse/core'
 import { computed, ref, shallowRef, watch } from 'vue'
+import { editorOpenStorageKey } from '../shared/editor-mode'
 
 export type PanelId = 'inspect' | 'animate' | 'layout' | 'transition' | 'layers'
 export type RibbonTab = 'file' | 'home' | 'insert' | 'design' | 'transition' | 'animate' | 'view' | 'object'
 
 /** Studio is off until asked for, so a normal `slidev` session is unchanged. */
-export const studioOpen = useLocalStorage('slidev-studio:open', false)
+export const studioOpen = useLocalStorage(editorOpenStorageKey, false)
 export const activePanel = ref<PanelId>('inspect')
 export const ribbonTab = ref<RibbonTab>('home')
 export const library = ref<'components' | 'assets' | 'pagePresets' | null>(null)

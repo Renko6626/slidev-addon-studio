@@ -1,6 +1,4 @@
-export function editorOpenFromQuery(value: unknown, fallback: boolean): boolean {
-  return value === '1' ? true : value === '0' ? false : fallback
-}
+export { editorOpenFromQuery } from '../shared/editor-mode'
 
 /** Fit the real slide into the measured workspace without changing its zoom. */
 export function fitSlide(
