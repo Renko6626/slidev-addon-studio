@@ -18,7 +18,7 @@ const { correctCount } = useQuiz()
 <studio lang="yaml">
 description: 显示本次试播曾答对的题目数
 category: 答题
-snippet: '<StudioCorrectCount v-drag="[40,40,240,48]" />'
+snippet: '<StudioCorrectCount label="已答对" :font-size="24" />'
 props:
   label:
     label: 标签
