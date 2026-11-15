@@ -93,6 +93,21 @@ it('does not reorder different containers, dynamic attributes or unknown compone
   expect(canWriteLayer(s.content, s.targets[2].range!)).toBe(false)
 })
 
+it('persists known interaction roots while retaining their bindings and dynamic-style limits', () => {
+  const snippets = [
+    '<StudioQuestion question="q1" title="Question" v-drag="[20,30,300,80]" />',
+    '<StudioButton question="q1" action="choose" option="a" v-drag="[20,120,300,60]" />',
+    '<StudioFeedback question="q1" effect="fade" v-drag="[20,220,300,60]" />',
+  ]
+  const s = fixture(snippets)
+  const next = reorderLayers(s.content, objectLayers(s.targets, s.content)[0], s.targets[0], 'front')
+  expect(readLayer(next, s.targets[0].range!)).toBe(102)
+  expect(getBlock(next, s.targets[1].range!)).toContain('question="q1" action="choose" option="a"')
+  expect(readDrag(next, s.targets[0].range!)).toEqual(readDrag(s.content, s.targets[0].range!))
+  expect(canWriteLayer(snippets[1].replace('/>', ':style="buttonStyle" />'), [0, 1])).toBe(false)
+  expect(canWriteLayer(snippets[1].replace('/>', ':class="buttonClass" />'), [0, 1])).toBe(false)
+})
+
 it('preserves multiline attribute ranges while writing all peers in one update', () => {
   const multiline = first.replace('style="', 'class="\ncustom\n" style="z-index:150;\n')
   const s = fixture([multiline, middle])

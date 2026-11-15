@@ -3,12 +3,14 @@ import { fullscreen } from '@slidev/client/state/index.ts'
 import { ref, watch } from 'vue'
 import { editorOpenFromQuery } from '../editor-view'
 import { busy, clearSelection, editing, library, reportError, studioOpen } from '../state'
+import { setInteractionEditing } from '../../runtime/interactions'
 
 export function useEditorMode() {
   const { router } = useNav()
   const previewing = ref(false)
   let ownsFullscreen = false
   studioOpen.value = editorOpenFromQuery(router.currentRoute.value.query.studio, studioOpen.value)
+  setInteractionEditing(studioOpen.value)
 
   watch(() => router.currentRoute.value.query.studio, value => {
     const next = editorOpenFromQuery(value, studioOpen.value)
@@ -24,6 +26,7 @@ export function useEditorMode() {
         studioOpen.value = true
       return
     }
+    setInteractionEditing(open)
     library.value = null
     clearSelection()
     if (open)

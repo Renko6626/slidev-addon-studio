@@ -24,6 +24,7 @@ import { useObjectClipboard } from '../composables/useObjectClipboard'
 import { useShapeTools } from '../composables/useShapeTools'
 import ShapeDrawingLayer from './ShapeDrawingLayer.vue'
 import InlineEditor from './InlineEditor.vue'
+import { readInteractionText } from '../md/interactions'
 import SelectionLayer from './SelectionLayer.vue'
 import StudioDock from './StudioDock.vue'
 import StudioToolbar from './StudioToolbar.vue'
@@ -161,7 +162,7 @@ onDomEvent<KeyboardEvent>(document, 'keydown', (event) => {
   if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"]'))
     return
 
-  if (selectedTargets.value.length === 1 && event.key === 'F2' && context.text.supported.value && !busy.value) {
+  if (selectedTargets.value.length === 1 && event.key === 'F2' && (context.text.supported.value || readInteractionText(context.content(), target.range)) && !busy.value) {
     event.preventDefault()
     editing.value = true
     return

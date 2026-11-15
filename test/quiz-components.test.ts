@@ -1,31 +1,20 @@
 // @vitest-environment jsdom
-import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { compileScript, parse } from 'vue/compiler-sfc'
-import ts from 'typescript'
-import * as Vue from 'vue'
 import { afterEach, expect, it, vi } from 'vitest'
 import { createApp, effectScope, h, nextTick, ref } from 'vue'
 import type { App, Component, EffectScope } from 'vue'
 import * as interactions from '../runtime/interactions'
 import { useInteractionPage } from '../runtime/useInteractionPage'
+import { loadVueComponent } from './sfc'
 
 const host = vi.hoisted(() => ({ context: null as any, nav: null as any }))
 vi.mock('@slidev/client', () => ({ useSlideContext: () => host.context, useNav: () => host.nav }))
 
 // Load the actual SFC with Vue's compiler; the repository test runner has no Vue plugin.
 function component(name: string): Component {
-  const file = resolve(process.cwd(), `components/${name}.vue`)
-  const { descriptor } = parse(readFileSync(file, 'utf8'), { filename: file })
-  const compiled = compileScript(descriptor, { id: name, inlineTemplate: true })
-  const script = ts.transpileModule(compiled.content, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ESNext } }).outputText
-  const exports: { default?: Component } = {}
-  const modules: Record<string, unknown> = { vue: Vue, '../runtime/useInteractionPage': { useInteractionPage }, '../runtime/interactions': interactions }
-  new Function('require', 'exports', script)((name: string) => {
-    if (!(name in modules)) throw new Error(`Unexpected component import ${name}`)
-    return modules[name]
-  }, exports)
-  return exports.default!
+  return loadVueComponent(resolve(process.cwd(), `components/${name}.vue`), {
+    '../runtime/useInteractionPage': { useInteractionPage }, '../runtime/interactions': interactions,
+  })
 }
 const Question = component('StudioQuestion'), Button = component('StudioButton'), Feedback = component('StudioFeedback')
 const options = [{ id: 'a', label: 'Option A', correct: true }, { id: 'b', label: 'Option B', correct: false }]

@@ -5,6 +5,8 @@ import { useObjectClipboard } from '../client/composables/useObjectClipboard'
 import { OBJECT_CLIPBOARD_TYPE } from '../client/md/clipboard'
 import { getBlock } from '../client/md/lines'
 import { busy, editing, selection, setSelectedTargets, studioOpen } from '../client/state'
+import { findAttr } from '../client/md/tags'
+import { readDrag } from '../client/md/drag'
 
 const deck = 'http://localhost:3071/edit/deck/'
 const source = '<img v-drag="[10,20,100,80]" src="/photo.png" />'
@@ -130,4 +132,36 @@ it('copies every selected object using the existing envelope and pastes all in o
   expect(app.multiRanges().map(range => getBlock(app.content(), range))).toEqual([
     source.replace('[10,20,', '[30,40,'), second.replace('[200,100,', '[220,120,'),
   ])
+})
+
+it('rebinds a copied question group together while leaving standalone button copies linked to the original', async () => {
+  const app = setup()
+  const snippets = [
+    '<StudioQuestion question="q1" title="Choose" v-drag="[10,20,400,80]" />',
+    '<StudioButton question="q1" action="choose" option="a" v-drag="[10,120,400,60]" />',
+    '<StudioFeedback question="q1" v-drag="[10,220,400,60]" />',
+  ]
+  app.setContent(snippets.join('\n\n'))
+  const targets = snippets.map((_, index) => ({ ...selection.value!, range: [index * 2, index * 2 + 1] as [number, number], kind: 'component' as const, tag: ['StudioQuestion', 'StudioButton', 'StudioFeedback'][index] }))
+  setSelectedTargets(targets)
+  const group = clipboard('copy')
+  app.document.dispatchEvent(group.event)
+  app.document.dispatchEvent(clipboard('paste', group.values).event)
+  await Promise.resolve()
+  await Promise.resolve()
+  const inserted = app.multiRanges().map(range => getBlock(app.content(), range))
+  const question = findAttr(inserted[0], 'question')?.value
+  expect(question).toBeTruthy()
+  expect(question).not.toBe('q1')
+  expect(inserted.map(block => findAttr(block, 'question')?.value)).toEqual([question, question, question])
+  expect(readDrag(app.content(), app.multiRanges()[1])?.pos?.y).toBe(140)
+  expect(app.writes()).toBe(1)
+  setSelectedTargets([targets[1]])
+  const button = clipboard('copy')
+  app.document.dispatchEvent(button.event)
+  app.document.dispatchEvent(clipboard('paste', button.values).event)
+  await Promise.resolve()
+  await Promise.resolve()
+  expect(findAttr(app.selected(), 'question')?.value).toBe('q1')
+  expect(findAttr(app.selected(), 'option')?.value).toBe('a')
 })

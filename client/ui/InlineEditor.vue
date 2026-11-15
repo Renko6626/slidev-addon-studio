@@ -14,6 +14,8 @@ import { useStudio } from '../context'
 import { onDomEvent } from '../composables/useDomEvent'
 import StudioIcon from './parts/StudioIcon.vue'
 import { projectWriteError } from '../project-save'
+import { readInteractionText, writeInteractionText } from '../md/interactions'
+import type { InteractionTextSource } from '../md/interactions'
 
 /**
  * Editing a block's text where it sits, in two ways.
@@ -64,7 +66,9 @@ let held: SourceRange | null = null
  * around a different element. Which one is in play decides which serialiser
  * writes the result back.
  */
-let heldKind: 'block' | 'container' | 'prop' | 'html' | 'text' = 'block'
+let heldKind: 'block' | 'container' | 'prop' | 'html' | 'text' | 'interaction' = 'block'
+let interactionText: InteractionTextSource | null = null
+let originalInteractionText = ''
 
 /** For an edit inside raw HTML: the element's tag, and the words it held. */
 let htmlTag = ''
@@ -74,8 +78,8 @@ let htmlWas = ''
 
 const range = computed(() => selection.value?.range ?? null)
 
-/** A frontmatter value is a plain string, so it gets no formatting controls. */
-const editingProp = computed(() => !!selection.value?.prop)
+/** Values held by props have plain text; their appearance uses dedicated fields. */
+const editingProp = computed(() => !!selection.value?.prop || !!(range.value && readInteractionText(studio.content(), range.value)))
 
 watch(editing, async (open) => {
   if (!open) {
@@ -85,6 +89,23 @@ watch(editing, async (open) => {
   richUnsupported.value = false
   const point = editPointer.value
   editPointer.value = null
+
+  const interaction = range.value ? readInteractionText(studio.content(), range.value) : null
+  const interactionEl = selection.value?.el.querySelector<HTMLElement>('[data-studio-interaction-text]')
+  if (interaction && interactionEl) {
+    heldKind = 'interaction'
+    interactionText = interaction
+    held = interaction.range
+    shape.value = null
+    source = interaction.text
+    originalInteractionText = interactionEl.textContent ?? ''
+    mode.value = 'visual'
+    const at = interactionEl.getBoundingClientRect()
+    rect.value = { left: at.left, top: at.top, width: Math.max(at.width, 260) }
+    await nextTick()
+    hold(interactionEl)
+    return
+  }
 
   /*
    * Text a layout was handed, rather than text the slide holds.
@@ -363,6 +384,7 @@ function hold(element: HTMLElement, caretIn?: HTMLElement | null) {
 function release() {
   studio.text.stop()
   held = null
+  interactionText = null
   if (!editable)
     return
   editable.removeEventListener('paste', onPaste)
@@ -375,6 +397,19 @@ function release() {
 async function apply() {
   if (!editing.value)
     return
+  if (heldKind === 'interaction' && interactionText) {
+    const descriptor = interactionText
+    const raw = editable?.textContent ?? ''
+    const changed = raw !== originalInteractionText
+    const written = raw.replace(/\s+/g, ' ').trim()
+    release()
+    editing.value = false
+    if (changed && written !== source) {
+      const next = writeInteractionText(studio.content(), descriptor, written)
+      if (next !== studio.content()) await studio.commit(next, action('actionEditText'))
+    }
+    return
+  }
   if (heldKind === 'prop') {
     const key = selection.value?.prop
     const written = (editable?.textContent ?? '').replace(/\s+/g, ' ').trim()
@@ -466,7 +501,7 @@ defineExpose({ apply })
 
 /** Switches to editing the Markdown, keeping whatever has been typed. */
 function toMarkdown() {
-  if (mode.value === 'markdown')
+  if (mode.value === 'markdown' || editingProp.value)
     return
   const written = mode.value === 'rich'
     ? (studio.text.changed() ? studio.text.draft() : source)
@@ -603,6 +638,15 @@ function onKeydown(event: KeyboardEvent) {
     apply()
     return
   }
+  if (heldKind === 'interaction' && event.key === 'Enter') {
+    event.preventDefault()
+    void apply()
+    return
+  }
+  if (editingProp.value && modifier && ['b', 'i', 'u'].includes(event.key.toLowerCase())) {
+    event.preventDefault()
+    return
+  }
   /*
    * Tab moves a list item in and out a level.
    *
@@ -727,7 +771,7 @@ onScopeDispose(release)
       <span v-if="mode !== 'rich'" class="studio-toolbar__divider" />
 
       <button
-        v-if="mode !== 'markdown'"
+        v-if="mode !== 'markdown' && !editingProp"
         class="studio-icon-button"
         :title="t('editMarkdown')"
         @mousedown.prevent
