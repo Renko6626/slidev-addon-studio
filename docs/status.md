@@ -1,5 +1,19 @@
 # Studio 阶段状态
 
+## 当前分支：Pinia 自定义交互基础，2026-11-16
+
+`codex/studio-custom-runtime` 提供应用级 Pinia、公共运行上下文、独立预览状态、题目首次答对计数、普通可定位计数组件和自定义示例。排版拖拽由 Studio 制作工具负责，播放时关闭 Slidev 原生拖拽入口。新桌面工程声明 Pinia，并附 agent 接入指南。当前是分支源码成果，未合并 main、推送、发布 npm 或打包桌面版本。
+
+源码扩展 API 变更：`dispatchInteraction(signal)` 改为 `dispatchInteraction(runtime, signal)`；组件内使用 `useQuiz().dispatch(signal)`。Pinia 固定 3.0.4，Vue peer 下限 ^3.5.11；拖拽私有适配仅核对本仓库 Slidev 52.19。
+
+- 完整 `pnpm test`：345 通过、1 项既有可选 HTTP QA 跳过；`pnpm typecheck` 通过。
+- 静态构建发现省略扩展名的 Slidev constants 导入，修正后受影响三文件 14 项测试、类型检查和 `pnpm exec slidev build playground/custom-code.md --out /tmp/studio-custom-runtime-build` 通过。
+- `npm pack --dry-run --json` 与产物库存检查通过，接入文档、公共入口及初始化文件包含在包内，静态产物未发现 Studio 编辑 UI 标记。
+- 逐项及整分支 sol 审阅通过。修正计数器 snippet 重复定位属性；没有新增通用插入机制或无关测试。
+- 未进行浏览器交互/截图验收、Windows 实机、工作台 53.0、多人联网或发布验证。内存状态不跨浏览器同步，手机答题服务仍属后续工作。
+
+入口：[示例](../playground/custom-code.md)、[代码约定](custom-code/conventions.md)、[组件规范](custom-code/components.md)、[实施记录](superpowers/plans/2026-11-16-custom-runtime.md)。验证与审阅原始记录在 `/tmp/studio-custom-runtime-evidence-20261116/`。
+
 ## 阶段归档：题目管理控件与桌面准备进度，2026-11-15
 
 归档分支为 `codex/studio-page-presets`，包含独立题目管理控件、题干拆分、关联虚线和配置入口，及桌面主页的依赖安装状态、滚动进度条与实际输出。题目统一使用新结构，不保留旧版题干兼容分支。用户要求阶段性提交并推送当前分支，暂不打包。
