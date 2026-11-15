@@ -139,3 +139,30 @@
 - Manual viewport zoom and hidden-slide management remain future work. Windows
   desktop ZIP packaging is available as a preview, without an installer, signing
   or automatic updates.
+
+
+## Custom runtime boundaries
+
+- The public runtime requires Vue `^3.5.11` and uses Pinia `3.0.4`. An existing
+  project's Vue/Pinia dependencies are preserved when Studio is enabled; check
+  compatibility explicitly when upgrading that project.
+- Quiz answers and the first-correct question count are browser-memory trial
+  state. Navigation and fullscreen preserve it; editing transitions, explicit
+  `resetTrial()` and refresh reset it. Configuration changes reset that question.
+  `clear-pending` clears one question's choices/result without removing its credit.
+- Palette previews and thumbnails receive independent runtimes; their active flag
+  is false. Custom author code must use the provided context. This is not a
+  sandbox for arbitrary scripts or module-level side effects.
+- `dispatchInteraction` requires an explicit runtime as its first argument.
+  Rejected signals return false without queuing. Global layers can read the count,
+  but their `useQuiz` question lookup and dispatch are inactive.
+- `canRunServices` expresses runtime eligibility, not authorization to connect.
+  Integrations still need explicit configuration and lifecycle cleanup. No remote
+  transport, phone UI, identities, host reveal flow, persistence or cross-device
+  synchronization is supplied.
+- Presentation layout dragging is disabled by a narrow adapter for Slidev's private
+  `useDragElements.ts`. It supports the locally installed 52.19 implementation and
+  fails on a mismatched method. Workbench Slidev 53.0, Windows native behavior and
+  real remote/multiplayer workflows have not been validated in this phase.
+- Runtime, examples and desktop template changes here are source changes; publishing,
+  Windows repackaging and sibling workbench upgrades remain separate tasks.

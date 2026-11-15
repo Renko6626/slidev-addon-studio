@@ -64,7 +64,7 @@ slides.md
 
 业务代码在组件内通过宿主取得 Pinia；组件外显式传入 runtime 或 Pinia。模块顶层可 defineStore，不得在 import 时 useStore、连接网络、开计时或发送业务操作。运行宿主只导入 runtime/shared，静态构建不能带入 client 富文本编辑器。
 
-## 公共接口草案
+## 公共接口
 
 从 `slidev-addon-studio/runtime` 导入（项目使用现有包别名）。不要导入 client、内部 store 或 Slidev 私有模块。
 
@@ -140,7 +140,7 @@ StudioCorrectCount 读取全局 correctCount，提供 label、fontSize、color �
 
 本地 Slidev 52.19 的 v-drag 指令、VDrag、VDragArrow 都调用 useDragElement().startDragging，SlidesShow 在播放时也渲染 DragControl。仅关闭 Studio 面板或禁用保存不会锁定位置。
 
-建议在 addon 的现有 Vite 适配中增加一个窄的 `node/presentation-drag.ts` transform：只针对已解析的 @slidev/client/composables/useDragElements.ts，将原生 startDragging 方法变为无操作，保留位置计算、样式和保存工具。Studio 自己的 useTransformGizmo 继续负责编辑排版。这样不拦截组件业务双击，也不复制整套定位实现。
+建议在 addon 的现有 Vite 适配中增加一个窄的 `node/presentation-drag.ts` transform：由 `presentationDragPlugin(clientRoot: string)` 接收 Slidev `options.clientRoot`，只针对该目录下的 composables/useDragElements.ts，将原生 startDragging 方法变为无操作，保留位置计算、样式和保存工具。Studio 自己的 useTransformGizmo 继续负责编辑排版。这样不拦截组件业务双击，也不复制整套定位实现。
 
 这是本设计需要评审的具体实现选择，使用了 Slidev 私有实现。适配集中在一个文件，校验匹配一次；不匹配时给出明确版本不兼容错误，不能静默宣称播放已锁定。覆盖开发和静态构建。此阶段验证本仓库安装的 52.19；工作台的 53.0 适配与模板更新留给独立集成，不宣称已兼容。若必须新增另一套定位格式或扩大 patch 范围，实施者停在该决策点提交方案。
 

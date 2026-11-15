@@ -1,6 +1,6 @@
 # 自定义代码组织约定
 
-状态：设计草案，配合 [运行基础设计](../superpowers/specs/2026-11-16-custom-runtime-design.md) 评审。下面的公共 runtime API 尚未实现；现有组件元数据和 v-drag 源码格式已存在。
+以下约定适用于当前源码的公共 runtime。新运行基础尚未发布到新的 npm 或桌面版本，使用已安装的旧版本时先确认依赖。
 
 ## 目录和依赖
 
@@ -19,7 +19,7 @@
 
 ## Pinia
 
-项目直接编写 store 时，在项目依赖中声明计划锁定的 pinia@3.0.4。Vue 采用 >=3.5.11 的 3.5 系列。addon 安装或复用应用 Pinia，项目 setup 通过 getStudioRuntime(app).pinia 获取；不再次 app.use(createPinia())。
+项目直接编写 store 时，在项目依赖中声明 pinia@3.0.4。Vue 采用 >=3.5.11 的 3.5 系列。addon 安装或复用应用 Pinia，项目 setup 通过 getStudioRuntime(app).pinia 获取；不再次 app.use(createPinia())。
 
 模块顶层只 defineStore，实例在 setup 或明确的运行入口中创建。自定义组件使用 useStudioContext().runtime.pinia 传给 useXxxStore，以便组件库/缩略图使用其独立预览实例。服务由调用者传入需要的 action 或 Pinia，不依赖模块导入顺序。
 
@@ -49,7 +49,7 @@ Pinia HMR 可用于自定义 store，使用官方 acceptHMRUpdate；开发时修
 
 ## 公共接口边界
 
-应用代码导入 slidev-addon-studio/runtime。该入口只导出受支持的类型、宿主访问、上下文、useQuiz 和动作入口。禁止通过 client/state.ts、runtime/stores/quiz.ts 或 Slidev 私有路径获取能力。
+活动工程通过包别名 `slidev-addon-studio/runtime` 导入。桌面工程使用此别名安装归档；手动安装当前 scoped 包时可用 `pnpm add -D slidev-addon-studio@npm:@renko_1055/slidev-addon-studio`（待本源码发布后），或 `pnpm add -D slidev-addon-studio@link:../slidev-addon-studio` 链接 checkout（将 `../slidev-addon-studio` 替换为实际含 `package.json` 的源码目录）。仓库 playground 自己用相对路径 `../../runtime` 读取同一公共入口，无需给源码工程另装一个自引用别名。该入口只导出受支持的类型、宿主访问、上下文、useQuiz 和动作入口。禁止通过 client/state.ts、runtime/stores/quiz.ts 或 Slidev 私有路径获取能力。
 
 Addon 自己的 Slidev 适配集中管理；发现公共接口缺失，先说明实际需求，再决定扩展。不要在每个自定义组件复制适配逻辑。
 
@@ -60,3 +60,60 @@ Addon 自己的 Slidev 适配集中管理；发现公共接口缺失，先说明
 新业务如抽签：先写 stores/lottery.ts 和 components/lottery/LotteryPanel.vue。确需外部名单时才增加 services/participants-api.ts；抽签规则仍放在 store 或纯函数中。
 
 参考：[Pinia 组件外使用](https://pinia.vuejs.org/core-concepts/outside-component-usage.html)、[Store 定义与 storeToRefs](https://pinia.vuejs.org/core-concepts/)、[HMR](https://pinia.vuejs.org/cookbook/hot-module-replacement.html)。
+
+## Service 组装示意
+
+这里仅定义同步订阅接口和生命周期，不提供 Socket、HTTP、手机端或活动后台。`subscribe` 由已确认的业务集成提供；没有配置时不调用组装函数。不要把下面的适配函数当作已经可用的远程控制。
+
+```ts
+// services/bind-quiz-signals.ts
+import { watch } from 'vue'
+import type { Ref } from 'vue'
+import { dispatchInteraction } from 'slidev-addon-studio/runtime'
+import type { QuizSignal, StudioRuntime } from 'slidev-addon-studio/runtime'
+
+type Subscribe = (receive: (signal: QuizSignal) => boolean) => () => void
+
+export function bindQuizSignals(
+  runtime: StudioRuntime,
+  enabled: Ref<boolean>, // 作者明确开启；默认 false
+  subscribe: Subscribe, // 返回释放订阅/连接的停止函数
+) {
+  let stopService: (() => void) | undefined
+  const stopWatch = watch(
+    [runtime.canRunServices, enabled],
+    ([eligible, requested]) => {
+      stopService?.()
+      stopService = undefined
+      if (eligible && requested)
+        stopService = subscribe(signal => dispatchInteraction(runtime, signal))
+    },
+    { immediate: true, flush: 'sync' },
+  )
+  return () => {
+    stopWatch()
+    stopService?.()
+    stopService = undefined
+  }
+}
+```
+
+工程的 `setup/main.ts` 在取得实际配置后组装，停止函数交给 app 和 HMR：
+
+```ts
+import type { AppContext } from '@slidev/types'
+import { getStudioRuntime } from 'slidev-addon-studio/runtime'
+import { bindQuizSignals } from '../services/bind-quiz-signals'
+// 由工程提供 enabled ref 和真实 subscribe；本 addon 不实现这两个配置。
+import { quizSignals } from '../services/activity-config'
+
+export default function ({ app }: AppContext) {
+  const runtime = getStudioRuntime(app)
+  if (!quizSignals) return
+  const stop = bindQuizSignals(runtime, quizSignals.enabled, quizSignals.subscribe)
+  app.onUnmount(stop)
+  if (import.meta.hot) import.meta.hot.dispose(stop)
+}
+```
+
+安装阶段 `canRunServices=false`；根导航就绪且为主运行视图后才可能为 true。edit/run 不能单独作为联网开关。该示意不发送消息，也不新增 transport、后台或默认连接。收到动作时以 dispatch 返回值为准，false 不会排队等待下一页。

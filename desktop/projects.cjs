@@ -78,7 +78,7 @@ async function createProject(directory, resources) {
   const manifest = {
     name: 'studio-presentation', private: true, type: 'module', packageManager: 'pnpm@10.33.0',
     scripts: { dev: 'slidev slides.md', build: 'slidev build slides.md' },
-    devDependencies: { ...BASE_DEPENDENCIES },
+    devDependencies: { ...BASE_DEPENDENCIES, pinia: '3.0.4' },
   }
   const project = { root: directory, entry: path.join(directory, 'slides.md'), manifest }
   await enableStudio(project, resources)

@@ -167,7 +167,7 @@ import { dispatchInteraction, useStudioContext } from 'slidev-addon-studio/runti
 // Inside component setup; services receive this runtime explicitly.
 const { runtime } = useStudioContext()
 
-export function chooseA() {
+function chooseA() {
   return dispatchInteraction(runtime, { question: 'question-1', action: 'choose', option: 'A' })
 }
 ```
@@ -209,3 +209,30 @@ Each page/question pair contributes at most one, including after retries, cleari
 choices or remounting. Changing the question configuration resets its contribution.
 Switching between editing and running or calling `runtime.resetTrial()` clears all
 answers and credits. Palette previews and thumbnails use independent trial state.
+
+
+## Custom runtime components
+
+Use the [component contract](custom-code/components.md) for a single positioning
+root, props, metadata and lifecycle rules, and the [code conventions](custom-code/conventions.md)
+for custom stores and service assembly. Vue must satisfy `^3.5.11`; the addon pins
+Pinia to `3.0.4`. Projects that define their own stores declare Pinia directly.
+
+`playground/custom-code.md` uses `QuizProgress.vue` to read the same count as
+`StudioCorrectCount` and explicitly reset the whole trial. Its root accepts the
+page's positioning and size; `fontSize` changes the text independently. Palette
+snippets contain plain components; the editor adds positioning when inserting by drag.
+
+`clear-pending` clears one current question's selection and result while retaining
+its first-correct credit. `runtime.resetTrial()` clears all question answers and
+credits and calls registered custom resets. `runtime.onReset(callback)` returns
+an unregister function. A custom Options Store can register `() => store.$reset()`;
+a Setup Store supplies its own reset action.
+
+Studio-only layout dragging uses the addon's narrow Slidev adapter. Preview and
+presentation retain `v-drag` positions without starting native layout dragging;
+normal answer clicks remain active. Component palettes and thumbnails get isolated
+runtime instances (`view='preview'`, `page=null`, `active=false`). Mounting a
+component is not permission to start business effects. Use `context.active` for
+page effects and `runtime.canRunServices` plus explicit author configuration for
+whole-trial services. No network transport is included.

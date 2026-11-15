@@ -7,7 +7,7 @@
 ```bash
 pnpm install
 pnpm play        # the playground deck in playground/
-pnpm test        # unit tests for the Markdown rewriting
+pnpm test        # source, runtime and component checks
 pnpm typecheck
 ```
 
@@ -69,7 +69,7 @@ already there:
 | Keyboard shortcuts | `setup/shortcuts.ts` |
 | Writing to the `.md` | `useDynamicSlideInfo().update()`, the same endpoint Slidev's own editor and `v-drag` use |
 | Changing frontmatter | The same endpoint, but as `frontmatterRaw` rather than a `frontmatter` patch, edited line by line so comments and key order survive. A patch updates Slidev's own resolved copy of the deck, so the file watcher then finds nothing changed and never rebuilds the slide, and a layout switch appears to do nothing until the server restarts |
-| Free positioning | Slidev's `v-drag`, so positions stay compatible with Slidev's own handles |
+| Free positioning | Slidev's `v-drag` format; Studio's transform gizmo handles editing |
 | Component and layout catalog | `setup/vite-plugins.ts`, which receives the fully resolved options including every theme and addon root |
 | Adding and reordering slides | A small dev-only API in the addon's own Vite plugin, since Slidev's endpoint only patches slides in place |
 | Tracing a click to its source | A markdown-it plugin that stamps each block with the line range it came from |
@@ -120,6 +120,9 @@ addon source merge.
 | Catalog, pages and assets | `node/`, `client/composables/useDeckApi.ts` |
 | Project info, archive and File page | `node/project.ts`, `shared/project.ts`, `client/composables/useProject.ts`, `client/ui/StudioFile.vue` |
 | Explicit save and write status | `client/project-save.ts`, exposed apply methods on `InlineEditor.vue` and `StudioNotes.vue` |
+| App runtime and preview isolation | `runtime/app.ts`, `runtime/preview.ts`, `runtime/composables/`, `setup/main.ts`, `setup/root.ts` |
+| Quiz state and public API | `runtime/stores/quiz.ts`, `runtime/interactions.ts`, `runtime/index.ts`, `shared/quiz.ts` |
+| Presentation drag adapter | `node/presentation-drag.ts`, installed by `setup/vite-plugins.ts` |
 | Interface translations | `client/i18n/en.ts`, `client/i18n/zh-CN.ts` |
 
 Keep source edits inspectable. New basic elements use ordinary HTML plus
@@ -153,7 +156,7 @@ Run the checks relevant to the complete change:
 ```bash
 pnpm test
 pnpm typecheck
-pnpm exec slidev build playground/slides.md --out /tmp/studio-build
+pnpm exec slidev build playground/custom-code.md --out /tmp/studio-custom-runtime-build
 # When changing base-path or asset handling:
 pnpm exec slidev build playground/slides.md --base /studio-preview/ --out /tmp/studio-base-build
 ```
@@ -181,3 +184,32 @@ The Release workflow publishes only on a `v*` tag and verifies the tag against
 `package.json`. Updating the version, creating a release tag, publishing npm and
 upgrading workbench projects are separate tasks; do not infer them from a request
 to push or merge source.
+
+
+## Runtime integration
+
+The addon installs one Pinia-backed runtime per Vue app, reusing an app's existing
+`$pinia` when present. It pins `pinia@3.0.4` and requires Vue `^3.5.11`. New desktop
+projects declare Pinia directly; enabling Studio in an existing project preserves
+its Pinia and Vue versions. Projects that define stores should explicitly declare
+the compatible Pinia dependency themselves.
+
+The public entry is `slidev-addon-studio/runtime` under the deck's package alias.
+Components use `useStudioContext()` and `useQuiz()`; setup/services use
+`getStudioRuntime(app)` and `dispatchInteraction(runtime, signal)`. The previous
+one-argument `dispatchInteraction(signal)` must be migrated. Internal stores and
+editor modules are not public application APIs. See [code conventions](custom-code/conventions.md)
+for read/reset rules and a service assembly sketch without a network transport.
+
+`presentationDragPlugin(clientRoot: string)` receives Slidev's resolved
+`options.clientRoot` from the existing Vite setup. It transforms only that client's
+`composables/useDragElements.ts`, disabling native `startDragging` while preserving
+position rendering. A mismatched method fails with a compatibility error. The
+adapter targets the locally installed Slidev 52.19; workbench Slidev 53.0 requires
+separate validation. Both dev and static builds apply this adapter.
+
+The package `files` list includes `runtime/`, `setup/`, `components/` and
+`docs/custom-code/`. The design/plan records remain repository documentation and
+are excluded from the published package. Static presentation output uses runtime
+and shared logic; editor `client/` UI must not enter the built bundle. Packaging
+checks and static builds do not publish a release or validate Windows/multiplayer.

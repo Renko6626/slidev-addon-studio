@@ -29,6 +29,7 @@
   },
   "files": [
     "components",
+    "docs/custom-code",
     "client",
     "node",
     "runtime",

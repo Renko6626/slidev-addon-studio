@@ -30,6 +30,7 @@ it('creates an ordinary Slidev project with a portable local addon and no Git re
   const manifest = JSON.parse(await readFile(join(project.root, 'package.json'), 'utf8'))
   expect(manifest.devDependencies['@slidev/cli']).toBe('52.19.0')
   expect(manifest.devDependencies['markdown-it']).toBe('14.3.0')
+  expect(manifest.devDependencies.pinia).toBe('3.0.4')
   expect(manifest.devDependencies['slidev-addon-studio']).toBe('file:vendor/slidev-addon-studio.tgz')
   expect(manifest.slidev.addons).toEqual(['slidev-addon-studio'])
   expect(await readFile(project.entry, 'utf8')).toBe('# New presentation')
@@ -45,7 +46,7 @@ it('enables the bundled addon while preserving the project CLI, other dependenci
   await mkdir(join(projectRoot, 'pages'), { recursive: true })
   await writeFile(join(projectRoot, 'pages/talk.md'), '# Keep this text')
   await writeFile(join(projectRoot, 'package.json'), JSON.stringify({
-    name: 'existing', dependencies: { '@slidev/cli': '53.0.0', 'slidev-addon-studio': 'old-version', vue: '3.5.42' },
+    name: 'existing', dependencies: { '@slidev/cli': '53.0.0', 'slidev-addon-studio': 'old-version', vue: '3.5.42', pinia: '3.0.3' },
     slidev: { addons: ['other-addon'] }, custom: { keep: true },
   }))
   const project = await inspectProject(join(projectRoot, 'pages/talk.md'))
@@ -53,7 +54,7 @@ it('enables the bundled addon while preserving the project CLI, other dependenci
   expect(await hasBundledStudio(project, assets)).toBe(false)
   await enableStudio(project, assets)
   const manifest = JSON.parse(await readFile(join(projectRoot, 'package.json'), 'utf8'))
-  expect(manifest.dependencies).toEqual({ '@slidev/cli': '53.0.0', 'slidev-addon-studio': 'file:vendor/slidev-addon-studio.tgz', vue: '3.5.42' })
+  expect(manifest.dependencies).toEqual({ '@slidev/cli': '53.0.0', 'slidev-addon-studio': 'file:vendor/slidev-addon-studio.tgz', vue: '3.5.42', pinia: '3.0.3' })
   expect(manifest.slidev.addons).toEqual(['other-addon', 'slidev-addon-studio'])
   expect(manifest.custom).toEqual({ keep: true })
   expect(await readFile(project.entry, 'utf8')).toBe('# Keep this text')

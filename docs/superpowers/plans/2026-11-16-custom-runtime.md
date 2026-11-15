@@ -86,7 +86,7 @@
 
 **Files:** node/presentation-drag.ts、setup/vite-plugins.ts；test/presentation-drag.test.ts，保留 test/pointer-interaction.test.ts。
 
-**Interfaces:** `presentationDragPlugin(): Plugin`，仅适配解析到的 @slidev/client/composables/useDragElements.ts；startDragging 方法替换为无操作。不改变位置样式、源码保存、组件业务双击和 Studio gizmo。
+**Interfaces:** `presentationDragPlugin(clientRoot: string): Plugin`，接收 Slidev 的 `options.clientRoot`，仅适配该目录下的 composables/useDragElements.ts；startDragging 方法替换为无操作。不改变位置样式、源码保存、组件业务双击和 Studio gizmo。
 
 - [ ] 在既有 Vite 插件返回数组中安装窄适配，同时用于 serve/build。路径匹配考虑 Vite query，不修改无关同名文件。
 - [ ] 精确验证目标方法匹配一次；缺失或歧义时给出包含 Slidev 文件及“不兼容原生拖拽适配”的构建错误，不偷偷扩大匹配规则。

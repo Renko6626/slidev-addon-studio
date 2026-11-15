@@ -1,10 +1,10 @@
 # Coding agent 自定义交互接入指南
 
-状态：设计草案，新 runtime 接口尚未实现。先阅读 [设计](../superpowers/specs/2026-11-16-custom-runtime-design.md)、[代码约定](conventions.md) 和 [组件规范](components.md)。实现状态以项目实际源码为准，不能直接照草案调用不存在的 API。
+适用于当前源码，尚未发布到新的 npm 或桌面版本。先阅读 [代码约定](conventions.md) 和 [组件规范](components.md)，按项目实际安装的版本确认接口。
 
 ## 开始修改前
 
-1. 阅读项目 AGENTS.md 和依赖；确认正在修改活动工程还是 Studio addon。
+1. 阅读项目 AGENTS.md 和依赖；确认正在修改活动工程还是 Studio addon。桌面工程的包别名是 `slidev-addon-studio`，本文安装路径是 `node_modules/slidev-addon-studio/docs/custom-code/agent-guide.md`。
 2. 明确要改的是外观、共享规则、外部数据还是宿主能力；只修改对应范围。
 3. 查找已有组件和 store。使用内置题目时复用 useQuiz，不新建另一份相同答案状态。
 4. 说明状态归属：当前组件、当前浏览器试播，或外部活动服务。Pinia 的共享范围不跨设备。
@@ -35,3 +35,16 @@
 ## 交付证据
 
 列出改动文件、使用接口、实际运行命令和结果，以及未验证项。新增测试只覆盖具体核心行为缺口，复用现有 fixture。检查通过后结束，不重复全量验证。浏览器最多截图；发布、远程后台和跨仓库模板同步需要另有明确范围。
+
+
+## 接口速查
+
+从 `slidev-addon-studio/runtime` 导入 `getStudioRuntime`、`useStudioContext`、`useQuiz`、`dispatchInteraction` 及其公共类型。addon 已在 setup 安装宿主；工程 setup 使用 `getStudioRuntime(app)`，组件使用 `useStudioContext()`。
+
+- 当前页答案：`useQuiz().question(id)` 返回 computed，只读且可能为 undefined。
+- 整场次数：`useQuiz().correctCount`，每页每题首次答对贡献一次。
+- 页面操作：`useQuiz().dispatch(signal)`；组件外操作：`dispatchInteraction(runtime, signal)`。
+- 局部清空：`clear-pending` 只清选择和反馈；整场重置：`runtime.resetTrial()`。
+- 自定义 store：传入上下文的 `runtime.pinia`，需要随整场重置时登记 `runtime.onReset` 并保留取消函数。
+
+旧代码 `dispatchInteraction(signal)` 需改为显式传宿主。不要从模块顶层保存一个主宿主供所有组件复用，这会绕过组件库和缩略图的独立状态。无网络的 service 组装示意见[代码约定](conventions.md#service-组装示意)。

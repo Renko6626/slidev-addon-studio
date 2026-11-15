@@ -1,6 +1,6 @@
 # 自定义组件接入规范
 
-状态：设计草案。新增运行 API 待实施；defineProps、studio YAML 元数据和 v-drag 已由当前工程使用。组件作者同时阅读 [代码约定](conventions.md)。
+当前源码支持公共 runtime、defineProps、studio YAML 元数据和 v-drag。组件作者同时阅读 [代码约定](conventions.md)；已安装的旧 npm 或桌面版本需要单独更新。
 
 ## 根据组件用途准备能力
 
@@ -47,7 +47,7 @@ Studio 编辑时选择、拖动、缩放和旋转；预览与播放时位置固�
 
 onMounted 可能发生在缩略图、组件库、预加载页或演讲者视图中。显示逻辑应能在 active=false 时渲染，业务修改必须检查 active，最终 action 也必须执行其适用性检查。
 
-preview 环境提供独立 Pinia。组件库没有题目上下文时显示说明/示例，不能抛错或修改主运行状态。通过纯 props 提供演示数据最简单；例如 demoCount 仅用于 preview 环境，不能覆盖真实 run 状态。
+Studio 的组件库和缩略图子树提供独立 Pinia，其 `view` 为 `preview`、`page` 为 `null`、`active` 为 `false`。组件库没有题目上下文时显示说明/示例，不能抛错或修改主运行状态。通过纯 props 提供演示数据最简单；例如 demoCount 仅用于 preview 环境，不能覆盖真实 run 状态。
 
 联网组件的预览使用固定示例数据。preview:false 可作为暂时不可预览的明确选择，但会显示占位，不作为最终制作体验。元数据 preview 是真实渲染模板，不能因此认为网络副作用被隔离。
 
@@ -79,3 +79,28 @@ props:
 组件可从库插入、配置内容及外观；可作为一个明确源码对象定位；缩略图不污染运行状态；编辑时不会提交答案；预览/播放能正常业务交互且不能排版拖动；静态构建可用；离开作用域不遗留自己启动的资源。
 
 验证使用已有检查和必要的真实组件测试，UI 最多截图。不能只以截图证明交互正常，也不能自行启动浏览器点击和表单流程。
+
+
+## 读取和重置示例
+
+活动工程可在组件 setup 中这样读取当前页题目与整场正确次数：
+
+```ts
+import { useQuiz, useStudioContext } from 'slidev-addon-studio/runtime'
+
+const { question, correctCount, dispatch } = useQuiz()
+const currentQuestion = question('question-1') // ComputedRef，未注册时为 undefined
+const { runtime, active } = useStudioContext()
+
+function clearChoices() {
+  // 仅清空当前题的选择和反馈，保留已经取得的计数。
+  return dispatch({ question: 'question-1', action: 'clear-pending' })
+}
+function restartTrial() {
+  if (active.value) runtime.resetTrial() // 全部内置题目及登记的自定义状态
+}
+```
+
+`correctCount.value` 是整场共享的次数，`currentQuestion.value?.state` 是当前页题目的只读答案。全局层可以读次数，但没有当前题目，不能通过 `useQuiz().dispatch` 答题。内置题目没有单题撤销计数 API；改题目配置会重置该题记录和贡献。需要整场归零时明确调用 `resetTrial()`。
+
+仓库的 `playground/components/QuizProgress.vue` 是完整实现，只通过公共入口读取次数、检查 active 并重置。`playground/custom-code.md` 展示它与内置计数器共享状态；`playground/interactions.md` 展示单选、多选的不同摆放。它们属于源码示例，不随安装包分发；本地 checkout 可运行 `pnpm exec slidev playground/custom-code.md`。
