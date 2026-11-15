@@ -13,7 +13,7 @@ import { useSlideSource } from '../composables/useSlideSource'
 import { useTransformGizmo } from '../composables/useTransformGizmo'
 import { useTextEditor } from '../composables/useTextEditor'
 import { studioContext, studioKey } from '../context'
-import { busy, dockWidth, editing, inspectorVisible, lastError, notesVisible, ribbonTab, selection, selectedTargets, slidesVisible, studioOpen } from '../state'
+import { activePanel, busy, dockWidth, editing, inspectorVisible, lastError, notesVisible, ribbonTab, selection, selectedTargets, slidesVisible, studioOpen } from '../state'
 import { imagePending } from '../composables/useImageInsertion'
 import { projectSaveStatus, projectWriteError, saveProject } from '../project-save'
 import '../project-host'
@@ -26,6 +26,7 @@ import ShapeDrawingLayer from './ShapeDrawingLayer.vue'
 import InlineEditor from './InlineEditor.vue'
 import { readInteractionText } from '../md/interactions'
 import SelectionLayer from './SelectionLayer.vue'
+import QuestionRelations from './QuestionRelations.vue'
 import StudioDock from './StudioDock.vue'
 import StudioToolbar from './StudioToolbar.vue'
 import PanelSlides from './panels/PanelSlides.vue'
@@ -197,6 +198,12 @@ onDomEvent<KeyboardEvent>(document, 'keydown', (event) => {
 
 // Selection belongs to one slide; navigating away drops it.
 watch(no, () => (selection.value = null))
+watch(selection, target => {
+  if (target?.el.hasAttribute('data-studio-question-control')) {
+    activePanel.value = 'inspect'
+    inspectorVisible.value = true
+  }
+})
 
 // `useDynamicSlideInfo` fetches the slide source lazily, on first read. Touch
 // it here so the source is already in hand when the user clicks, rather than
@@ -257,6 +264,7 @@ onScopeDispose(resetView)
             <button class="studio-statusbar__fit" @click="bounds.update()"><StudioIcon name="fit" :size="14" />{{ t('fitWindow') }}</button>
           </footer>
         </div>
+        <QuestionRelations v-if="ribbonTab !== 'file'" />
         <SelectionLayer v-if="ribbonTab !== 'file'" />
         <ShapeDrawingLayer v-if="ribbonTab !== 'file'" />
         <InlineEditor ref="inlineEditor" />

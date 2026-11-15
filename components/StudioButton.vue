@@ -58,7 +58,7 @@ watch(() => [props.question, props.action, props.option], () => { temporary.valu
 </script>
 
 <template>
-  <button ref="root" type="button" class="studio-quiz-button" :style="style" :data-quiz-appearance="appearance"
+  <button ref="root" type="button" class="studio-quiz-button" :style="style" :data-quiz-appearance="appearance" :data-studio-question-ref="props.question"
     :aria-pressed="optionButton ? selected : undefined" :aria-disabled="!page.active.value"
     @click.stop="activate" @keydown.enter.stop @keyup.enter.stop @keydown.space.stop @keyup.space.stop>
     <span data-studio-interaction-text>{{ label }}</span>

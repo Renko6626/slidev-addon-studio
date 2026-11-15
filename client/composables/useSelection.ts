@@ -11,7 +11,8 @@ import { onDomEvent } from './useDomEvent'
 import { normalise, resolveRange } from '../md/locate'
 import { readDrag } from '../md/drag'
 import { readElement } from '../md/elements'
-import { busy, editing, editPointer, hovered, missed, selection, selectedTargets, setSelectedTargets, marquee, studioOpen } from '../state'
+import { confirmQuestionRemoval } from '../actions'
+import { activePanel, busy, editing, editPointer, hovered, inspectorVisible, missed, selection, selectedTargets, setSelectedTargets, marquee, studioOpen } from '../state'
 
 /**
  * Turns a click on the rendered slide into a Markdown range Studio can edit.
@@ -286,7 +287,11 @@ export function useSelection(
         return
       event.preventDefault()
       selection.value = beneath
-      if (beneath.element !== 'image' && beneath.element !== 'shape') {
+      if (beneath.el.dataset.studioQuestionControl !== undefined) {
+        activePanel.value = 'inspect'
+        inspectorVisible.value = true
+      }
+      else if (beneath.element !== 'image' && beneath.element !== 'shape') {
         editPointer.value = { x: event.clientX, y: event.clientY }
         editing.value = true
       }
@@ -301,7 +306,11 @@ export function useSelection(
       return
     event.preventDefault()
     selection.value = target
-    if (target.element !== 'image' && target.element !== 'shape') {
+    if (target.el.dataset.studioQuestionControl !== undefined) {
+      activePanel.value = 'inspect'
+      inspectorVisible.value = true
+    }
+    else if (target.element !== 'image' && target.element !== 'shape') {
       editPointer.value = { x: event.clientX, y: event.clientY }
       editing.value = true
     }
@@ -342,6 +351,7 @@ export function useSelection(
     event.preventDefault()
     const target = selection.value
     const targets = selectedTargets.value
+    if (!confirmQuestionRemoval(content(), targets.length > 1 ? targets.map(item => item.range!) : [target.range!])) return
     const next = targets.length > 1 ? removePositions(content(), targets.map(item => item.range!)) : removeBlock(content(), positionedUnit(content(), target.range!))
     selection.value = null
     remove(next, action('actionDelete', { name: targetName(target) }))

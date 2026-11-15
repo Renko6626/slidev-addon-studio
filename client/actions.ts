@@ -8,6 +8,7 @@ import { activePanel, busy, editing, reportError, selection, selectedTargets } f
 import { captureBlocks, insertCopiedBlocks, movePositions, removePositions, writePositions } from './md/batch'
 import { alignDeltas, distributeDeltas } from './selection-geometry'
 import type { Align } from './selection-geometry'
+import { readInteraction } from './md/interactions'
 
 /**
  * What can be done to the selected block, in one place.
@@ -33,8 +34,18 @@ export function isPositioned(content: string, range: SourceRange): boolean {
 }
 
 export function editText() {
+  if (selection.value?.el.hasAttribute('data-studio-question-control')) return
   if (selectedTargets.value.length === 1 && selection.value?.range && selection.value.element !== 'image' && selection.value.element !== 'shape')
     editing.value = true
+}
+
+/** Removing a control intentionally leaves independently authored display objects. */
+export function confirmQuestionRemoval(content: string, ranges: SourceRange[]): boolean {
+  const removesControl = ranges.some(range => {
+    const source = readInteraction(content, range)
+    return source?.kind === 'question'
+  })
+  return !removesControl || window.confirm(t('quizDeleteControl'))
 }
 
 /**
@@ -134,6 +145,7 @@ export async function deleteBlock(studio: StudioContext, target: StudioTarget) {
   if (!target.range)
     return
   const targets = selectedTargets.value
+  if (!confirmQuestionRemoval(studio.content(), targets.length > 1 ? targets.map(item => item.range!) : [target.range])) return
   const unit = positionedUnit(studio.content(), target.range)
   const next = targets.length > 1 ? removePositions(studio.content(), targets.map(item => item.range!)) : removeBlock(studio.content(), unit)
   selection.value = null

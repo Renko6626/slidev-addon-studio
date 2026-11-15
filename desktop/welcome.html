@@ -16,7 +16,11 @@
       <button data-action="open" class="primary">打开工程<span>选择已有 Slidev 文件夹</span></button>
       <button data-action="new">新建工程<span>从空白演示开始</span></button>
     </div>
-    <div class="progress"><span id="indicator" aria-hidden="true"></span><p id="status" role="status">选择一个工程开始编辑。</p></div>
+    <section class="progress" aria-label="工程准备状态">
+      <div class="progress-heading"><p id="status" role="status">选择一个工程开始编辑。</p><span id="elapsed" hidden></span></div>
+      <div id="progress-bar" role="progressbar" aria-label="工程准备进度" hidden><span></span></div>
+      <p id="detail" hidden></p>
+    </section>
     <p class="note">文稿保存在你选择的文件夹中。首次准备依赖需要联网。</p>
     <button class="logs" data-action="logs">查看运行日志</button>
   </main>

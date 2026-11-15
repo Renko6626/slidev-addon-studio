@@ -83,6 +83,7 @@ async function insertTextBox(heading = false) {
 async function insertQuiz(mode: 'single' | 'multiple') {
   if (locked.value) return
   const page = createQuizPage(mode, { width: studio.canvas.slideWidth.value, height: studio.canvas.slideHeight.value }, {
+    name: t(mode === 'single' ? 'quizSingle' : 'quizMultiple'),
     title: t(mode === 'single' ? 'quizSingleDefaultTitle' : 'quizMultipleDefaultTitle'),
     options: [t('quizDefaultOptionA'), t('quizDefaultOptionB'), t('quizDefaultOptionC'), t('quizDefaultOptionD')],
     correct: t('quizDefaultCorrect'), incorrect: t('quizDefaultIncorrect'), idle: t('quizDefaultIdle'), submit: t('quizSubmit'), clear: t('quizClear'),
@@ -116,7 +117,7 @@ const groups = computed<Group[]>(() => {
       { label: 'fontGroup', text: 'font', commands: [] },
       { label: 'paragraphGroup', text: 'paragraph', commands: [] },
       { label: 'editingGroup', commands: [
-        { label: 'editTextCommand', icon: 'edit', run: editText, disabled: selectedTargets.value.length > 1 || !target || (target.element === 'image' || target.element === 'shape') || (!mapped.value && !target.prop) },
+        { label: 'editTextCommand', icon: 'edit', run: editText, disabled: selectedTargets.value.length > 1 || !target || target.el.hasAttribute('data-studio-question-control') || (target.element === 'image' || target.element === 'shape') || (!mapped.value && !target.prop) },
         { label: 'duplicateObject', icon: 'copy', run: () => target && duplicateBlock(studio, target), disabled: !reorderable.value },
         { label: 'deleteObject', icon: 'trash', run: () => target && deleteBlock(studio, target), disabled: !mapped.value },
       ] },

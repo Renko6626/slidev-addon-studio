@@ -10,40 +10,46 @@ it.each(['single', 'multiple'] as const)('creates an independent %s question pag
   const page = createQuizPage(mode, canvas, text)
   const [question] = listQuestions(page.content)
   expect(parse(page.frontmatter)).toEqual({ layout: 'none', title: text.title })
-  expect(question.value).toMatchObject({ question: 'question-1', mode, title: text.title })
+  expect(question.value).toMatchObject({ question: 'question-1', mode, title: text.title, presentation: 'hidden' })
   expect(question.value.options?.filter(option => option.correct).map(option => option.id)).toEqual(mode === 'single' ? ['A'] : ['A', 'C'])
   const blocks = page.content.split('\n\n')
-  expect(blocks).toHaveLength(mode === 'single' ? 6 : 8)
+  expect(blocks).toHaveLength(mode === 'single' ? 7 : 9)
   for (let index = 0; index < blocks.length; index++) {
     const range: [number, number] = [index * 2, index * 2 + 1]
     expect(readDrag(page.content, range)?.via).toBe('attr')
     expect(readInteraction(page.content, range)?.question).toBe('question-1')
   }
-  expect(readInteraction(page.content, [2, 3])).toMatchObject({ kind: 'button', action: mode === 'single' ? 'choose' : 'set-option', option: 'A', explicitLabel: false })
+  expect(readInteraction(page.content, [2, 3])).toMatchObject({ kind: 'title', question: 'question-1' })
+  expect(readInteraction(page.content, [4, 5])).toMatchObject({ kind: 'button', action: mode === 'single' ? 'choose' : 'set-option', option: 'A', explicitLabel: false })
 })
 
 it('edits an inherited button label in its question config, preserving all positions and option identities', () => {
   const page = createQuizPage('single', canvas, text)
-  const source = readInteractionText(page.content, [2, 3])!
+  const source = readInteractionText(page.content, [4, 5])!
   expect(source).toMatchObject({ kind: 'option-label', range: [0, 1], text: 'A option', option: 'A' })
   const next = writeInteractionText(page.content, source, 'A & "quoted"\n新文字')
-  expect(readInteractionText(next, [2, 3])?.text).toBe('A & "quoted"\n新文字')
-  expect(readInteraction(next, [2, 3])).toEqual(readInteraction(page.content, [2, 3]))
+  expect(readInteractionText(next, [4, 5])?.text).toBe('A & "quoted"\n新文字')
+  expect(readInteraction(next, [4, 5])).toEqual(readInteraction(page.content, [4, 5]))
   expect(readDrag(next, [0, 1])).toEqual(readDrag(page.content, [0, 1]))
   expect(next.split('\n')).toHaveLength(page.content.split('\n').length)
 })
 
 it('edits question titles and explicit labels without expanding components into rendered HTML', () => {
   const page = createQuizPage('multiple', canvas, text)
-  const title = readInteractionText(page.content, [0, 1])!
+  expect(readInteractionText(page.content, [0, 1])).toBeNull()
+  const title = readInteractionText(page.content, [2, 3])!
+  expect(title).toMatchObject({ kind: 'question-title', range: [0, 1], text: text.title })
   const next = writeInteractionText(page.content, title, '<literal> {{ text }}')
-  expect(readInteractionText(next, [0, 1])?.text).toBe('<literal> {{ text }}')
-  const label = readInteractionText(next, [10, 11])!
+  expect(readInteractionText(next, [2, 3])?.text).toBe('<literal> {{ text }}')
+  expect(readInteraction(next, [2, 3])).toEqual(readInteraction(page.content, [2, 3]))
+  const label = readInteractionText(next, [12, 13])!
   expect(label.kind).toBe('button-label')
-  expect(readInteractionText(writeInteractionText(next, label, 'Check'), [10, 11])?.text).toBe('Check')
-  const feedback = readInteractionText(next, [14, 15])!
+  expect(readInteractionText(writeInteractionText(next, label, 'Check'), [12, 13])?.text).toBe('Check')
+  const feedback = readInteractionText(next, [16, 17])!
   expect(feedback).toMatchObject({ kind: 'feedback-idle', range: [0, 1], text: text.idle })
-  expect(readInteractionText(writeInteractionText(next, feedback, 'Choose A, B, C or D'), [14, 15])?.text).toBe('Choose A, B, C or D')
+  expect(readInteractionText(writeInteractionText(next, feedback, 'Choose A, B, C or D'), [16, 17])?.text).toBe('Choose A, B, C or D')
+  const shown = patchInteraction(page.content, [0, 1], { presentation: 'summary', name: 'Round 1' })
+  expect(readInteraction(shown, [0, 1])).toMatchObject({ presentation: 'summary', name: 'Round 1' })
 })
 
 it('preserves unknown expressions and only allows editing the fixed option set', () => {
@@ -62,8 +68,10 @@ it('renames a copied controller set and its references while preserving lone but
   expect(listQuestions(next)[0].value.question).toBe('question-3')
   for (let line = 0; line < next.split('\n').length; line += 2) expect(readInteraction(next, [line, line + 1])?.question).toBe('question-3')
   expect(next.split('\n')).toHaveLength(page.content.split('\n').length)
-  const button = page.content.split('\n\n')[1]
+  const button = page.content.split('\n\n')[2]
   expect(remapCopiedInteractions(button, existing)).toBe(button)
+  const title = page.content.split('\n\n')[1]
+  expect(remapCopiedInteractions(title, existing)).toBe(title)
 })
 
 it('keeps multiline props and ignores examples when locating and editing real controllers', () => {
@@ -85,10 +93,10 @@ it('adds a usable independent button only when a real question is available', ()
 
 it('keeps command button text editable after changing an inherited option button action', () => {
   const page = createQuizPage('single', canvas, text)
-  const cleared = setButtonAction(page.content, [2, 3], 'clear-pending', { submit: text.submit, clear: text.clear })
-  expect(readInteractionText(cleared, [2, 3])).toMatchObject({ kind: 'button-label', text: 'Clear' })
-  const restored = setButtonAction(cleared, [2, 3], 'choose', { submit: text.submit, clear: text.clear })
-  expect(readInteractionText(restored, [2, 3])).toMatchObject({ kind: 'option-label', text: 'A option' })
+  const cleared = setButtonAction(page.content, [4, 5], 'clear-pending', { submit: text.submit, clear: text.clear })
+  expect(readInteractionText(cleared, [4, 5])).toMatchObject({ kind: 'button-label', text: 'Clear' })
+  const restored = setButtonAction(cleared, [4, 5], 'choose', { submit: text.submit, clear: text.clear })
+  expect(readInteractionText(restored, [4, 5])).toMatchObject({ kind: 'option-label', text: 'A option' })
   const noLabel = '<StudioButton question="question-1" action="submit" />'
   const source = readInteractionText(noLabel, [0, 1])!
   expect(source).toMatchObject({ kind: 'button-label', text: '' })

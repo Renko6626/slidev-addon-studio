@@ -85,3 +85,23 @@ it('keeps a single copied container containing positioned children intact', () =
   const copied = captureBlock(container, [0, 4], { deck: 'deck', page: 1 })
   expect(splitCopiedBlocks(copied)).toEqual([copied])
 })
+
+it('warns before deleting a question control and leaves its independent children when confirmed', async () => {
+  const title = '<StudioQuestionTitle question="q" v-drag="[10,60,400,80]" />'
+  const button = '<StudioButton question="q" action="choose" option="A" />'
+  const original = `<StudioQuestion question="q" presentation="hidden" v-drag="[10,10,220,32]" />\n\n${title}\n\n${button}`
+  let source = original
+  const confirm = vi.fn(() => false)
+  vi.stubGlobal('window', { confirm })
+  const target = { range: [0, 1], no: 1, kind: 'component', tag: 'StudioQuestion', label: 'Question', el: {} } as StudioTarget
+  setSelectedTargets([target])
+  const studio = { content: () => source, commit: async (next: string) => { source = next } } as unknown as StudioContext
+  await deleteBlock(studio, target)
+  expect(source).toBe(original)
+  expect(selection.value).toBe(target)
+  confirm.mockReturnValue(true)
+  await deleteBlock(studio, target)
+  expect(source).not.toContain('<StudioQuestion ')
+  expect(source).toContain(title)
+  expect(source).toContain(button)
+})

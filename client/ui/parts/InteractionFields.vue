@@ -6,7 +6,7 @@ import type { MessageKey } from '../../i18n'
 import { useStudio } from '../../context'
 import { action, t } from '../../i18n'
 import { listQuestions, patchInteraction, readInteraction, readInteractionText, setButtonAction, writeInteractionText } from '../../md/interactions'
-import { busy, editing, selection } from '../../state'
+import { activePanel, busy, editing, inspectorVisible, selection } from '../../state'
 import { imagePending } from '../../composables/useImageInsertion'
 import StudioField from './StudioField.vue'
 import ColorSwatch from './ColorSwatch.vue'
@@ -81,6 +81,13 @@ function radius(value: string) {
   const number = Number(value)
   if (value.trim() && Number.isFinite(number) && number >= 0) return patch({ radius: number })
 }
+async function goToControl() {
+  if (locked.value || !controller.value) return
+  if (await studio.selectInserted('StudioQuestion', controller.value.range)) {
+    activePanel.value = 'inspect'
+    inspectorVisible.value = true
+  }
+}
 </script>
 
 <template>
@@ -90,12 +97,16 @@ function radius(value: string) {
       <StudioField v-if="form.kind !== 'question'" :label="t('quizBelongsTo')">
         <select :value="form.question ?? ''" :disabled="form.question === null" @change="changeQuestion(($event.target as HTMLSelectElement).value)">
           <option value="" disabled>{{ t('quizChooseQuestion') }}</option>
-          <option v-for="question in questions" :key="question.value.question!" :value="question.value.question!">{{ question.value.title || t('quizUntitled') }}</option>
+          <option v-for="question in questions" :key="question.value.question!" :value="question.value.question!">{{ question.value.name || question.value.title || t('quizUntitled') }}</option>
         </select>
       </StudioField>
       <p v-if="form.kind !== 'question' && !controller" class="studio-hint">{{ t('quizMissingQuestion') }}</p>
+      <button v-if="form.kind !== 'question' && controller" type="button" class="studio-button" @click="goToControl">{{ t('quizGoToControl') }}</button>
 
       <template v-if="form.kind === 'question'">
+        <p class="studio-hint">{{ t('quizControlHint') }}</p>
+        <StudioField :label="t('quizControlName')"><input type="text" :value="form.name ?? ''" :disabled="form.name === null" @change="patch({ name: ($event.target as HTMLInputElement).value })"></StudioField>
+        <StudioField :label="t('quizShowInPresentation')"><input type="checkbox" :checked="form.presentation === 'summary'" :disabled="form.presentation === null" @change="patch({ presentation: ($event.target as HTMLInputElement).checked ? 'summary' : 'hidden' })"></StudioField>
         <StudioField :label="t('quizType')"><span>{{ t(form.mode === null ? 'quizAdvancedValue' : form.mode === 'multiple' ? 'quizMultiple' : 'quizSingle') }}</span></StudioField>
         <StudioField :label="t('quizTitle')"><textarea :value="form.title ?? ''" rows="3" :disabled="form.title === null" @change="setController({ title: ($event.target as HTMLTextAreaElement).value })" /></StudioField>
         <div v-if="form.options && form.mode" class="studio-quiz-options">
@@ -108,6 +119,11 @@ function radius(value: string) {
           <p class="studio-hint">{{ t('quizAnswerHint') }}</p>
         </div>
         <p v-else class="studio-hint">{{ t('quizAdvancedHint') }}</p>
+      </template>
+
+      <template v-if="form.kind === 'title'">
+        <StudioField :label="t('quizTitle')"><textarea :value="controller?.value.title ?? ''" :disabled="!controller || controller.value.title === null" rows="3" @change="setController({ title: ($event.target as HTMLTextAreaElement).value })" /></StudioField>
+        <p class="studio-hint">{{ t('quizTitleHint') }}</p>
       </template>
 
       <template v-if="form.kind === 'button'">

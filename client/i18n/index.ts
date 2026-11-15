@@ -51,6 +51,7 @@ export function targetName(target: StudioTarget): string | { key: MessageKey } {
   if (target.element)
     return { key: target.element === 'text' ? 'textBox' : target.element === 'shape' ? 'shape' : 'picture' }
   if (target.tag === 'StudioQuestion') return { key: 'quizQuestion' }
+  if (target.tag === 'StudioQuestionTitle') return { key: 'quizTitle' }
   if (target.tag === 'StudioButton') return { key: 'quizButton' }
   if (target.tag === 'StudioFeedback') return { key: 'quizFeedback' }
   if (target.tag || target.prop || target.kind === 'heading')

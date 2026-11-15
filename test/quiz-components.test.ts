@@ -51,6 +51,32 @@ it('preserves answers when the real question rerenders with equal configuration 
   expect(page.question('q')?.state).toEqual({ selected: [], result: null, attempts: 0 })
 })
 
+it('keeps hidden controls running, renders their bound prompt, and preserves answers when only visibility changes', async () => {
+  const Title = component('StudioQuestionTitle')
+  const { page, mount } = setup()
+  const presentation = ref('hidden'), titleVisible = ref(true)
+  const control = mount(() => h(Question, { question: 'q', name: 'Question 1', presentation: presentation.value, title: 'Which answer?', options }))
+  const prompt = mount(() => titleVisible.value ? h(Title, { question: 'q' }) : null)
+  const button = mount(() => h(Button, { question: 'q', action: 'choose', option: 'a' })).querySelector('button')!
+  expect((control.firstElementChild as HTMLElement).style.display).toBe('none')
+  expect(prompt.textContent).toBe('Which answer?')
+  titleVisible.value = false
+  await nextTick()
+  button.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  await nextTick()
+  expect(page.question('q')?.state.result).toBe('correct')
+  presentation.value = 'summary'
+  await nextTick()
+  expect((control.firstElementChild as HTMLElement).style.display).not.toBe('none')
+  expect(control.textContent).toContain('Question 1')
+  expect(control.textContent).not.toContain('Which answer?')
+  expect(page.question('q')?.state.attempts).toBe(1)
+  interactions.setInteractionEditing(true)
+  presentation.value = 'hidden'
+  await nextTick()
+  expect((control.firstElementChild as HTMLElement).style.display).not.toBe('none')
+})
+
 it('binds real button labels, dispatches once without a deck click, and limits appearance previews to editing', async () => {
   const { page, mount } = setup()
   mount(() => h(Question, { question: 'q', options, correctText: 'Yes', idleText: 'Choose' }))
@@ -58,6 +84,8 @@ it('binds real button labels, dispatches once without a deck click, and limits a
   const feedback = mount(() => h(Feedback, { question: 'q', effect: 'pop' }))
   const button = container.querySelector('button')!
   expect(button.textContent).toBe('Option A')
+  expect(button.dataset.studioQuestionRef).toBe('q')
+  expect((feedback.firstElementChild as HTMLElement).dataset.studioQuestionRef).toBe('q')
   const deckClick = vi.fn(), deckKey = vi.fn()
   container.addEventListener('click', deckClick); container.addEventListener('keydown', deckKey)
   button.dispatchEvent(new MouseEvent('click', { bubbles: true }))

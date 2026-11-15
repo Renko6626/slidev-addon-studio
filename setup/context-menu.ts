@@ -70,7 +70,7 @@ export default (items: ComputedRef<ContextMenuItem[]>): ComputedRef<ContextMenuI
     const name = target.kind === 'heading' ? t('kindHeading') : targetLabel(target)
 
     const mine: ContextMenuItem[] = []
-    if (target.element !== 'image' && target.element !== 'shape') {
+    if (target.element !== 'image' && target.element !== 'shape' && target.el.dataset.studioQuestionControl === undefined) {
       mine.push({
         icon: 'i-carbon:text-annotation-toggle',
         label: t('editTarget', { name }),

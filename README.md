@@ -248,9 +248,16 @@ list and stay below the page objects.
 ## Questions and buttons
 
 **Insert → Single-choice page / Multiple-choice page** creates a page with a
-question, four independent option buttons and feedback. Multiple-choice pages
-also have Confirm answer and Clear selection buttons. Edit the prompt, option
-text, correct answers and feedback in the inspector; this first version keeps
+question control, a separate prompt, four independent option buttons and feedback.
+Select the control to configure its name, prompt, options, correct answers and
+feedback. Dashed lines show its connections; selecting a child shows only that
+child's connection. Objects remain independently positioned. The control is
+hidden when presenting by default; **Show question name when presenting** displays
+its name while the question keeps running in either mode. Removing a prompt keeps
+the question; removing the control warns and leaves the display objects in place.
+Question configuration and prompt rendering always use separate components.
+
+Multiple-choice pages also have Confirm answer and Clear selection buttons. This version keeps
 four options and does not offer changing the question type. Double-click or F2
 opens simple text editing for prompts, option/button labels and the feedback's
 idle prompt. Correct/incorrect feedback stays in the inspector.
@@ -266,7 +273,7 @@ Clear selection removes choices and results. Switching slides retains answers
 within a trial; returning to editing or starting a new trial resets them.
 
 Copying a selection that includes a question assigns a fresh question id and
-updates its copied buttons/feedback. Copying a button alone keeps its question
+updates its copied prompt/buttons/feedback. Copying a child alone keeps its question
 binding on the same page. See [the working example](playground/interactions.md)
 and [the advanced signal API](docs/components.md#question-interactions).
 

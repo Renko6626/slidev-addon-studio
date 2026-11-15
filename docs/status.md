@@ -1,5 +1,32 @@
 # Studio 阶段状态
 
+## 阶段归档：题目管理控件与桌面准备进度，2026-11-15
+
+归档分支为 `codex/studio-page-presets`，包含独立题目管理控件、题干拆分、关联虚线和配置入口，及桌面主页的依赖安装状态、滚动进度条与实际输出。题目统一使用新结构，不保留旧版题干兼容分支。用户要求阶段性提交并推送当前分支，暂不打包。
+
+代码和检查结果见下方两节；此次归档不重复已经通过的检查、不新增验证范围。没有构建 Windows ZIP、发布 npm 或合并 main。下方“尚未提交／未推送”的描述为各功能完成时的记录，以本归档范围和实际 Git 历史为准。
+
+## 当前源码：桌面主页工程准备进度，2026-11-15
+
+新建工程仍使用内置 pnpm 安装依赖。主页增加当前阶段、滚动进度条、已用时间和最新实际安装信息；pnpm 包计数显示解析/复用/下载/安装数量，不估算总百分比。沿用现有状态事件，日志输出继续保留。查看日志不会结束主页的忙碌状态，失败后停下进度并保留错误提示。
+
+- `pnpm exec vitest run test/desktop-runtime.test.ts test/desktop-projects.test.ts`：6 项通过。新增的一个真实 Node 子进程用例验证跨数据块分行、stdout/stderr 状态转发和日志保留，先失败后通过。
+- `node --check desktop/runtime.cjs`、`node --check desktop/main.cjs`、`node --check desktop/welcome.js`、`pnpm typecheck` 与 `git diff --check` 通过。
+- 仅导航并初始化状态查看主页安装中、失败和空闲截图；确认等待时按钮禁用且日志入口可用、已用时间更新，失败/空闲时隐藏进度。截图 `/tmp/studio-desktop-progress-{installing,error,idle}.png`，没有浏览器错误或自动交互。
+- 一次限定范围的只读审阅未发现阻塞问题。未重复联网安装全新工程，未打包或在 Windows 实机验证，现有 Windows ZIP 尚不包含本轮改动。
+
+## 当前源码：独立题目管理控件，2026-11-15
+
+题页统一采用独立的 `StudioQuestion` 管理节点和 `StudioQuestionTitle` 题干。选中管理节点配置名称、题干、选项/答案和反馈，并显示与子组件的虚线关联；选中子组件只显示当前关联，属性提供定位到管理控件。节点默认只在编辑时显示，可开启播放时显示题目名称；隐藏不注销题目。删除题干保留题目，删除控件前提示并保留关联对象。按用户明确要求，移除旧版合并题干模式和兼容分支，直接使用新结构。沿用当前 Markdown、ID 绑定和运行实例，没有新增依赖或布局分组。
+
+- `pnpm test`：314 通过、1 项既有 QA 跳过；关键行为覆盖隐藏后答题、删除题干、配置可见性切换、题干写回、复制关联和删除控件提示。独立审阅发现并修正按钮/反馈关联属性误绑定配置对象的问题，已有组件用例增加 ID 断言，先失败后通过。
+- `pnpm typecheck`、`pnpm --package=vue-tsc@3.1.8 --package=typescript@5.9.3 dlx vue-tsc --noEmit --project tsconfig.json` 通过。
+- `pnpm exec slidev build playground/interactions.md --out /tmp/studio-question-controls-build` 通过。
+- 编辑截图核对管理节点的 6 条关联线和题干的 1 条关联线、整题配置与定位入口。静态截图中编辑器/关联线数量均为 0，管理节点 `display: none`，题干和选项文字完整。截图为 `/tmp/studio-question-controls-{control,title,static}.png`。播放名称显示由真实组件测试验证，未执行浏览器开关操作。
+- 浏览器仅导航、初始化截图选区及只读检查，未自动点击、输入、拖动或答题。截图校验遇到旧开发进程未发现新增组件，使用新的 3094 本地开发进程完成；静态浏览器只有已知 Wake Lock 提示。
+- 本轮修改留在当前工作区，尚未提交、推送、打包或在 Windows 实机试用；现有 Windows ZIP 不包含这轮改动。
+- 后续按用户要求清除兼容分支：`StudioQuestion` 默认且始终为管理控件，`presentation` 只保留 `hidden` / `summary`，题干统一由 `StudioQuestionTitle` 显示。删除合并题干的旧断言，未新增测试；运行 `pnpm exec vitest run test/interaction-source.test.ts test/quiz-components.test.ts test/interaction-inline-editor.test.ts test/interactions.test.ts test/multiselect.test.ts test/pointer-interaction.test.ts`，40 项通过。`pnpm typecheck`、上述 Vue SFC 检查和同一题页静态构建再次通过。未重复浏览器或 Windows 验收。
+
 ## 当前源码：选择题交互首版，2026-11-15
 
 运行逻辑 `c032797`、制作配置 `5b29891` 和编辑集成 `539d288` 已在主工作区整合。支持单选/多选题页与关联按钮、固定四选项的文案和答案配置、简单文字编辑、按钮外观预览、反馈效果及集合复制关联重命名。试播切页保留作答，回编辑重置；外部扩展只接统一 `dispatchInteraction` 信号入口，没有网络或任意脚本托管。

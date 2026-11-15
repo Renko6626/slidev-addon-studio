@@ -133,12 +133,13 @@ in `shared/shapes.ts`, independently of editor state.
 Use Insert's question-page and button commands for ordinary authoring. The
 single-/multiple-choice templates keep four options; the first-version form
 edits their text and answers without adding/removing options or switching types.
-The three components are hidden from the generic palette to avoid unbound copies.
+The question components are hidden from the generic palette to avoid unbound copies.
 [playground/interactions.md](../playground/interactions.md) is a complete example.
 
 | Component | Static props and role |
 | --- | --- |
-| `StudioQuestion` | `question`, `mode` (`single` / `multiple`), `title`, `options` (`{ id, label, correct }[]`), `correctText`, `incorrectText`, `idleText`; registers the question and renders its prompt |
+| `StudioQuestion` | `question`, `mode` (`single` / `multiple`), `title`, `options` (`{ id, label, correct }[]`), `correctText`, `incorrectText`, `idleText`; owns and registers the question. `name` labels the control. `presentation` defaults to `hidden`; `summary` shows the name when presenting. The prompt is always rendered by `StudioQuestionTitle` |
+| `StudioQuestionTitle` | `question`; displays the bound question's `title`. Removing it does not unregister the question |
 | `StudioButton` | `question`, `action`, optional `option` and `label`; without `label`, option buttons use the question's option text. Appearance: `fill`, `color`, `selectedFill`, `correctFill`, `incorrectFill`, numeric `radius` |
 | `StudioFeedback` | `question`, optional `effect` (`none` / `fade` / `pop`, default `fade`); renders the question's idle or result text |
 
@@ -146,6 +147,14 @@ They are independent single-root objects positioned with `v-drag`; presentation
 state stays in memory. Double-click/F2 edits plain prompt/button/option text and
 the feedback's idle text. Correct/incorrect messages are configured in properties.
 Button appearance previews do not dispatch answers.
+
+In Studio, standalone controls are visible even with `presentation="hidden"`.
+Selecting one shows dashed connections to its prompt, buttons and feedback;
+selecting a child shows just that connection. These editor-only lines are derived
+from question IDs, not stored as objects. The control's display setting never
+unmounts its registration. Its inspector configures the whole question, while a
+child's inspector can jump to its control. Deleting a control warns and retains
+the independently positioned children.
 
 Advanced code can import the same signal entry used by the buttons. With the
 `slidev-addon-studio` package alias installed, call this from a control after the

@@ -13,7 +13,7 @@ const text = computed(() => {
 </script>
 
 <template>
-  <div class="studio-feedback" :data-quiz-result="result" role="status" aria-live="polite">
+  <div class="studio-feedback" :data-studio-question-ref="props.question" :data-quiz-result="result" role="status" aria-live="polite">
     <span data-studio-interaction-text :key="`${result}-${question?.state.attempts ?? 0}`" class="studio-feedback__content" :class="[`studio-feedback__content--${result}`, result !== 'idle' && `studio-feedback__content--${effect}`]">{{ text }}</span>
   </div>
 </template>

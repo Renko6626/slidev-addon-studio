@@ -13,12 +13,13 @@ let lastStatus = { message: '选择一个工程开始编辑。', logPath: '' }
 const welcome = pathToFileURL(path.join(__dirname, 'welcome.html')).href
 const resources = app.isPackaged ? path.join(process.resourcesPath, 'studio-resources') : path.join(__dirname, 'studio-resources')
 const pnpm = app.isPackaged ? path.join(process.resourcesPath, 'pnpm/bin/pnpm.cjs') : path.join(__dirname, 'node_modules/pnpm/bin/pnpm.cjs')
+function reportStatus(status) {
+  lastStatus = { ...status, working }
+  if (window && !window.isDestroyed()) window.webContents.send('studio:status', lastStatus)
+}
 const runtime = createRuntime({
   executable: process.execPath, pnpm, userData: app.getPath('userData'),
-  onStatus(status) {
-    lastStatus = { ...status, working }
-    if (window && !window.isDestroyed()) window.webContents.send('studio:status', lastStatus)
-  },
+  onStatus: reportStatus,
 })
 
 async function showWelcome(message = '选择一个工程开始编辑。') {
@@ -123,6 +124,7 @@ async function perform(action) {
     if (action === 'new') {
       const destination = await chooseDestination('新建 Slidev 工程', path.join(app.getPath('documents'), '新的演示'))
       if (!destination) return { ok: false }
+      reportStatus({ message: '正在创建工程文件。', logPath: runtime.logPath })
       project = await createProject(destination, resources)
       settings.changed = true
     }
