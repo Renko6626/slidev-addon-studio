@@ -12,6 +12,7 @@ import { readTextContent, replaceTextContent } from '../md/elements'
 import { useStudio } from '../context'
 import { onDomEvent } from '../composables/useDomEvent'
 import StudioIcon from './parts/StudioIcon.vue'
+import { projectWriteError } from '../project-save'
 
 /**
  * Editing a block's text where it sits, in two ways.
@@ -424,8 +425,9 @@ async function apply() {
     const block = getBlock(studio.content(), target)
     const patched = replaceInnerHtml(block, htmlTag, htmlWas, next, import.meta.env.BASE_URL)
     if (patched === null) {
-      reportError(new Error(t('errorHtmlMissing')))
-      return
+      projectWriteError.value = t('errorHtmlMissing')
+      reportError(new Error(projectWriteError.value))
+      throw new Error(projectWriteError.value)
     }
     if (patched !== block)
       await studio.commit(replaceBlock(studio.content(), target, patched), action('actionEditText'))
@@ -443,8 +445,9 @@ async function apply() {
   editing.value = false
 
   if (written === null) {
-    reportError(new Error(t('errorSerialize')))
-    return
+    projectWriteError.value = t('errorSerialize')
+    reportError(new Error(projectWriteError.value))
+    throw new Error(projectWriteError.value)
   }
 
   if (written !== source)
@@ -455,6 +458,8 @@ function cancel() {
   release()
   editing.value = false
 }
+
+defineExpose({ apply })
 
 /** Switches to editing the Markdown, keeping whatever has been typed. */
 function toMarkdown() {

@@ -67,6 +67,22 @@
 
 ## Current editor boundaries
 
+- Standalone File manages the current project only. The optional Windows desktop
+  host supplies creating, opening, saving a copy and closing projects. No generic
+  file editor or file rename/delete operations are added. Windows native behavior
+  remains subject to preview testing; see [desktop validation](../desktop/README.md).
+- Project ZIP is a source transfer format, not an offline runtime. Dependencies
+  and external assets are not embedded, and local `link:` dependencies are not
+  rewritten. Source symlinks and imported Markdown outside the project must be
+  moved inside before export. Archives are generated in memory; avoid editing
+  the same project externally while a download is being prepared.
+- The project tree omits the same local files as export: dependencies, Git
+  metadata, build output, caches, `.env` values and `.npmrc`/Yarn local config.
+  PDF, PowerPoint and built-site exports are not exposed by this File page.
+- Save reports failed writes and stops export; it does not add automatic retry
+  or recovery. Check the files and refresh after a failed write. Only applied
+  text is automatically written; Ctrl/Cmd+S also applies the active text and notes.
+
 - New text boxes and pictures have dedicated controls; existing unmarked content
   keeps its original editing paths. No automatic document migration is performed.
 - Studio text boxes support character-level fonts, sizes, colours and marks,
@@ -92,5 +108,6 @@
 - The new-element inspector hides Return to flow, while the generic Object tab
   and context menu still offer it. Using that command removes free positioning
   and its frame dimensions. Entry visibility is a known minor follow-up.
-- Multiple selection, grouping, a general layer stack, manual viewport zoom,
-  hidden-slide management and desktop packaging remain future work.
+- Multiple selection, grouping, a general layer stack, manual viewport zoom and
+  hidden-slide management remain future work. Windows desktop ZIP packaging is
+  available as a preview, without an installer, signing or automatic updates.

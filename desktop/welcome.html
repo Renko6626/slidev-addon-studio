@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'">
+  <title>Slidev Studio</title>
+  <link rel="stylesheet" href="welcome.css">
+</head>
+<body>
+  <main>
+    <div class="slide-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+    <h1>Slidev Studio</h1>
+    <p class="intro">打开一份工程，继续你的演示。</p>
+    <div class="actions">
+      <button data-action="open" class="primary">打开工程<span>选择已有 Slidev 文件夹</span></button>
+      <button data-action="new">新建工程<span>从空白演示开始</span></button>
+    </div>
+    <div class="progress"><span id="indicator" aria-hidden="true"></span><p id="status" role="status">选择一个工程开始编辑。</p></div>
+    <p class="note">文稿保存在你选择的文件夹中。首次准备依赖需要联网。</p>
+    <button class="logs" data-action="logs">查看运行日志</button>
+  </main>
+  <script src="welcome.js"></script>
+</body>
+</html>

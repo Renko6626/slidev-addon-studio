@@ -29,6 +29,8 @@ export interface StudioContext {
   commit: (content: string, label: ActionLabel, options?: { skipHmr?: boolean, keepSelection?: boolean }) => Promise<void>
   setFrontmatter: (values: Record<string, any>, label: ActionLabel) => Promise<void>
   setNote: (note: string) => Promise<void>
+  /** Apply the active edit and wait for current writes before saving/exporting. */
+  save: () => Promise<boolean>
   /** Range of the current selection, or `null` when nothing is selected. */
   range: () => SourceRange | null
   /** Selects a block that was just inserted, so it can be configured at once. */

@@ -11,6 +11,9 @@ const errorMessages = {
   moveBeforeHeadmatter: 'errorMoveBeforeHeadmatter',
   unsupportedAssetType: 'errorUnsupportedAssetType',
   assetTooLarge: 'errorAssetTooLarge',
+  projectLinkedFile: 'errorProjectLinkedFile',
+  projectExternalSource: 'errorProjectExternalSource',
+  projectExcludedSource: 'errorProjectExcludedSource',
 } satisfies Record<StudioErrorCode, MessageKey>
 
 export function serverErrorText(response: StudioErrorResponse): string {

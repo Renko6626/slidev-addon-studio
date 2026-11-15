@@ -1,0 +1,25 @@
+:root { color-scheme: dark; font-family: "Segoe UI", "Microsoft YaHei UI", sans-serif; color: #e6e8ef; background: #202229; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; }
+main { width: min(580px, calc(100% - 64px)); padding: 48px 0; }
+.slide-mark { width: 82px; height: 56px; position: relative; margin-bottom: 36px; }
+.slide-mark span { position: absolute; inset: 0; border: 2px solid #5b91ef; background: #202229; border-radius: 3px; }
+.slide-mark span:first-child { transform: translate(12px, -12px); border-color: #3d526f; }
+.slide-mark span:nth-child(2) { transform: translate(6px, -6px); border-color: #4b6c9c; }
+h1 { font-size: 36px; line-height: 1.15; font-weight: 600; letter-spacing: -.7px; margin: 0 0 14px; }
+.intro { margin: 0 0 36px; font-size: 17px; color: #bac0d0; }
+.actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+button { color: inherit; font: inherit; border: 1px solid #444954; border-radius: 6px; background: #2a2d36; cursor: pointer; padding: 18px 22px; text-align: left; }
+button span { display: block; font-size: 12px; color: #aeb6c8; margin-top: 8px; }
+button.primary { border-color: #5b91ef; background: #293b58; }
+button:hover:not(:disabled) { border-color: #87aff7; background: #34435b; }
+button:focus-visible { outline: 2px solid #87aff7; outline-offset: 4px; }
+button:disabled { opacity: .45; cursor: wait; }
+.progress { display: flex; align-items: flex-start; gap: 10px; margin-top: 30px; min-height: 42px; }
+.progress p { margin: 0; line-height: 1.6; font-size: 13px; overflow-wrap: anywhere; }
+#indicator { margin-top: 6px; width: 8px; height: 8px; border-radius: 50%; flex: none; background: #667387; }
+body[data-working="true"] #indicator { background: #77a7fc; }
+.note { color: #9da5b8; font-size: 12px; line-height: 1.7; margin: 18px 0 8px; }
+.logs { border: 0; background: none; padding: 5px 0; font-size: 12px; color: #8eb5f9; }
+.logs:hover:not(:disabled) { background: none; border: 0; color: #bcd3fc; }
+@media (max-width: 500px) { .actions { grid-template-columns: 1fr; } }

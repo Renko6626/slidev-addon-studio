@@ -42,7 +42,9 @@
   "scripts": {
     "play": "slidev playground/slides.md --open",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "desktop:dev": "pnpm --dir desktop start",
+    "desktop:make": "pnpm --dir desktop make"
   },
   "peerDependencies": {
     "@slidev/cli": ">=52.0.0",
@@ -55,6 +57,7 @@
     "@tiptap/pm": "3.34.0",
     "@tiptap/starter-kit": "3.34.0",
     "@vueuse/core": "^14.0.0",
+    "jszip": "3.10.1",
     "vue-i18n": "11.4.2",
     "yaml": "^2.9.0"
   },

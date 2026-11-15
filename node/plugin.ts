@@ -5,6 +5,7 @@ import { buildCatalog } from './catalog'
 import { readPalette } from './palette'
 import { assetRoot, listAssets, saveAsset } from './assets'
 import { applyDeckAction } from './deck'
+import { exportProject, readProject } from './project'
 import { studioErrorResponse } from '../shared/errors'
 
 const VIRTUAL_CATALOG = 'virtual:slidev-studio/catalog'
@@ -86,6 +87,16 @@ export function studioPlugin(options: ResolvedSlidevOptions): Plugin {
 
         const route = url.slice(API_PREFIX.length)
         try {
+          if (route === 'project.zip' && req.method === 'GET') {
+            const { filename, data } = await exportProject(options)
+            const encoded = encodeURIComponent(filename).replace(/['()*]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
+            res.statusCode = 200
+            res.setHeader('Content-Type', 'application/zip')
+            res.setHeader('Content-Disposition', `attachment; filename="slidev-project.zip"; filename*=UTF-8''${encoded}`)
+            res.setHeader('Cache-Control', 'no-store')
+            res.end(data)
+            return
+          }
           const result = await handle(route, req.method ?? 'GET', req, options)
           if (result === undefined)
             return next()
@@ -101,6 +112,7 @@ export function studioPlugin(options: ResolvedSlidevOptions): Plugin {
 
           res.statusCode = 200
           res.setHeader('Content-Type', 'application/json')
+          if (route === 'project') res.setHeader('Cache-Control', 'no-store')
           res.end(JSON.stringify(result))
         }
         catch (error: any) {
@@ -129,6 +141,9 @@ export function studioPlugin(options: ResolvedSlidevOptions): Plugin {
 }
 
 async function handle(route: string, method: string, req: any, options: ResolvedSlidevOptions) {
+  if (route === 'project' && method === 'GET')
+    return await readProject(options)
+
   if (route === 'catalog' && method === 'GET')
     return { ...await buildCatalog(options), palette: await readPalette(options) }
 

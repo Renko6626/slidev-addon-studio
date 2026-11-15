@@ -7,6 +7,9 @@ export type StudioErrorCode =
   | 'moveBeforeHeadmatter'
   | 'unsupportedAssetType'
   | 'assetTooLarge'
+  | 'projectLinkedFile'
+  | 'projectExternalSource'
+  | 'projectExcludedSource'
 
 export interface StudioErrorResponse {
   /** Retained for existing clients and diagnostics. */

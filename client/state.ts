@@ -3,7 +3,7 @@ import { useLocalStorage } from '@vueuse/core'
 import { ref, shallowRef } from 'vue'
 
 export type PanelId = 'inspect' | 'animate' | 'layout' | 'transition'
-export type RibbonTab = 'home' | 'insert' | 'design' | 'transition' | 'animate' | 'view' | 'object'
+export type RibbonTab = 'file' | 'home' | 'insert' | 'design' | 'transition' | 'animate' | 'view' | 'object'
 
 /** Studio is off until asked for, so a normal `slidev` session is unchanged. */
 export const studioOpen = useLocalStorage('slidev-studio:open', false)

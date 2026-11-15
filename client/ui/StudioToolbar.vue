@@ -9,12 +9,13 @@ import { canReorder, deleteBlock, duplicateBlock, editText, freePosition, moveBl
 import { BASIC_BLOCKS } from '../blocks'
 import { useStudio } from '../context'
 import { useDeckActions } from '../composables/useDeckActions'
+import { projectSaving } from '../project-save'
 import { canRedo, canUndo, lastAction, useStudioHistory } from '../composables/useSlideSource'
 import { insertSnippet } from '../md/insert'
 import { appendElement, createTextElement } from '../md/elements'
 import { imageLibraryRequest, imagePending, useImageInsertion } from '../composables/useImageInsertion'
 import TextElementFields from './parts/TextElementFields.vue'
-import { activePanel, busy, editing, gridEnabled, inspectorVisible, library, notesVisible, outlineEnabled, ribbonTab, selectAllOnEdit, selection, slidesVisible, snapEnabled, studioOpen } from '../state'
+import { activePanel, busy, clearSelection, editing, gridEnabled, inspectorVisible, library, notesVisible, outlineEnabled, ribbonTab, selectAllOnEdit, selection, slidesVisible, snapEnabled, studioOpen } from '../state'
 import PanelTransition from './panels/PanelTransition.vue'
 import StudioIcon from './parts/StudioIcon.vue'
 
@@ -38,6 +39,15 @@ const tabs: { id: RibbonTab, label: MessageKey }[] = [
   { id: 'design', label: 'designTab' }, { id: 'transition', label: 'transitionsTab' },
   { id: 'animate', label: 'animate' }, { id: 'view', label: 'viewTab' },
 ]
+async function openFile() {
+  if (ribbonTab.value === 'file') { ribbonTab.value = 'home'; return }
+  if (imagePending.value || projectSaving.value) return
+  await studio.save()
+  if (editing.value) return
+  clearSelection()
+  library.value = null
+  ribbonTab.value = 'file'
+}
 watch(selection, value => {
   if (!value && ribbonTab.value === 'object')
     ribbonTab.value = 'home'
@@ -77,6 +87,7 @@ interface Group { label: MessageKey, commands: Command[], text?: 'font' | 'parag
 const groups = computed<Group[]>(() => {
   const target = selection.value
   switch (ribbonTab.value) {
+    case 'file': return []
     case 'home': return [
       { label: 'slides', commands: [
         { label: 'newSlide', icon: 'plus', run: () => deck.add(studio.no()), hint: 'deckReloadHint' },
@@ -144,6 +155,7 @@ const groups = computed<Group[]>(() => {
     <div class="studio-titlebar">
       <span class="studio-brand"><StudioIcon name="slides" :size="19" />Studio</span>
       <div class="studio-quick-actions" data-studio-text-controls>
+        <button class="studio-icon-button" :disabled="busy || imagePending || projectSaving" :title="t('saveProject') + ' (Ctrl / Cmd + S)'" @click="studio.save"><StudioIcon name="save" /></button>
         <button class="studio-icon-button" :disabled="!undoEnabled" :title="!textActive && lastAction ? t('undoAction', { action: actionText(lastAction) }) : t('undo')" @click="undo"><StudioIcon name="undo" /></button>
         <button class="studio-icon-button" :disabled="!redoEnabled" :title="t('redo')" @click="redo"><StudioIcon name="redo" /></button>
       </div>
@@ -154,10 +166,11 @@ const groups = computed<Group[]>(() => {
       <button class="studio-icon-button" :disabled="locked" :title="t('closeStudio')" @click="studioOpen = false"><StudioIcon name="close" /></button>
     </div>
     <nav class="studio-ribbon-tabs" :aria-label="t('editorTools')" data-studio-text-controls>
+      <button class="studio-file-tab" :aria-pressed="ribbonTab === 'file'" :disabled="imagePending || projectSaving" @click="openFile">{{ t('fileTab') }}</button>
       <button v-for="tab in tabs" :key="tab.id" :aria-pressed="ribbonTab === tab.id" @click="ribbonTab = tab.id">{{ t(tab.label) }}</button>
       <button v-if="selection" class="studio-context-tab" :aria-pressed="ribbonTab === 'object'" @click="ribbonTab = 'object'">{{ t('objectTab') }}</button>
     </nav>
-    <div class="studio-ribbon-tools">
+    <div v-if="ribbonTab !== 'file'" class="studio-ribbon-tools">
       <div v-if="ribbonTab === 'insert'" class="studio-command-group">
         <details class="studio-picture-menu">
           <summary class="studio-command" :aria-label="t('picture')"><StudioIcon name="assets" :size="20" /><span>{{ t('picture') }} ▾</span></summary>

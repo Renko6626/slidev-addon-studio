@@ -13,7 +13,10 @@ import { useSlideSource } from '../composables/useSlideSource'
 import { useTransformGizmo } from '../composables/useTransformGizmo'
 import { useTextEditor } from '../composables/useTextEditor'
 import { studioContext, studioKey } from '../context'
-import { busy, dockWidth, editing, inspectorVisible, lastError, notesVisible, selection, slidesVisible, studioOpen } from '../state'
+import { busy, dockWidth, editing, inspectorVisible, lastError, notesVisible, ribbonTab, selection, slidesVisible, studioOpen } from '../state'
+import { imagePending } from '../composables/useImageInsertion'
+import { projectSaveStatus, projectWriteError, saveProject } from '../project-save'
+import '../project-host'
 import { fitSlide } from '../editor-view'
 import { t } from '../i18n'
 import { useEditorMode } from '../composables/useEditorMode'
@@ -25,6 +28,7 @@ import StudioToolbar from './StudioToolbar.vue'
 import PanelSlides from './panels/PanelSlides.vue'
 import StudioLibrary from './StudioLibrary.vue'
 import StudioNotes from './StudioNotes.vue'
+import StudioFile from './StudioFile.vue'
 import StudioIcon from './parts/StudioIcon.vue'
 import '../../styles/studio.css'
 
@@ -39,6 +43,16 @@ const nav = useNav()
 const no = computed(() => nav.currentSlideNo.value)
 
 const source = useSlideSource(no)
+const inlineEditor = ref<InstanceType<typeof InlineEditor> | null>(null)
+const notesEditor = ref<InstanceType<typeof StudioNotes> | null>(null)
+async function save() {
+  if (imagePending.value) return false
+  return saveProject(async () => {
+    await inlineEditor.value?.apply()
+    if (editing.value) throw new Error(t('finishEditing'))
+    await notesEditor.value?.apply()
+  })
+}
 const canvas = useSlideCanvas(() => Number(source.frontmatter.value.zoom ?? 1))
 async function commit(content: string, label: ActionLabel, options?: { skipHmr?: boolean, keepSelection?: boolean }) {
   const current = selection.value
@@ -82,6 +96,7 @@ const context: StudioContext = {
   commit,
   setFrontmatter: (values, label) => source.setFrontmatter(values, label),
   setNote: note => source.setNote(note),
+  save,
   range: () => selection.value?.range ?? null,
   selectInserted: (tag, range) => selectionApi.selectInserted(tag, range),
   selectThrough: (x, y) => selectionApi.selectThrough(x, y),
@@ -96,6 +111,10 @@ useObjectClipboard(context)
 // is built there and has no way to inject.
 studioContext.value = context
 onScopeDispose(() => (studioContext.value = null))
+// The desktop main process requests saving before changing projects or closing.
+const projectBridge = { save }
+window.__studioProject = projectBridge
+onScopeDispose(() => { if (window.__studioProject === projectBridge) delete window.__studioProject })
 
 /*
  * The keys a canvas is expected to answer to.
@@ -112,8 +131,22 @@ const NUDGE = 1
 const NUDGE_FAR = 10
 
 onDomEvent<KeyboardEvent>(document, 'keydown', (event) => {
-  if (!studioOpen.value || editing.value)
+  if (!studioOpen.value)
     return
+  if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 's') {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    void save()
+    return
+  }
+  if (ribbonTab.value === 'file') {
+    // Keep native File-page scrolling/tree activation, but do not let the
+    // event reach Slidev's window-level navigation and presentation shortcuts.
+    event.stopImmediatePropagation()
+    if (event.key === 'Escape') { event.preventDefault(); ribbonTab.value = 'home' }
+    return
+  }
+  if (editing.value) return
   const target = selection.value
   if (!target?.range)
     return
@@ -200,25 +233,25 @@ onScopeDispose(resetView)
         <div class="studio-backdrop" />
         <div class="studio-workspace" :style="shellStyle">
           <StudioToolbar @preview="mode.preview" @present="mode.present" @fit="bounds.update()" />
-          <aside v-if="slidesVisible" class="studio-navigation"><PanelSlides /></aside>
-          <main class="studio-center">
+          <StudioFile v-if="ribbonTab === 'file'" />
+          <aside v-if="slidesVisible" v-show="ribbonTab !== 'file'" class="studio-navigation"><PanelSlides /></aside>
+          <main v-show="ribbonTab !== 'file'" class="studio-center">
             <div ref="stage" class="studio-stage" />
-            <StudioNotes v-if="notesVisible" :key="no" />
+            <StudioNotes v-if="notesVisible" :key="no" ref="notesEditor" />
           </main>
-          <StudioDock v-if="inspectorVisible" />
+          <StudioDock v-if="inspectorVisible" v-show="ribbonTab !== 'file'" />
           <footer class="studio-statusbar">
             <span>{{ t('pageProgress', { current: no, total: nav.total.value }) }}</span>
-            <span v-if="busy" role="status">{{ t('writing') }}</span>
-            <span v-if="editing" class="studio-statusbar__editing">{{ t('finishEditing') }}</span>
+            <span role="status" :class="{ 'studio-file-error': projectWriteError }">{{ t(projectSaveStatus(editing || !!notesEditor?.dirty)) }}</span>
             <span class="studio-statusbar__spacer" />
             <button :aria-pressed="notesVisible" @click="notesVisible = !notesVisible">{{ t('presenterNotes') }}</button>
             <span>{{ Math.round(fitted.scale * 100) }}%</span>
             <button class="studio-statusbar__fit" @click="bounds.update()"><StudioIcon name="fit" :size="14" />{{ t('fitWindow') }}</button>
           </footer>
         </div>
-        <SelectionLayer />
-        <InlineEditor />
-        <StudioLibrary />
+        <SelectionLayer v-if="ribbonTab !== 'file'" />
+        <InlineEditor ref="inlineEditor" />
+        <StudioLibrary v-if="ribbonTab !== 'file'" />
       </template>
       <button v-else-if="mode.previewing.value && !mode.isFullscreen.value" class="studio-return" @click="mode.returnToEditor">
         <StudioIcon name="edit" />{{ t('returnEditor') }}

@@ -2,6 +2,7 @@ import { t } from '../i18n'
 import { serverErrorText } from '../i18n/errors'
 import type { StudioAsset } from '../types'
 import { busy, reportError } from '../state'
+import { trackProjectWrite } from '../project-save'
 
 /**
  * The dev-only endpoints Studio adds on top of Slidev's own.
@@ -33,11 +34,15 @@ async function request<T>(route: string, init?: RequestInit): Promise<T | null> 
 }
 
 function post<T>(route: string, payload: unknown) {
-  return request<T>(route, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
+  return trackProjectWrite(async () => {
+    const result = await request<T>(route, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    if (result === null) throw new Error(t('projectWriteFailed'))
+    return result
+  }).catch(() => null)
 }
 
 export interface DeckResult {

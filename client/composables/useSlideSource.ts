@@ -5,6 +5,8 @@ import { useDynamicSlideInfo } from '@slidev/client/composables/useSlideInfo.ts'
 import { computed, ref, toValue } from 'vue'
 import { patchFrontmatterRaw } from '../md/frontmatter'
 import { busy, reportError } from '../state'
+import { t } from '../i18n'
+import { trackProjectWrite } from '../project-save'
 
 /**
  * The single write path to the deck.
@@ -29,13 +31,27 @@ export const canRedo = computed(() => redoStack.value.length > 0)
 export const lastAction = computed(() => undoStack.value.at(-1)?.label ?? null)
 
 async function send(no: number, data: SlidePatch) {
-  const { update } = useDynamicSlideInfo(no)
+  const { info } = useDynamicSlideInfo(no)
   busy.value = true
   try {
-    return await update(data)
+    return await trackProjectWrite(async () => {
+      // Slidev's update helper parses JSON without checking HTTP status. Check
+      // the response here so a failed disk write cannot appear as "saved".
+      const response = await fetch(`${import.meta.env.BASE_URL}__slidev/slides/${no}.json`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!response.ok) throw new Error(t('errorRequest', { status: response.status }))
+      const result = await response.json()
+      if (result?.error) throw new Error(result.error)
+      info.value = result
+      return result
+    })
   }
   catch (error) {
     reportError(error)
+    throw error
   }
   finally {
     busy.value = false

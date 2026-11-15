@@ -4,3 +4,6 @@ dist
 *.log
 .vite
 .npmrc
+desktop/out/
+desktop/resources/
+desktop/studio-resources/

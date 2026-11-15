@@ -118,6 +118,8 @@ addon source merge.
 | Object clipboard | `client/md/clipboard.ts`, `client/composables/useObjectClipboard.ts` |
 | Source writes and history | `client/composables/useSlideSource.ts`, `client/actions.ts` |
 | Catalog, pages and assets | `node/`, `client/composables/useDeckApi.ts` |
+| Project info, archive and File page | `node/project.ts`, `shared/project.ts`, `client/composables/useProject.ts`, `client/ui/StudioFile.vue` |
+| Explicit save and write status | `client/project-save.ts`, exposed apply methods on `InlineEditor.vue` and `StudioNotes.vue` |
 | Interface translations | `client/i18n/en.ts`, `client/i18n/zh-CN.ts` |
 
 Keep source edits inspectable. New basic elements use ordinary HTML plus
@@ -125,6 +127,26 @@ Keep source edits inspectable. New basic elements use ordinary HTML plus
 dev-only, while authored content continues to render in production builds.
 
 ## Verification
+
+The dev-only project endpoints are `GET <base>@studio/project` (read-only file
+tree) and `GET <base>@studio/project.zip` (ZIP response with an attachment name).
+They use the nearest parent package directory of the entry, not the monorepo
+workspace root. File traversal excludes dependencies, Git metadata, build output,
+caches and local credentials; source symlinks and external Markdown imports fail
+export with a coded, localized path message. JSZip 3.10.1 was already present in
+the dependency tree and is now a direct runtime dependency. Archives are generated
+in memory for the current small-project workflow.
+
+The save tracker observes existing writes without queuing or retrying requests.
+Explicit save applies the mounted inline editor and notes through their existing
+write paths, then awaits pending writes. Slide writes check HTTP status before
+updating the local Slidev cache. ZIP download stops when applying or saving fails.
+Project selection and creation remain host responsibilities. The optional desktop
+bridge is declared in `client/project-host.ts`; `StudioRoot` exposes only saving
+to the main process, and the File page calls fixed project actions. `desktop/`
+contains the Windows Electron host, process runner, project operations and Forge
+ZIP configuration; see [desktop development](../desktop/README.md). A normal
+browser has no desktop bridge and retains the standalone File page.
 
 Run the checks relevant to the complete change:
 

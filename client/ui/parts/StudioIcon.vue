@@ -7,6 +7,12 @@
 const props = withDefaults(defineProps<{ name: string, size?: number }>(), { size: 16 })
 
 const paths: Record<string, string> = {
+  save: 'M4 3h13l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8',
+  file: 'M5 3h9l5 5v13H5zM14 3v6h5M8 13h8M8 17h6',
+  folder: 'M3 6h7l2 2h9v12H3z',
+  download: 'M12 3v12M7 10l5 5 5-5M4 16v5h16v-5',
+  back: 'M19 12H5M11 6l-6 6 6 6',
+  refresh: 'M20 7v5h-5M4 17v-5h5M6 7a7 7 0 0112-1l2 3M4 15l2 3a7 7 0 0012-1',
   'clear-format': 'M5 5h12M11 5l-3 14M15 13l6 6M21 13l-6 6',
   'align-left': 'M4 5h16M4 10h10M4 15h16M4 20h10',
   'align-center': 'M4 5h16M7 10h10M4 15h16M7 20h10',

@@ -1,7 +1,7 @@
 import type { StudioContext } from '../context'
 import { action, t } from '../i18n'
 import { captureBlock, decodeClipboard, encodeClipboard, insertCopiedBlock, OBJECT_CLIPBOARD_TYPE } from '../md/clipboard'
-import { activePanel, busy, editing, library, reportError, selection, studioOpen } from '../state'
+import { activePanel, busy, editing, library, reportError, ribbonTab, selection, studioOpen } from '../state'
 import { onDomEvent } from './useDomEvent'
 
 /** Native clipboard events work without requesting async clipboard permissions. */
@@ -11,7 +11,7 @@ export function useObjectClipboard(studio: StudioContext, deck = window.location
   let count = 0
 
   function available(event: Event) {
-    if (!studioOpen.value || editing.value || busy.value)
+    if (!studioOpen.value || ribbonTab.value === 'file' || editing.value || busy.value)
       return false
     const inField = (target: EventTarget | null) => typeof Element !== 'undefined' && target instanceof Element
       && (target.closest('input, textarea, select') || (target as HTMLElement).isContentEditable)

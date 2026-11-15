@@ -75,8 +75,34 @@ ordinary URLs follow the previous editor preference. Vite base paths are support
 - Closing Studio in development retains its pencil, context-menu and E entry
   points. Static builds have no Studio editing UI or entry points.
 
-Apply the current text edit before switching modes. There is no separate
-whole-document Save button: existing edit actions write to the Markdown file.
+Apply the current text edit before switching modes. Applied edits write to the
+Markdown file automatically. **File → Save**, the title-bar save button, and
+**Ctrl/Cmd+S** also apply the active text edit and speaker notes, then wait for
+the writes to finish. The status bar reports pending edits and failed writes.
+
+## Projects and File
+
+**File** opens the current project's name, directory, slide entry, save status
+and a read-only directory tree. A project is an ordinary Slidev directory; Git,
+a workbench account and `project.yaml` are not required. For nested slide entries,
+the nearest parent `package.json` determines the project directory; without one,
+Studio uses the entry's directory. In a web workspace this is a server directory.
+
+**Download project ZIP** applies active edits first and archives the current
+files, including new and uncommitted content, local assets, components, lockfiles
+and patches. Dependencies, Git history, build output, caches, `.env` values and
+local credential configuration such as `.npmrc` are excluded; `.env.example`,
+`.env.sample` and `.env.template` remain. The file tree uses the same exclusions.
+Unzip the archive to continue with the project's usual Slidev commands; install
+its dependencies first if necessary. The ZIP does not fetch external assets,
+copy outside dependencies, or replace machine-specific `link:` dependencies.
+
+Linked source files and imported Markdown outside the project must be moved
+inside before export; Studio reports the path rather than silently omitting it.
+New/open/save-copy operations belong to the workspace or desktop application and
+are not supplied by this standalone addon. The companion [Windows desktop preview](desktop/README.md)
+provides these operations through the same File page and native menus. This File page exports editable
+projects; PDF, PowerPoint and built presentation exports are not included.
 
 ## Workspace
 

@@ -1,0 +1,121 @@
+const fs = require('node:fs')
+const fsp = require('node:fs/promises')
+const path = require('node:path')
+const net = require('node:net')
+const { spawn, execFile } = require('node:child_process')
+const { promisify } = require('node:util')
+
+async function nodeEnvironment(executable, userData, platform = process.platform, inherited = process.env) {
+  const directory = path.join(userData, 'runtime-bin')
+  await fsp.mkdir(directory, { recursive: true })
+  if (platform === 'win32')
+    await fsp.writeFile(path.join(directory, 'node.cmd'), `@echo off\r\nset "ELECTRON_RUN_AS_NODE=1"\r\n"${executable.replaceAll('%', '%%')}" %*\r\n`)
+  else {
+    const quoted = `'${executable.replaceAll("'", "'\\''")}'`
+    await fsp.writeFile(path.join(directory, 'node'), `#!/bin/sh\nexport ELECTRON_RUN_AS_NODE=1\nexec ${quoted} "$@"\n`, { mode: 0o755 })
+  }
+  const inheritedPath = Object.entries(inherited).find(([key]) => key.toLowerCase() === 'path')?.[1] || ''
+  const env = { ...inherited }
+  for (const key of Object.keys(env)) if (key.toLowerCase() === 'path') delete env[key]
+  return {
+    ...env, PATH: directory + (platform === 'win32' ? ';' : ':') + inheritedPath,
+    ELECTRON_RUN_AS_NODE: '1', npm_node_execpath: executable, NODE: executable,
+    NODE_ENV: 'development', COREPACK_ENABLE_DOWNLOAD_PROMPT: '0', NO_COLOR: '1',
+  }
+}
+
+async function freePort() {
+  const server = net.createServer()
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve) })
+  const port = server.address().port
+  await new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve()))
+  return port
+}
+
+function createRuntime({ executable, pnpm, userData, onStatus = () => {} }) {
+  let child = null
+  let exit = Promise.resolve()
+  let logPath = ''
+  const status = message => onStatus({ message, logPath })
+
+  async function launch(args, root) {
+    await fsp.mkdir(path.join(userData, 'logs'), { recursive: true })
+    logPath = path.join(userData, 'logs', 'current-project.log')
+    const output = fs.createWriteStream(logPath, { flags: 'a' })
+    const env = await nodeEnvironment(executable, userData)
+    const processChild = spawn(executable, args, {
+      cwd: root, env, windowsHide: true, detached: process.platform !== 'win32',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    child = processChild
+    processChild.stdout.pipe(output, { end: false })
+    processChild.stderr.pipe(output, { end: false })
+    exit = new Promise((resolve, reject) => {
+      processChild.once('error', error => { output.end(); reject(error) })
+      processChild.once('exit', code => { output.end(); resolve(code) })
+    })
+    // A long-lived server is polled below, so handle its exit promise even if
+    // startup fails before a caller awaits it.
+    exit.catch(() => {})
+    return processChild
+  }
+
+  async function runPnpm(project, args) {
+    await launch([pnpm, '--config.manage-package-manager-versions=false', '--config.package-manager-strict=false', ...args], project.root)
+    const code = await exit
+    child = null
+    if (code !== 0) throw new Error(`依赖准备未完成（退出码 ${code}）。请查看日志：${logPath}`)
+  }
+
+  async function install(project, { changed = false, importLock = false } = {}) {
+    status('正在准备项目依赖，首次使用需要联网。')
+    if (importLock) await runPnpm(project, ['import'])
+    const frozen = !changed && fs.existsSync(path.join(project.root, 'pnpm-lock.yaml'))
+    await runPnpm(project, ['install', frozen ? '--frozen-lockfile' : '--no-frozen-lockfile'])
+  }
+
+  async function start(project) {
+    status('正在启动编辑器。')
+    const cli = path.join(project.root, 'node_modules', '@slidev', 'cli', 'bin', 'slidev.mjs')
+    const port = await freePort()
+    await launch([cli, project.entry, '--port', String(port), '--remote', '--bind', '127.0.0.1', '--log', 'info'], project.root)
+    const origin = `http://127.0.0.1:${port}/`
+    const deadline = Date.now() + 60000
+    while (Date.now() < deadline) {
+      if (!child || child.exitCode !== null) throw new Error(`编辑器已退出，请查看日志：${logPath}`)
+      try {
+        const response = await fetch(origin, { signal: AbortSignal.timeout(1000) })
+        if (response.ok && response.headers.get('Content-Type')?.includes('text/html')) return origin
+      }
+      catch {}
+      await new Promise(resolve => setTimeout(resolve, 200))
+    }
+    await stop()
+    throw new Error(`编辑器启动超时，请查看日志：${logPath}`)
+  }
+
+  async function stop() {
+    const running = child
+    child = null
+    if (!running || running.exitCode !== null) return
+    if (process.platform === 'win32') {
+      const taskkill = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'taskkill.exe')
+      await promisify(execFile)(taskkill, ['/pid', String(running.pid), '/T', '/F'], { windowsHide: true }).catch(() => {})
+    }
+    else {
+      try { process.kill(-running.pid, 'SIGTERM') } catch {}
+    }
+    await Promise.race([exit.catch(() => {}), new Promise(resolve => setTimeout(resolve, 3000))])
+    if (running.exitCode === null) {
+      try {
+        if (process.platform === 'win32') running.kill()
+        else process.kill(-running.pid, 'SIGKILL')
+      }
+      catch {}
+    }
+  }
+
+  return { install, start, stop, get logPath() { return logPath } }
+}
+
+module.exports = { nodeEnvironment, createRuntime }
