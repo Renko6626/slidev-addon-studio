@@ -181,10 +181,11 @@ supports alternative text, replacement, and two display modes:
 | Mode | Result |
 | --- | --- |
 | Show entire image | Preserves the whole image, with empty space when frame ratios differ |
-| Fill frame | Centres and fills the frame, hiding the excess |
+| Fill frame | Fills the frame, hiding the excess; adjust horizontal and vertical position to keep the subject visible |
 
-Replacement keeps position, frame dimensions, rotation, alternative text and
-display mode. Deleting an object or undoing replacement changes the Markdown
+Replacement keeps position, frame dimensions, rotation, alternative text,
+display mode and image position. Image positioning saves standard CSS
+`object-position` percentages and leaves the frame unchanged. Deleting an object or undoing replacement changes the Markdown
 reference; it does not delete the asset file.
 
 ![Picture display modes in a static presentation](docs/images/picture-frames.png)
@@ -192,7 +193,17 @@ reference; it does not delete the asset file.
 New text boxes and pictures are native HTML with `v-drag` and readable
 `data-studio-element` attributes. Existing unmarked content retains its original
 editing paths. SVG files can be used as complete pictures; editable SVG paths and
-interactive cropping are outside the current feature set.
+pixel editing are outside the current feature set.
+
+On blank free-canvas pages and pages made of independently positioned objects,
+**Page settings → Background** chooses a page colour or picture. Choosing one
+replaces the other; Remove background returns to the deck's own paint. Pictures
+fill the page from the centre. The background is a native, non-interactive
+`data-studio-background` element at the start of the slide body, below the
+positioned objects. It uses the normal save and undo history, and renders in
+thumbnails, presentations and static builds. Background controls stay disabled
+on pages containing document-flow content; existing layout parameters retain
+their own background options.
 
 ## Copy, paste and keyboard
 

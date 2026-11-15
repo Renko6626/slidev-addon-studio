@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendElement, createImageElement, createTextElement, fitImageSize, patchElementAttribute, patchElementStyle, readElement, replaceTextContent, resizeElement } from '../client/md/elements'
+import { appendElement, createImageElement, createTextElement, fitImageSize, patchElementAttribute, patchElementStyle, readElement, readImagePosition, replaceTextContent, resizeElement } from '../client/md/elements'
 import { getBlock } from '../client/md/lines'
 import { readDrag } from '../client/md/drag'
 
@@ -43,6 +43,18 @@ describe('basic elements', () => {
     expect(fitImageSize({ width: 1200, height: 600 }, canvas)).toEqual({ width: 600, height: 300 })
     expect(fitImageSize({ width: 600, height: 1200 }, canvas)).toEqual({ width: 195, height: 390 })
     expect(fitImageSize({ width: 120, height: 80 }, canvas)).toEqual({ width: 120, height: 80 })
+  })
+
+  it('positions a cropped image and keeps the frame and position when replacing it', () => {
+    const source = '<img data-studio-element="image" v-drag="[10,20,300,200,15]" data-studio-lock-ratio="false" style="object-fit:cover;object-position:center;border-radius:8px" src="/before.png" alt="Portrait" />\n\nNeighbour'
+    const positioned = patchElementStyle(source, [0, 1], { 'object-position': '25% 80%' })
+    const replaced = patchElementAttribute(positioned, [0, 1], 'src', '/after.png')
+    expect(replaced).toBe(source.replace('object-position:center', 'object-position:25% 80%').replace('/before.png', '/after.png'))
+    expect(readElement(replaced, [0, 1])?.styles['object-position']).toBe('25% 80%')
+    expect(readDrag(replaced, [0, 1])?.pos).toEqual({ x: 10, y: 20, w: 300, h: 200, rotate: 15 })
+    expect(readImagePosition(readElement(replaced, [0, 1])!.styles['object-position'])).toEqual({ x: 25, y: 80 })
+    expect(readImagePosition('center')).toEqual({ x: 50, y: 50 })
+    expect(readImagePosition('top right')).toEqual({ x: 100, y: 0 })
   })
 
   it('links picture dimensions while locked and keeps text height automatic', () => {
