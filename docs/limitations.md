@@ -3,7 +3,7 @@
 [Back to documentation](README.md)
 
 - Editing only works while `slidev` is running with the editor enabled. A built,
-  exported or printed deck contains none of Studio.
+  exported or printed deck contains none of Studio's editing UI.
 - Slides imported from another file with `src:` can be reordered only within
   their own file.
 - The first slide of the entry file cannot be deleted or moved: its frontmatter
@@ -70,7 +70,9 @@
 - Standalone File manages the current project only. The optional Windows desktop
   host supplies creating, opening, saving a copy and closing projects. No generic
   file editor or file rename/delete operations are added. Windows native behavior
-  remains subject to preview testing; see [desktop validation](../desktop/README.md).
+  remains subject to preview testing; the current multi-selection, layers and
+  background/image-position stages have not been packaged into an updated Windows
+  preview or accepted on Windows. See [desktop validation](../desktop/README.md).
 - Project ZIP is a source transfer format, not an offline runtime. Dependencies
   and external assets are not embedded, and local `link:` dependencies are not
   rewritten. Source symlinks and imported Markdown outside the project must be
@@ -88,7 +90,9 @@
 - Studio text boxes support character-level fonts, sizes, colours and marks,
   paragraph alignment/spacing and lists. Height still follows content; fixed-height
   boxes, vertical alignment, text-box margins, auto-shrink and font installation
-  remain future work. Interactive image cropping and editable SVG paths are not included.
+  remain future work. Images in Fill frame mode support horizontal/vertical
+  `object-position` percentages and a 50%/50% centre reset. The frame and source
+  image remain unchanged; draggable crop tools and editable SVG paths are not included.
 - Rich text supports Studio text boxes, ordinary ATX Markdown headings and
   paragraphs, standalone HTML headings/paragraphs and generated HTML lists.
   Heading levels, document flow and existing root attributes are retained; font,
@@ -105,8 +109,9 @@
 - Object clipboard data is limited to the same origin and Vite base. Top-level
   blocks are supported; list items, nested sublists, nested HTML sub-elements and
   frontmatter-only text are not independent clipboard objects. The clipboard
-  preserves single-object positioning and click-animation wrappers, not arbitrary
-  parent layout or shared-group semantics.
+  preserves each copied object's positioning and click-animation wrappers, including
+  multiple independent positioned objects. It does not copy arbitrary parent
+  layout or shared-group semantics.
 - Clipboard managers or other applications may remove Studio's custom clipboard
   format. Copy the object again in Studio if canvas paste no longer recognises it.
 - Create copy remains available for individual list items under the existing
@@ -114,6 +119,23 @@
 - Return to flow and source-order movement are temporarily hidden in the
   ribbon, inspector and context menu. Their underlying source operations remain
   available in code; existing positioning is unchanged.
-- Multiple selection, grouping, a general layer stack, manual viewport zoom and
-  hidden-slide management remain future work. Windows desktop ZIP packaging is
-  available as a preview, without an installer, signing or automatic updates.
+- Multiple selection supports independently positioned Studio text boxes, pictures,
+  shapes and components with definite source ranges on the current slide. Shift-click
+  toggles membership; dragging from empty slide space box-selects, with Shift adding
+  to the selection. Batch move/copy/delete, alignment and equal-gap distribution are
+  one undo step per action. Distribution needs at least three objects. Font and
+  Paragraph controls are disabled during multiple selection; permanent grouping,
+  batch resizing/rotation and selection across slides are not provided.
+- Layers opens from View, Object or the right-hand inspector. Only supported text
+  boxes, pictures and shapes within the same parent container can change order.
+  Unknown components are selectable only; containers keep their own stacking
+  contexts. CSS order is saved in source and retained in static builds. Backgrounds
+  are excluded from object selection, box-selection, clipboard and layer lists.
+- Free-canvas background colour, picture and removal controls apply to blank pages
+  and pages made of independent positioned objects. Document-flow content disables
+  these controls; existing layout background parameters remain separate. An effective
+  change clears the object selection. Pictures fill the page from the centre; the
+  background is saved as a non-interactive source element below page objects.
+- Manual viewport zoom and hidden-slide management remain future work. Windows
+  desktop ZIP packaging is available as a preview, without an installer, signing
+  or automatic updates.

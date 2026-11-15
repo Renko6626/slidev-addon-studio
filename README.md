@@ -15,11 +15,14 @@ server; authored content also renders in presentations and static builds.
 
 ## Version and installation
 
-The workspace, text-box/picture tools and object clipboard in this README describe
-the current repository source. They have not been published as a new npm release.
+The workspace, object tools, multi-selection, layers and page backgrounds in this
+README describe the current repository source. They have not been published as a
+new npm release.
 The package manifest still identifies `0.3.1-renko.1`, the earlier fork release
 with English/Chinese UI and workbench path support. Merging source does not update
-an already installed npm package.
+an already installed npm package. A Windows desktop preview is available, but
+the multi-selection, layers and background/image-position changes have not been
+packaged into an updated preview or accepted on Windows.
 
 To try the current source:
 
@@ -185,8 +188,11 @@ supports alternative text, replacement, and two display modes:
 
 Replacement keeps position, frame dimensions, rotation, alternative text,
 display mode and image position. Image positioning saves standard CSS
-`object-position` percentages and leaves the frame unchanged. Deleting an object or undoing replacement changes the Markdown
-reference; it does not delete the asset file.
+`object-position` percentages and leaves the frame unchanged. In Fill frame mode,
+set horizontal and vertical position from 0 to 100: 0 aligns the left or top edge,
+100 the right or bottom edge. **Centre image** resets both to 50%. These controls
+adjust the visible part of the image; there is no draggable crop tool. Deleting
+an object or undoing replacement changes the Markdown reference; it does not delete the asset file.
 
 ![Picture display modes in a static presentation](docs/images/picture-frames.png)
 
@@ -200,20 +206,53 @@ On blank free-canvas pages and pages made of independently positioned objects,
 replaces the other; Remove background returns to the deck's own paint. Pictures
 fill the page from the centre. The background is a native, non-interactive
 `data-studio-background` element at the start of the slide body, below the
-positioned objects. It uses the normal save and undo history, and renders in
+positioned objects. An effective background change, including removal, clears the
+current object selection. It uses the normal save and undo history, and renders in
 thumbnails, presentations and static builds. Background controls stay disabled
 on pages containing document-flow content; existing layout parameters retain
 their own background options.
+
+## Select and arrange multiple objects
+
+Hold **Shift** and click objects to add or remove them from the selection. Drag
+from empty slide space to box-select; Shift-box-selection adds to the current
+selection. This supports independently positioned Studio text boxes, pictures,
+shapes and components with a definite source range and position on the current
+slide. Backgrounds are excluded.
+
+Drag any selected object to move the selection. Create copy, Ctrl/Cmd+D,
+Ctrl/Cmd+C/V and Delete/Backspace act on all selected objects. Home, Object and
+the object inspector offer left/right/top/bottom alignment, horizontal/vertical
+centring and equal horizontal/vertical gaps. Alignment uses the selection's
+visual bounds; distribution needs at least three objects and keeps the outer
+objects fixed. Each batch action is one undo step.
+
+Font and Paragraph controls are disabled during multiple selection. Text editing
+and detailed object properties use single selection. Permanent grouping, batch
+resizing/rotation and selection across slides are not provided.
+
+## Layers
+
+Open **Layers** from View, the contextual Object tab or the right-hand inspector.
+The list runs from front to back; click a row to select that object. Supported
+text boxes, pictures and shapes can move forward/backward or to the front/back
+within the same parent container. The order is saved as CSS stacking order in
+the source and is retained in presentations and static builds.
+
+Unknown components can be selected in the list but cannot be reordered. Objects
+in different containers cannot exchange layer order; this is not a page-wide
+stack across layouts or nested components. Backgrounds are excluded from the
+list and stay below the page objects.
 
 ## Copy, paste and keyboard
 
 | Shortcut | Action |
 | --- | --- |
 | E | Toggle Studio |
-| Ctrl/Cmd+C | Copy the selected complete object |
+| Ctrl/Cmd+C | Copy the selected complete object or multiple independent objects |
 | Ctrl/Cmd+V | Paste into the current slide |
-| Ctrl/Cmd+D | Create a copy immediately |
-| Delete / Backspace | Delete the selected object when not typing |
+| Ctrl/Cmd+D | Create copies of the selection immediately |
+| Delete / Backspace | Delete the selection when not typing |
 | Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z | Undo / redo |
 | F2 | Enter or finish editing supported text |
 | Ctrl/Cmd+Enter or Esc while editing text | Apply the text edit; use the floating Cancel button to discard it |
@@ -223,10 +262,10 @@ their own background options.
 
 Object clipboard copying works across slides at the same presentation entry
 (origin and Vite base). It retains source, local asset references and
-single-object position/animation wrappers. Metadata travels on the native
+each object's position/animation wrappers. Metadata travels on the native
 clipboard, including across a page reload. Same-page pastes and immediate copies
 are offset by 20 units; the first cross-page paste keeps the original coordinates.
-The new object is selected after insertion.
+The new objects are selected after insertion.
 
 Text inputs retain native text clipboard behaviour. External text is not treated
 as an object. Nested sub-elements, individual list items and frontmatter-only
@@ -240,8 +279,9 @@ Studio clipboard format, copy the object again in Studio.
   be dragged across Markdown files.
 - The source remains Markdown. Complex content may require the source editor;
   not every rendered element can be traced to an independently editable block.
-- Multiple selection, grouping, a general layer stack, manual viewport zoom,
-  font installation, interactive cropping and desktop packaging remain future work.
+- Permanent grouping, batch resizing/rotation, selection across slides, manual
+  viewport zoom, font installation and interactive crop handles remain future work.
+  Layer ordering is limited to supported objects in the same parent container.
 - Return to flow and source-order controls are temporarily hidden throughout
   the editor. Unpositioned content still offers Free position. Editing context
   menus show object actions and Close Studio; presentation menus remain in preview.
