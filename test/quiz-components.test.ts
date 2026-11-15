@@ -10,7 +10,7 @@ import * as previewRuntime from '../runtime/preview'
 import { quizStore } from '../runtime/stores/quiz'
 import type { StudioRuntime } from '../runtime'
 import { initializeRuntime, installStudioRuntime, setRuntimeEditing } from '../runtime/app'
-import { injectionCurrentPage, injectionRenderContext } from '@slidev/client/constants'
+import { injectionCurrentPage, injectionRenderContext } from '@slidev/client/constants.ts'
 import { loadVueComponent } from './sfc'
 
 const host = vi.hoisted(() => ({ nav: null as any, readSlide: vi.fn() }))

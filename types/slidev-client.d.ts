@@ -93,7 +93,7 @@ declare module '@slidev/client/logic/contextMenu.ts' {
   export function closeContextMenu(): void
 }
 
-declare module '@slidev/client/constants' {
+declare module '@slidev/client/constants.ts' {
   import type { RenderContext } from '@slidev/types'
   import type { InjectionKey, Ref } from 'vue'
   export const injectionCurrentPage: InjectionKey<Ref<number>>

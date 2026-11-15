@@ -1,6 +1,6 @@
 import { injectLocal } from '@vueuse/core'
 import { useNav, useSlideContext } from '@slidev/client'
-import { injectionCurrentPage, injectionRenderContext } from '@slidev/client/constants'
+import { injectionCurrentPage, injectionRenderContext } from '@slidev/client/constants.ts'
 import { computed, getCurrentInstance, inject } from 'vue'
 import { getStudioRuntime } from '../app'
 import { previewContextKey } from '../preview'
