@@ -126,3 +126,56 @@ The component measures its rendered frame to draw its geometry, so `v-drag`
 remains the single source for position and size. A line runs horizontally in
 its local frame; its frame rotation controls direction. Shared geometry lives
 in `shared/shapes.ts`, independently of editor state.
+
+
+## Question interactions
+
+Use Insert's question-page and button commands for ordinary authoring. The
+single-/multiple-choice templates keep four options; the first-version form
+edits their text and answers without adding/removing options or switching types.
+The three components are hidden from the generic palette to avoid unbound copies.
+[playground/interactions.md](../playground/interactions.md) is a complete example.
+
+| Component | Static props and role |
+| --- | --- |
+| `StudioQuestion` | `question`, `mode` (`single` / `multiple`), `title`, `options` (`{ id, label, correct }[]`), `correctText`, `incorrectText`, `idleText`; registers the question and renders its prompt |
+| `StudioButton` | `question`, `action`, optional `option` and `label`; without `label`, option buttons use the question's option text. Appearance: `fill`, `color`, `selectedFill`, `correctFill`, `incorrectFill`, numeric `radius` |
+| `StudioFeedback` | `question`, optional `effect` (`none` / `fade` / `pop`, default `fade`); renders the question's idle or result text |
+
+They are independent single-root objects positioned with `v-drag`; presentation
+state stays in memory. Double-click/F2 edits plain prompt/button/option text and
+the feedback's idle text. Correct/incorrect messages are configured in properties.
+Button appearance previews do not dispatch answers.
+
+Advanced code can import the same signal entry used by the buttons. With the
+`slidev-addon-studio` package alias installed, call this from a control after the
+main slide has mounted:
+
+```ts
+import { dispatchInteraction } from 'slidev-addon-studio/runtime/interactions'
+
+export function chooseA() {
+  return dispatchInteraction({ question: 'question-1', action: 'choose', option: 'A' })
+}
+```
+
+Use the current page's `question` id and an option id from that question. The
+example deck uses `question-1` on both pages: ids are unique within a page, while
+page instances keep separate state. For a multiple-choice page, send explicit
+selection values and then submit:
+
+```ts
+dispatchInteraction({ question: 'question-1', action: 'set-option', option: 'A', selected: true })
+dispatchInteraction({ question: 'question-1', action: 'set-option', option: 'C', selected: true })
+dispatchInteraction({ question: 'question-1', action: 'submit' })
+// Remove choices and feedback:
+dispatchInteraction({ question: 'question-1', action: 'clear-pending' })
+```
+
+Only the active main slide outside editing accepts signals. Thumbnails, next-page
+previews, presenter auxiliary views and print instances do not answer. The entry
+returns `false` for rejected signals; it does not queue them or broadcast window
+events. Leaving a slide retains its state for the current trial; crossing the
+editing boundary resets the trial. Static builds use the runtime without Studio's
+editing code. No network transport or lifecycle management for arbitrary
+third-party scripts is supplied.

@@ -1,6 +1,20 @@
 # Studio 阶段状态
 
-## 当前源码：多选、图层与背景/图片位置，2026-11-15
+## 当前源码：选择题交互首版，2026-11-15
+
+运行逻辑 `c032797`、制作配置 `5b29891` 和编辑集成 `539d288` 已在主工作区整合。支持单选/多选题页与关联按钮、固定四选项的文案和答案配置、简单文字编辑、按钮外观预览、反馈效果及集合复制关联重命名。试播切页保留作答，回编辑重置；外部扩展只接统一 `dispatchInteraction` 信号入口，没有网络或任意脚本托管。
+
+整合验收已有结果如下；文档收尾未重复运行测试或构建：
+
+- `pnpm test`：308 通过，1 项需显式启用的 QA 跳过。
+- `pnpm typecheck` 通过。
+- `pnpm --package=vue-tsc@3.1.8 --package=typescript@5.9.3 dlx vue-tsc --noEmit --project tsconfig.json` 通过。
+- `pnpm exec slidev build playground/interactions.md --out /tmp/studio-quiz-final-build` 通过。
+- 已查看单选配置、多选按钮配置、预览和静态截图；静态页面编辑器数量为 0，两题与按钮文案完整。仅导航及初始化选择用于截图，没有自动点击、输入、拖动或答题流程；浏览器仅有既有 Wake Lock 提示。截图保存在本地 `../release/studio-quiz-2026-11-15/`。
+
+本轮未在 Windows 测试、未重新打包、未推送或发布 npm。首版不提供增删选项数量、题型切换、计分或计时。用法见[中文指南](usage.zh-CN.md#选择题与按钮)，信号示例见[组件说明](components.md#question-interactions)。
+
+## 多选、图层与背景/图片位置检查点，2026-11-15
 
 三个阶段已在主工作区整合，功能提交为 `9b11787`、`6a304e3`、`a8f8246`。沿用 Vue、Slidev、`v-drag` 和 Markdown 写回，没有新增持久对象模型或服务。
 
@@ -16,7 +30,7 @@
 - `pnpm exec slidev build playground/three-stages-check.md --out /tmp/studio-three-stages-build` 通过。
 - 已查看最终多选、图层、图片位置与静态层级截图。静态页面没有编辑器 UI，图层 `100/102/101` 正确保留。浏览器只有已知 Wake Lock 权限提示；未自动点击、输入或拖动，仅设置截图初始状态。
 
-当前三阶段尚未推送、重新打包或在 Windows 验收，也未发布 npm。此前用户对 Windows 的良好反馈针对 `7378cc0` 检查点旧包，不代表这三个阶段已通过 Windows 验收。使用方法见[中文指南](usage.zh-CN.md)，当前范围见[限制说明](limitations.md)。
+该检查点的三个阶段当时尚未推送、重新打包或在 Windows 验收，也未发布 npm。此前用户对 Windows 的良好反馈针对 `7378cc0` 检查点旧包，不代表这三个阶段已通过 Windows 验收。使用方法见[中文指南](usage.zh-CN.md)，当前范围见[限制说明](limitations.md)。
 
 ## 历史阶段记录
 

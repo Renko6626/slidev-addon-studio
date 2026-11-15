@@ -3,7 +3,8 @@
 A visual editor for [Slidev](https://sli.dev), with a persistent slide filmstrip,
 a grouped ribbon, a real slide canvas and an inspector. Create text boxes, insert
 and replace pictures, edit component properties, configure animations and copy
-objects between slides. Changes are written back to your Markdown and local assets.
+objects between slides. Single- and multiple-choice question templates add
+repeatable answers and feedback. Changes are written back to your Markdown and local assets.
 
 ![Studio editing workspace](docs/images/workspace.png)
 
@@ -15,14 +16,14 @@ server; authored content also renders in presentations and static builds.
 
 ## Version and installation
 
-The workspace, object tools, multi-selection, layers and page backgrounds in this
+The workspace, object tools, multi-selection, layers, backgrounds and questions in this
 README describe the current repository source. They have not been published as a
 new npm release.
 The package manifest still identifies `0.3.1-renko.1`, the earlier fork release
 with English/Chinese UI and workbench path support. Merging source does not update
 an already installed npm package. A Windows desktop preview is available, but
-the multi-selection, layers and background/image-position changes have not been
-packaged into an updated preview or accepted on Windows.
+the recent object tools and question interactions have not been packaged into an
+updated preview or accepted on Windows.
 
 To try the current source:
 
@@ -243,6 +244,31 @@ Unknown components can be selected in the list but cannot be reordered. Objects
 in different containers cannot exchange layer order; this is not a page-wide
 stack across layouts or nested components. Backgrounds are excluded from the
 list and stay below the page objects.
+
+## Questions and buttons
+
+**Insert → Single-choice page / Multiple-choice page** creates a page with a
+question, four independent option buttons and feedback. Multiple-choice pages
+also have Confirm answer and Clear selection buttons. Edit the prompt, option
+text, correct answers and feedback in the inspector; this first version keeps
+four options and does not offer changing the question type. Double-click or F2
+opens simple text editing for prompts, option/button labels and the feedback's
+idle prompt. Correct/incorrect feedback stays in the inspector.
+
+**Insert → Button** adds a button bound to a question on the current page. Its
+properties set the question, purpose, option and appearance. Normal, Selected,
+Correct and Incorrect previews show styles without answering.
+
+Answers run in Preview and Present, including static presentations. Single
+choice judges each selection; multiple choice requires the exact correct set
+and ignores empty submissions. Changing the selection clears an old judgement;
+Clear selection removes choices and results. Switching slides retains answers
+within a trial; returning to editing or starting a new trial resets them.
+
+Copying a selection that includes a question assigns a fresh question id and
+updates its copied buttons/feedback. Copying a button alone keeps its question
+binding on the same page. See [the working example](playground/interactions.md)
+and [the advanced signal API](docs/components.md#question-interactions).
 
 ## Copy, paste and keyboard
 
