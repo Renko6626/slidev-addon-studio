@@ -11,5 +11,8 @@
 | [开发与配置](development.md) | 模块职责、验证、子路径适配和发布边界 |
 | [已知限制](limitations.md) | 源码映射、页面操作、剪贴板及暂缓功能 |
 | [阶段状态](status.md) | 本阶段成果、验证证据和历史计划入口 |
+| [自定义代码约定草案](custom-code/conventions.md) | 拟议的 Pinia 与代码组织，尚未实施 |
+| [自定义组件规范草案](custom-code/components.md) | 组件定位、配置、预览和运行接口要求 |
+| [Coding agent 接入指南草案](custom-code/agent-guide.md) | 任务入口、边界与交付证据 |
 
 `superpowers/specs/` 与 `superpowers/plans/` 保存当时的设计和执行记录。判断当前能力时，以首页、使用指南和阶段状态为准；历史文档中的“后续”不一定仍未完成。
