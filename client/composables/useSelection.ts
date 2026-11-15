@@ -415,11 +415,13 @@ export function useSelection(
    * last mapped element of the slide is the best available answer.
    */
   async function selectInserted(tag?: string, range?: SourceRange): Promise<boolean> {
+    const expected = selection.value
+    const slideNo = no()
     await nextTick()
     if (range) {
-      const currentNo = no()
+      const currentNo = slideNo
       const deadline = Date.now() + 1500
-      while (Date.now() < deadline && no() === currentNo) {
+      while (Date.now() < deadline && no() === currentNo && selection.value === expected) {
         const candidate = mappedElements(currentNo)
           .filter(el => !tag || el.dataset.studioTag === tag)
           .map(el => describe(el, currentNo, content()))

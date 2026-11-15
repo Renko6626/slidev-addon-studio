@@ -83,14 +83,20 @@
   or recovery. Check the files and refresh after a failed write. Only applied
   text is automatically written; Ctrl/Cmd+S also applies the active text and notes.
 
-- New text boxes and pictures have dedicated controls; existing unmarked content
-  keeps its original editing paths. No automatic document migration is performed.
+- New text boxes and pictures have dedicated controls. Supported native prose
+  also shares the text controls; no automatic document migration is performed.
 - Studio text boxes support character-level fonts, sizes, colours and marks,
   paragraph alignment/spacing and lists. Height still follows content; fixed-height
   boxes, vertical alignment, text-box margins, auto-shrink and font installation
   remain future work. Interactive image cropping and editable SVG paths are not included.
-- Rich text is limited to marked Studio text boxes. Unsupported custom source
-  markup opens as source rather than being silently normalised by the text schema.
+- Rich text supports Studio text boxes, ordinary ATX Markdown headings and
+  paragraphs, standalone HTML headings/paragraphs and generated HTML lists.
+  Heading levels, document flow and existing root attributes are retained; font,
+  size and colour changes use standard HTML when Markdown cannot express them.
+  Editing is scoped to one block; new paragraphs become siblings. Setext headings,
+  other Markdown structures, frontmatter and component internals retain their
+  previous editors. Unsupported custom source markup opens as source rather than
+  being silently normalised by the text schema.
   Editing-session history and the existing whole-deck history are separate: after
   applying, the text session is one deck action; reopening starts a new text history.
 - On hand-authored boxes, underline/strikethrough inherited from the root or a

@@ -1,8 +1,19 @@
 # Studio 阶段状态
 
+## 原生标题与段落富文本，2026-11-15
+
+本阶段在 `codex/studio-native-text` 实施，基于 `da1531a`，已按用户要求阶段性提交、合并到主工作树的 `main` 并推送远端。普通 ATX Markdown 标题、段落及独立 HTML 标题/段落共用已有 Tiptap 字体与段落工具，支持局部、光标和整块格式。简单标记保留 Markdown，其他格式保存为标准 HTML；保留标题层级、文档流及原 HTML 根属性。新增段落写为相邻块，生成的 HTML 列表可继续编辑；组件内文、frontmatter 和复杂源码沿用原路径。
+
+- [设计](superpowers/specs/2026-11-15-native-text-design.md)、[实施计划](superpowers/plans/2026-11-15-native-text.md)及使用/限制说明已更新；无新依赖或服务接口。
+- `pnpm test`：238 通过、1 项既有 QA 跳过；审阅及选区修正后的受影响测试 29 项通过。`pnpm typecheck`、临时 Vue SFC 检查通过。
+- `pnpm exec slidev build playground/slides.md --out /tmp/sunyunbo/studio-native-text-static-build-20261115` 通过，原 playground 未改动。
+- 临时工程的富文本 HTML 与 3 个编辑器 Vue 组件在 `/` 和 `/edit/native-probe/` 下均可编译；结果见 `/tmp/sunyunbo/studio-native-text-http-20261115/results.json`。
+- 一次只读审阅后修正字面 Markdown、HTML 和实体被重新解释的问题，改用语义 HTML 保留实际文字；精确重选在等待渲染时也保留用户后来的选择。
+- 未执行浏览器自动点击、输入或交互流程，真实选区与输入法仍需试用。按用户要求暂不更新 Windows ZIP；已有桌面预览包不包含本轮改动，未发布 npm。
+
 ## 阶段提交检查点，2026-11-15
 
-用户要求将工程“文件”页及 Windows 桌面宿主两阶段源码、测试、计划和说明提交并推送至 `origin/codex/studio-rich-text`。Windows ZIP 保留在本地 `release/studio-windows-2026-11-15/` 交付目录，不纳入 Git。本次不合并 main、不发布 npm、不创建 GitHub Release。下方各阶段的“未提交”记录描述实施完成时的状态，以本检查点作为后续归档范围。
+工程“文件”页及 Windows 桌面宿主两阶段源码、测试、计划和说明已提交为 `da1531a`，推送至 `origin/codex/studio-rich-text`，随后按用户要求合并到主工作树及 `origin/main`。Windows ZIP 保留在本地 `release/studio-windows-2026-11-15/` 交付目录，不纳入 Git。未发布 npm 或创建 GitHub Release。下方各阶段的“未提交/未合并”记录描述当时状态，以本检查点作为后续归档范围。
 
 ## Windows 桌面宿主预览，2026-11-15
 

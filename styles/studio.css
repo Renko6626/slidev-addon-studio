@@ -938,6 +938,7 @@ html.slidev-studio-docked #slide-container { cursor: default; }
 .studio-text-buttons button[aria-pressed="true"] { color: var(--studio-accent); background: var(--studio-accent-soft); }
 .studio-text-buttons button[aria-pressed="mixed"] { color: var(--studio-text); box-shadow: inset 0 -2px var(--studio-accent); }
 .studio-rich-editor { outline: none; caret-color: currentColor; }
+.studio-rich-editor--native p { font-family: inherit; font-size: inherit; font-weight: inherit; font-style: inherit; color: inherit; line-height: inherit; }
 .studio-rich-editor .ProseMirror-selectednode { outline: 1px solid var(--studio-accent, #4f8aff); }
 .studio-picture-menu summary { list-style: none; cursor: pointer; }
 .studio-picture-menu summary::-webkit-details-marker { display: none; }

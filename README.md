@@ -126,7 +126,7 @@ Double-click or press F2 to edit; use the side handles to change its width.
 Height follows the text. Home keeps its Font and Paragraph groups visible, with
 font, size (canvas CSS pixels), colour, bold/italic/underline/strike, alignment,
 list, indent and line spacing controls. They are disabled when no supported
-Studio text box is selected. Entering text editing opens Home; the inspector
+heading, paragraph or Studio text box is selected. Entering text editing opens Home; the inspector
 retains position, dimensions and other detailed properties. A text selection changes only those characters; a caret sets
 the format of subsequent typing; selecting the box applies formatting to all its
 text. Mixed values are shown as Mixed. Font names use fonts available in the
@@ -142,7 +142,13 @@ paste; use the browser's plain-text paste shortcut when needed.
 Studio text boxes use Tiptap/ProseMirror internally and still save native HTML
 inside the existing positioned box. Opening and closing without changes does
 not rewrite it. Custom markup outside the supported text schema opens as source
-to preserve it. Unmarked Markdown and components keep their existing editors.
+to preserve it. Ordinary Markdown ATX headings (`#` through `######`), paragraphs
+and standalone HTML headings/paragraphs share the same rich-text controls.
+Simple marks keep Markdown; fonts, sizes and colours save standard HTML while
+preserving the heading level, document flow and existing root attributes.
+Enter adds sibling paragraphs; list controls can convert the selected block
+to a standard HTML list, which remains editable. Other Markdown structures,
+frontmatter text and component internals keep their existing editors.
 
 Press and drag a movable object directly, without selecting it first. A light
 click only selects it. Clicking another canvas object while editing text applies
@@ -181,7 +187,7 @@ interactive cropping are outside the current feature set.
 | Ctrl/Cmd+D | Create a copy immediately |
 | Delete / Backspace | Delete the selected object when not typing |
 | Ctrl/Cmd+Z / Ctrl/Cmd+Shift+Z | Undo / redo |
-| F2 | Enter or finish editing a selected Studio text box |
+| F2 | Enter or finish editing supported text |
 | Ctrl/Cmd+Enter or Esc while editing text | Apply the text edit; use the floating Cancel button to discard it |
 | Arrow keys / Shift+Arrow | Move a positioned selection by 1 / 10 canvas units |
 | Alt while dragging | Bypass snapping |

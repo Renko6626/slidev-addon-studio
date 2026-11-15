@@ -5,23 +5,26 @@ import type { StudioContext } from '../context'
 import type { StudioTarget } from '../types'
 import { action } from '../i18n'
 import { busy, editing, selection } from '../state'
-import { readTextContent, replaceTextContent } from '../md/elements'
+import { readEditableText, writeEditableText } from '../text/source'
+import type { EditableTextSource } from '../text/source'
 import { applyTextCommand, createTextEditor, prepareTextHTML, readTextFormat } from '../text/editor'
 import type { TextCommand, TextDefaults } from '../text/editor'
 
-/** One active textbox editor; the same commands also format a selected whole box. */
-export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'>) {
+/** Text boxes and native prose share commands, selection and editing history. */
+export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> & Partial<Pick<StudioContext, 'selectInserted'>>) {
   const editor = shallowRef<Editor | null>(null)
   const revision = ref(0)
   const activeDefaults = shallowRef<TextDefaults | null>(null)
+  const activeSource = shallowRef<EditableTextSource | null>(null)
   let originalDoc: TextNode | null = null
   let stopKeys: (() => void) | null = null
 
-  const sourceHTML = computed(() => {
+  const textSource = computed(() => {
     const target = selection.value
-    return target?.element === 'text' && target.range ? readTextContent(studio.content(), target.range) : null
+    return activeSource.value ?? (target ? readEditableText(studio.content(), target) : null)
   })
-  const supported = computed(() => sourceHTML.value !== null && prepareTextHTML(sourceHTML.value) !== null)
+  const sourceHTML = computed(() => textSource.value?.html ?? null)
+  const supported = computed(() => textSource.value !== null)
   const defaults = computed<TextDefaults>(() => {
     if (activeDefaults.value) return activeDefaults.value
     const el = selection.value?.el
@@ -62,18 +65,21 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'>)
     editor.value = null
     originalDoc = null
     activeDefaults.value = null
+    activeSource.value = null
   }
 
   function start(target: StudioTarget, html: string, selectAll: boolean, finish: () => void, point?: { x: number, y: number } | null): boolean {
-    if (prepareTextHTML(html) === null) return false
+    const source = readEditableText(studio.content(), target)
+    if (!source || prepareTextHTML(html) === null) return false
     const inherited = defaults.value
     stop()
     activeDefaults.value = inherited
+    activeSource.value = source
     target.el.replaceChildren()
     const instance = createTextEditor(html, {
       element: target.el,
       editorProps: {
-        attributes: { class: 'studio-rich-editor', style: 'outline:none;white-space:pre-wrap;min-height:1em;font:inherit;color:inherit;' },
+        attributes: { class: `studio-rich-editor${source.kind === 'native' ? ' studio-rich-editor--native' : ''}`, style: 'outline:none;white-space:pre-wrap;min-height:1em;font:inherit;color:inherit;' },
         handleKeyDown: (_view, event) => {
           if (event.isComposing || instance.view.composing) return false
           const modifier = event.ctrlKey || event.metaKey
@@ -108,6 +114,20 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'>)
     return true
   }
 
+  async function apply(html?: string, source = textSource.value, label = action('actionEditText')) {
+    if (!source) return
+    if (html === undefined) {
+      if (!editor.value || !originalDoc || originalDoc.eq(editor.value.state.doc)) return
+      html = editor.value.getHTML()
+    }
+    const result = writeEditableText(studio.content(), source, html)
+    if (result.content === studio.content()) return
+    const selected = selection.value
+    await studio.commit(result.content, label, source.kind === 'native' ? { keepSelection: true } : undefined)
+    if (source.kind === 'native' && selection.value === selected)
+      await studio.selectInserted?.(result.tag, result.range)
+  }
+
   async function run(command: TextCommand, value?: string) {
     if (busy.value) return
     const active = editor.value
@@ -118,13 +138,14 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'>)
     }
     const target = selection.value
     if (editing.value || !supported.value || !target?.range) return
+    const source = textSource.value!
     const temporary = createTextEditor(sourceHTML.value!)
     try {
       const before = temporary.state.doc
       temporary.commands.selectAll()
       applyTextCommand(temporary, command, value, defaults.value)
       if (!before.eq(temporary.state.doc))
-        await studio.commit(replaceTextContent(studio.content(), target.range, temporary.getHTML()), action('actionElementFormat'))
+        await apply(temporary.getHTML(), source, action('actionElementFormat'))
     }
     finally { temporary.destroy() }
   }
@@ -133,7 +154,8 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'>)
   function redo() { editor.value?.commands.redo(); editor.value?.commands.focus(undefined, { scrollIntoView: false }) }
   onScopeDispose(stop)
   return {
-    editor, supported, format, scope, canUndo, canRedo, start, stop, run, undo, redo,
+    editor, supported, format, scope, canUndo, canRedo, start, stop, run, apply, undo, redo,
+    draft: () => editor.value && textSource.value ? writeEditableText(studio.content(), textSource.value, editor.value.getHTML()).block : null,
     html: () => editor.value?.getHTML() ?? '',
     changed: () => !!editor.value && !!originalDoc && !originalDoc.eq(editor.value.state.doc),
   }

@@ -92,7 +92,7 @@ const context: StudioContext = {
   note: () => source.note.value,
   canvas,
   gizmo,
-  text: useTextEditor({ content: () => source.content.value, commit }),
+  text: useTextEditor({ content: () => source.content.value, commit, selectInserted: (tag, range) => selectionApi.selectInserted(tag, range) }),
   commit,
   setFrontmatter: (values, label) => source.setFrontmatter(values, label),
   setNote: note => source.setNote(note),
@@ -154,7 +154,7 @@ onDomEvent<KeyboardEvent>(document, 'keydown', (event) => {
   if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"]'))
     return
 
-  if (event.key === 'F2' && target.element === 'text' && !busy.value) {
+  if (event.key === 'F2' && context.text.supported.value && !busy.value) {
     event.preventDefault()
     editing.value = true
     return

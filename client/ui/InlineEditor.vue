@@ -8,7 +8,8 @@ import { toggleBullet, toggleHeading, toggleQuote, toggleTagWrap, toggleWrap, to
 import { replaceInnerHtml, stripStudioAttrs } from '../md/html'
 import { getBlock, replaceBlock } from '../md/lines'
 import { editing, editPointer, reportError, selectAllOnEdit, selection } from '../state'
-import { readTextContent, replaceTextContent } from '../md/elements'
+import { replaceTextContent } from '../md/elements'
+import { readEditableText } from '../text/source'
 import { useStudio } from '../context'
 import { onDomEvent } from '../composables/useDomEvent'
 import StudioIcon from './parts/StudioIcon.vue'
@@ -121,7 +122,8 @@ watch(editing, async (open) => {
   }
 
   const textTarget = selection.value
-  if (textTarget?.element === 'text' && textTarget.range) {
+  const richSource = textTarget ? readEditableText(studio.content(), textTarget) : null
+  if (textTarget?.range && (textTarget.element === 'text' || richSource)) {
     heldKind = 'text'
     held = textTarget.range
     shape.value = null
@@ -130,7 +132,7 @@ watch(editing, async (open) => {
     rect.value = { left: at.left, top: at.top, width: Math.max(at.width, 260) }
     const selectAll = selectAllOnEdit.value
     selectAllOnEdit.value = false
-    const html = readTextContent(studio.content(), held)
+    const html = richSource?.html ?? null
     original = textTarget.el.innerHTML
     if (html !== null && studio.text.start(textTarget, html, selectAll, () => { void apply() }, point)) {
       mode.value = 'rich'
@@ -387,12 +389,12 @@ async function apply() {
     return
 
   if (mode.value === 'rich') {
-    const changed = studio.text.changed()
-    const html = studio.text.html()
+    // Start the write while the editor still holds its original source. release
+    // destroys that editor; the pending commit already owns the generated text.
+    const pending = studio.text.changed() ? studio.text.apply() : null
     release()
     editing.value = false
-    if (changed)
-      await studio.commit(replaceTextContent(studio.content(), target, html), action('actionEditText'))
+    await pending
     return
   }
 
@@ -466,7 +468,7 @@ function toMarkdown() {
   if (mode.value === 'markdown')
     return
   const written = mode.value === 'rich'
-    ? (studio.text.changed() ? replaceTextContent(source, [0, source.split('\n').length], studio.text.html()) : source)
+    ? (studio.text.changed() ? studio.text.draft() : source)
     : editable
     ? (heldKind === 'text'
         ? replaceTextContent(source, [0, source.split('\n').length], stripStudioAttrs(editable.innerHTML))

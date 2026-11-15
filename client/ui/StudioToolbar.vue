@@ -53,7 +53,7 @@ watch(selection, value => {
     ribbonTab.value = 'home'
 })
 watch(editing, value => {
-  if (value && selection.value?.element === 'text')
+  if (value && studio.text.supported.value)
     ribbonTab.value = 'home'
 })
 function panel(id: PanelId) {

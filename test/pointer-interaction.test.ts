@@ -168,13 +168,15 @@ it('keeps the same object after a preceding edit shifts its source lines', async
   expect(selection.value?.range).toEqual([4, 5])
 })
 
-it('stops a reselect waiting for rendering when the user selects another object', async () => {
+it.each(['reselect', 'selectInserted'] as const)('stops %s waiting for rendering when the user selects another object', async (method) => {
   vi.useFakeTimers()
   const s = setup()
   s.select.select(s.first)
   const original = selection.value!
   host.elements = []
-  const pending = s.select.reselect(original.range, original.kind, original.tag)
+  const pending = method === 'reselect'
+    ? s.select.reselect(original.range, original.kind, original.tag)
+    : s.select.selectInserted(original.tag, original.range!)
   await nextTick()
   host.elements = [s.first, s.second]
   s.select.select(s.second)

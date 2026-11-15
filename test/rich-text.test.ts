@@ -4,6 +4,8 @@ import { effectScope } from 'vue'
 import { createTextEditor, applyTextCommand, prepareTextHTML, readTextFormat } from '../client/text/editor'
 import { useTextEditor } from '../client/composables/useTextEditor'
 import { editing, selection } from '../client/state'
+import type { StudioTarget } from '../client/types'
+import { readEditableText, writeEditableText } from '../client/text/source'
 
 const editors: ReturnType<typeof createTextEditor>[] = []
 function editor(html: string) {
@@ -154,4 +156,161 @@ it('checks authored markup even when Vue has rendered away its directives', asyn
   expect(s.text.supported.value).toBe(false)
   await s.text.run('fontSize', '36')
   expect(s.source()).toBe(source)
+})
+
+function nativeTarget(source: string, tag: string, inner: string, kind: StudioTarget['kind'] = 'heading'): StudioTarget {
+  const el = document.createElement(tag)
+  el.innerHTML = inner
+  document.body.append(el)
+  return { el, no: 1, range: [0, source.split('\n').length], kind, tag: kind === 'html' ? tag : undefined, positioned: false, nested: false, label: tag }
+}
+
+it('writes partial heading size as semantic HTML and leaves adjacent source intact', () => {
+  const source = '# Hello world\n\nLeave this paragraph alone.'
+  const target = nativeTarget('# Hello world', 'h1', 'Hello world')
+  const text = readEditableText(source, target)!
+  const e = editor(text.html)
+  e.commands.setTextSelection({ from: 1, to: 6 })
+  applyTextCommand(e, 'fontSize', '42')
+  const result = writeEditableText(source, text, e.getHTML())
+  const root = rendered(result.content.split('\n\n')[0]).firstElementChild as HTMLElement
+  expect(root.tagName).toBe('H1')
+  expect(root.querySelector('span')?.textContent).toBe('Hello')
+  expect((root.querySelector('span') as HTMLElement).style.fontSize).toBe('42px')
+  expect(root.textContent).toBe('Hello world')
+  expect(result.content.endsWith('\n\nLeave this paragraph alone.')).toBe(true)
+  expect(root.hasAttribute('data-studio-element')).toBe(false)
+  expect(result.tag).toBe('h1')
+  expect(result.range).toEqual([0, 1])
+  expect(readEditableText(result.content, { ...target, el: root, kind: 'html', tag: 'h1', range: result.range })).not.toBeNull()
+})
+
+it('keeps heading Markdown when a character mark can be represented without HTML', () => {
+  const source = '## Hello world'
+  const text = readEditableText(source, nativeTarget(source, 'h2', 'Hello world'))!
+  const e = editor(text.html)
+  e.commands.setTextSelection({ from: 1, to: 6 })
+  applyTextCommand(e, 'bold')
+  expect(writeEditableText(source, text, e.getHTML()).content).toBe('## **Hello** world')
+})
+
+it('preserves literal text and paragraph semantics when Markdown would interpret newly typed syntax', () => {
+  const source = 'Original paragraph'
+  const text = readEditableText(source, nativeTarget(source, 'p', source, 'paragraph'))!
+  for (const literal of ['# literal', '- literal', '1. literal', '<b>x</b>', 'Hello &copy;', '---']) {
+    const p = document.createElement('p')
+    p.textContent = literal
+    const e = editor(p.outerHTML)
+    const result = rendered(writeEditableText(source, text, e.getHTML()).content).firstElementChild!
+    expect(result.tagName).toBe('P')
+    expect(result.textContent).toBe(literal)
+  }
+  const heading = '# Original'
+  const title = readEditableText(heading, nativeTarget(heading, 'h1', 'Original'))!
+  const result = rendered(writeEditableText(heading, title, '<p>Keep this #</p>').content).firstElementChild!
+  expect(result.tagName).toBe('H1')
+  expect(result.textContent).toBe('Keep this #')
+})
+
+it('retains authored heading attributes and root styles when applying paragraph format', () => {
+  const source = '<h2 class="hero" id="title" v-drag="[10,20,500,NaN]" v-click style="margin-top:20px;color:navy">Hello world</h2>'
+  const target = nativeTarget(source, 'h2', 'Hello world', 'html')
+  const text = readEditableText(source, target)!
+  const e = editor(text.html)
+  e.commands.selectAll()
+  applyTextCommand(e, 'align', 'center')
+  applyTextCommand(e, 'lineHeight', '1.5')
+  const result = writeEditableText(source, text, e.getHTML())
+  const root = rendered(result.content).firstElementChild as HTMLElement
+  expect(root.tagName).toBe('H2')
+  expect(root.className).toBe('hero')
+  expect(root.id).toBe('title')
+  expect(root.getAttribute('v-drag')).toBe('[10,20,500,NaN]')
+  expect(root.hasAttribute('v-click')).toBe(true)
+  expect(root.style.marginTop).toBe('20px')
+  expect(root.style.color).toBe('navy')
+  expect(root.style.textAlign).toBe('center')
+  expect(root.style.lineHeight).toBe('1.5')
+})
+
+it('writes new heading paragraphs as sibling blocks and keeps generated lists editable', () => {
+  const source = '# Hello'
+  const text = readEditableText(source, nativeTarget(source, 'h1', 'Hello'))!
+  const result = writeEditableText(source, text, '<p>Hello</p><p>Next paragraph</p>')
+  const blocks = [...rendered(result.content).children]
+  expect(blocks.map(el => el.tagName)).toEqual(['H1', 'P'])
+  expect(blocks.map(el => el.textContent)).toEqual(['Hello', 'Next paragraph'])
+
+  const paragraph = 'A paragraph'
+  const plain = readEditableText(paragraph, nativeTarget(paragraph, 'p', paragraph, 'paragraph'))!
+  const e = editor(plain.html)
+  e.commands.selectAll()
+  applyTextCommand(e, 'bulletList')
+  const listed = writeEditableText(paragraph, plain, e.getHTML())
+  const list = rendered(listed.content).firstElementChild as HTMLElement
+  expect(list.tagName).toBe('UL')
+  expect(list.querySelector('li')?.textContent).toBe(paragraph)
+  expect(readEditableText(listed.content, { ...nativeTarget(listed.content, 'ul', list.innerHTML, 'html'), el: list })).not.toBeNull()
+})
+
+it('does not use rendered text to overwrite template expressions or custom authored inner markup', () => {
+  const template = '# Hello {{ name }}'
+  expect(readEditableText(template, nativeTarget(template, 'h1', 'Hello Alice'))).toBeNull()
+  const bound = '<h1><span :style="customStyle">Hello</span></h1>'
+  expect(readEditableText(bound, nativeTarget(bound, 'h1', '<span>Hello</span>', 'html'))).toBeNull()
+  const nested = nativeTarget('<div><h1>Hello</h1></div>', 'h1', 'Hello', 'html')
+  expect(readEditableText('<div><h1>Hello</h1></div>', { ...nested, nested: true })).toBeNull()
+})
+
+it('shares the active editor with a Markdown heading without rewriting an unchanged edit', async () => {
+  let source = '# Hello world'
+  const target = nativeTarget(source, 'h1', 'Hello world')
+  selection.value = target
+  const scope = effectScope()
+  scopes.push(scope)
+  const text = scope.run(() => useTextEditor({ content: () => source, commit: async next => { source = next } }))!
+  expect(text.supported.value).toBe(true)
+  editing.value = true
+  expect(text.start(target, readEditableText(source, target)!.html, false, () => {})).toBe(true)
+  expect(text.changed()).toBe(false)
+  await text.apply()
+  expect(source).toBe('# Hello world')
+  text.editor.value!.commands.setTextSelection({ from: 1, to: 6 })
+  await text.run('color', '#ff0000')
+  expect(source).toBe('# Hello world')
+  text.undo()
+  expect(text.changed()).toBe(false)
+  text.redo()
+  expect(rendered(text.draft()!).querySelector('h1 span')?.textContent).toBe('Hello')
+  await text.apply()
+  expect(rendered(source).querySelector('h1 span')?.textContent).toBe('Hello')
+})
+
+it('applies whole-block toolbar formatting to an ordinary paragraph without positioning it', async () => {
+  let source = 'Hello **world**\n\nOther paragraph'
+  const target = nativeTarget('Hello **world**', 'p', 'Hello <strong>world</strong>', 'paragraph')
+  selection.value = target
+  const scope = effectScope()
+  scopes.push(scope)
+  const text = scope.run(() => useTextEditor({ content: () => source, commit: async next => { source = next } }))!
+  await text.run('fontSize', '24')
+  const first = rendered(source.split('\n\n')[0]).firstElementChild as HTMLElement
+  expect(first.tagName).toBe('P')
+  expect(first.querySelector('strong')?.textContent).toBe('world')
+  expect([...first.querySelectorAll('span')].every(span => span.style.fontSize === '24px')).toBe(true)
+  expect(first.hasAttribute('v-drag')).toBe(false)
+  expect(source.endsWith('\n\nOther paragraph')).toBe(true)
+  expect(text.editor.value).toBeNull()
+})
+
+it('reopens native paragraph indentation and can remove it without replacing unrelated root styles', () => {
+  const source = '<p class="body" style="color:navy;margin-left:1.5em">Hello</p>'
+  const text = readEditableText(source, nativeTarget(source, 'p', 'Hello', 'html'))!
+  const e = editor(text.html)
+  e.commands.selectAll()
+  applyTextCommand(e, 'outdent')
+  const result = rendered(writeEditableText(source, text, e.getHTML()).content).firstElementChild as HTMLElement
+  expect(result.style.marginLeft).toBe('')
+  expect(result.style.color).toBe('navy')
+  expect(result.className).toBe('body')
 })
