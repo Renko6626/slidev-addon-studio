@@ -31,6 +31,7 @@
     "client",
     "components",
     "node",
+    "runtime",
     "setup",
     "test",
     "types",

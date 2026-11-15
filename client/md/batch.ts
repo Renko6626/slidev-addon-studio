@@ -1,9 +1,10 @@
 import type { DragPos, SourceRange } from '../types'
 import { positionedUnit, readDrag, writeDrag } from './drag'
-import { removeBlock } from './lines'
+import { removeBlock, toLines } from './lines'
 import { captureBlock, insertCopiedBlock } from './clipboard'
 import type { CopiedBlock } from './clipboard'
 import { scanTags } from '../../node/html-scan'
+import { remapCopiedInteractions } from './interactions'
 
 /** Independent source ranges are edited from the bottom, preserving earlier ranges. */
 export function writePositions(content: string, changes: { range: SourceRange, pos: DragPos }[]) {
@@ -30,8 +31,20 @@ export function captureBlocks(content: string, targets: { range: SourceRange, ta
 
 export function insertCopiedBlocks(content: string, copied: CopiedBlock[], offset: number) {
   const inserted: { range: SourceRange, tag?: string }[] = []
-  for (const block of copied) {
-    const result = insertCopiedBlock(content, block, offset)
+  if (!copied.length) return { content, inserted }
+  const combined = combineCopiedBlocks(copied)
+  const lines = toLines(remapCopiedInteractions(combined.source, content))
+  let line = 0
+  // Remapping preserves line counts. Keep each envelope's original inner range,
+  // including text inside v-drag/click wrappers, when splitting the rewritten group.
+  const remapped = copied.map(block => {
+    const length = toLines(block.source).length
+    const source = lines.slice(line, line + length).join('\n')
+    line += length + 1
+    return { ...block, source }
+  })
+  for (const block of remapped) {
+    const result = insertCopiedBlock(content, block, offset, undefined, false)
     content = result.content
     inserted.push({ range: result.range, tag: block.tag })
   }

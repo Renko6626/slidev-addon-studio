@@ -9,7 +9,7 @@
  */
 
 declare module '@slidev/client' {
-  import type { ClicksContext, SlideInfo, SlideRoute } from '@slidev/types'
+  import type { ClicksContext, RenderContext, SlideInfo, SlideRoute } from '@slidev/types'
   import type { ComputedRef, Ref, ShallowRef } from 'vue'
 
   export interface SlidevNav {
@@ -36,6 +36,7 @@ declare module '@slidev/client' {
   }
 
   export function useNav(): SlidevNav
+  export function useSlideContext(): { $page: Ref<number>, $renderContext: Ref<RenderContext> }
 }
 
 declare module '@slidev/client/composables/useClicks.ts' {

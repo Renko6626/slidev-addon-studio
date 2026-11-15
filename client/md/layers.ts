@@ -3,12 +3,13 @@ import { getBlock, replaceBlock } from './lines'
 import { readDrag } from './drag'
 import { readElement } from './elements'
 import { findAttr, opensWithTag, parseAttrs, writeAttr } from './tags'
+import { isInteractionTag } from './interactions'
 
 /** Only known single-root elements with a static style can own a saved layer. */
 export function canWriteLayer(content: string, range: SourceRange): boolean {
   const block = getBlock(content, range)
   const tag = opensWithTag(block)
-  if (!tag || !readElement(content, range) || readDrag(content, range)?.via !== 'attr')
+  if (!tag || (!readElement(content, range) && !isInteractionTag(tag.name)) || readDrag(content, range)?.via !== 'attr')
     return false
   return !parseAttrs(tag.attrs).some(attr => (['style', 'class'].includes(attr.name) && attr.bound) || attr.raw === 'v-bind')
 }

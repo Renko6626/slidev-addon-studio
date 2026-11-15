@@ -2,6 +2,7 @@ import type { SourceRange } from '../types'
 import { positionedUnit, readDrag, writeDrag } from './drag'
 import { getBlock, toLines } from './lines'
 import { findWrapper } from './clicks'
+import { remapCopiedInteractions } from './interactions'
 
 export const OBJECT_CLIPBOARD_TYPE = 'application/x-slidev-studio'
 export interface CopiedBlock {
@@ -45,8 +46,8 @@ export function decodeClipboard(raw: string, deck: string): CopiedBlock | null {
   catch { return null }
 }
 
-export function insertCopiedBlock(content: string, copied: CopiedBlock, offset: number, after?: SourceRange) {
-  let snippet = copied.source
+export function insertCopiedBlock(content: string, copied: CopiedBlock, offset: number, after?: SourceRange, remapInteractions = true) {
+  let snippet = remapInteractions ? remapCopiedInteractions(copied.source, content) : copied.source
   let positionRange = copied.range
   let pos = readDrag(snippet, positionRange)?.pos
   while (!pos) {
