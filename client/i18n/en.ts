@@ -444,5 +444,16 @@ export default {
   "errorCrossFileMove": "Cannot move a slide across Markdown files",
   "errorMoveBeforeHeadmatter": "Cannot move a slide in front of the deck headmatter",
   "errorUnsupportedAssetType": "Unsupported file type \"{type}\"",
-  "errorAssetTooLarge": "File is larger than {size} MB"
+  "errorAssetTooLarge": "File is larger than {size} MB",
+  "selectedObjects": "Selected {count} objects",
+  "objectsAlignLeft": "Align left",
+  "objectsAlignCenter": "Centre horizontally",
+  "objectsAlignRight": "Align right",
+  "objectsAlignTop": "Align top",
+  "objectsAlignMiddle": "Centre vertically",
+  "objectsAlignBottom": "Align bottom",
+  "objectsDistributeX": "Distribute horizontally",
+  "objectsDistributeY": "Distribute vertically",
+  "actionArrangeObjects": "Arrange objects",
+  "multiSelectionHint": "Shift-click to add or remove objects. Drag on empty slide space to select objects."
 }

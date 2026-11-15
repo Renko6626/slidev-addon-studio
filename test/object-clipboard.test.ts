@@ -4,7 +4,7 @@ import type { StudioContext } from '../client/context'
 import { useObjectClipboard } from '../client/composables/useObjectClipboard'
 import { OBJECT_CLIPBOARD_TYPE } from '../client/md/clipboard'
 import { getBlock } from '../client/md/lines'
-import { busy, editing, selection, studioOpen } from '../client/state'
+import { busy, editing, selection, setSelectedTargets, studioOpen } from '../client/state'
 
 const deck = 'http://localhost:3071/edit/deck/'
 const source = '<img v-drag="[10,20,100,80]" src="/photo.png" />'
@@ -37,15 +37,19 @@ function setup() {
   let no = 1
   let ready = true
   let selected = ''
+  let multiRanges: [number, number][] = []
+  let writes = 0
   const studio = {
     no: () => no, content: () => content, sourceReady: () => ready,
-    commit: async (next: string) => { content = next },
+    commit: async (next: string) => { content = next; writes++ },
+    selectInsertedMany: async (items: { range: [number, number] }[]) => { multiRanges = items.map(item => item.range); return true },
     selectInserted: async (_tag: string | undefined, range: [number, number]) => { selected = getBlock(content, range); return true },
   } as unknown as StudioContext
   scope = effectScope()
   scope.run(() => useObjectClipboard(studio, deck))
   selection.value = { el: {} as HTMLElement, no: 1, range: [0, 1], kind: 'html', tag: 'img', positioned: true, nested: false, label: 'Image' }
   return { document, content: () => content, selected: () => selected,
+    setContent: (next: string) => { content = next }, multiRanges: () => multiRanges, writes: () => writes,
     page: (value: number) => { no = value; content = '# Destination'; selection.value = null },
     ready: (value: boolean) => { ready = value },
   }
@@ -109,4 +113,21 @@ describe('object clipboard events', () => {
     expect(copy.event.defaultPrevented).toBe(false)
     expect(copy.values.size).toBe(0)
   })
+})
+
+it('copies every selected object using the existing envelope and pastes all in one write', async () => {
+  const app = setup()
+  const second = '<img v-drag="[200,100,80,60]" src="/second.png" />'
+  app.setContent(`${source}\n\n${second}`)
+  setSelectedTargets([selection.value!, { ...selection.value!, range: [2, 3] }])
+  const copy = clipboard('copy')
+  app.document.dispatchEvent(copy.event)
+  expect(copy.values.get('text/plain')).toBe(`${source}\n\n${second}`)
+  app.document.dispatchEvent(clipboard('paste', copy.values).event)
+  await Promise.resolve()
+  await Promise.resolve()
+  expect(app.writes()).toBe(1)
+  expect(app.multiRanges().map(range => getBlock(app.content(), range))).toEqual([
+    source.replace('[10,20,', '[30,40,'), second.replace('[200,100,', '[220,120,'),
+  ])
 })

@@ -1,6 +1,6 @@
 import type { StudioTarget } from './types'
 import { useLocalStorage } from '@vueuse/core'
-import { ref, shallowRef } from 'vue'
+import { computed, ref, shallowRef, watch } from 'vue'
 
 export type PanelId = 'inspect' | 'animate' | 'layout' | 'transition'
 export type RibbonTab = 'file' | 'home' | 'insert' | 'design' | 'transition' | 'animate' | 'view' | 'object'
@@ -23,6 +23,20 @@ export const gridSize = useLocalStorage('slidev-studio:grid-size', 20)
 export const outlineEnabled = useLocalStorage('slidev-studio:outlines', false)
 
 export const selection = shallowRef<StudioTarget | null>(null)
+const multiple = shallowRef<StudioTarget[]>([])
+/** A temporary canvas selection. Existing callers can keep selecting one primary object. */
+export const selectedTargets = computed<StudioTarget[]>(() => {
+  const primary = selection.value
+  return primary ? multiple.value.includes(primary) ? multiple.value : [primary] : []
+})
+export function setSelectedTargets(targets: StudioTarget[]) {
+  multiple.value = targets
+  selection.value = targets.at(-1) ?? null
+}
+watch(selection, target => {
+  if (!target || !multiple.value.includes(target)) multiple.value = []
+}, { flush: 'sync' })
+export const marquee = shallowRef<{ left: number, top: number, width: number, height: number } | null>(null)
 /**
  * The last click landed on the slide but on nothing the editor can trace.
  * Without this the click is simply dropped and the panel keeps saying "click

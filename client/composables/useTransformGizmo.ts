@@ -9,6 +9,8 @@ import { mappedElements } from '../dom'
 import { onDomEvent } from './useDomEvent'
 import { DRAG_WRAPPER_PADDING, readDrag, writeDrag } from '../md/drag'
 import { readElement } from '../md/elements'
+import { movePositions } from '../md/batch'
+import { boundsOf } from '../selection-geometry'
 import { busy, editing, gridEnabled, gridSize, snapEnabled } from '../state'
 import { snapBox } from './useSnapping'
 
@@ -52,6 +54,7 @@ type Gesture =
 export function useTransformGizmo(context: {
   canvas: ReturnType<typeof useSlideCanvas>
   getTarget: () => StudioTarget | null
+  getTargets?: () => StudioTarget[]
   getContent: () => string
   /** The slide being edited, so a gesture cannot land on a different one. */
   getNo: () => number
@@ -88,6 +91,17 @@ export function useTransformGizmo(context: {
   let press = { x: 0, y: 0 }
   let lastClick: { at: number, x: number, y: number, el: HTMLElement } | null = null
 
+  let group: { target: StudioTarget, el: HTMLElement, style: string, pos: DragPos }[] = []
+  let groupDelta = { x: 0, y: 0 }
+  function clearGroup(restoreStyles = false) {
+    if (restoreStyles) for (const item of group) item.el.setAttribute('style', item.style)
+    group = []
+    armed.value = false
+    active.value = false
+    guides.value = []
+    preview.value = null
+  }
+
   function start(event: PointerEvent, next: Gesture) {
     // Only the primary button drags. A right-click on the selection overlay
     // otherwise armed a gesture and swallowed the event that opens the context
@@ -100,6 +114,30 @@ export function useTransformGizmo(context: {
       return
     if (current.element === 'text' && next.type === 'resize' && !['e', 'w'].includes(next.handle))
       return
+
+    const targets = context.getTargets?.() ?? [current]
+    if (targets.length > 1) {
+      lastClick = null
+      if (next.type !== 'move' || event.shiftKey) return
+      const content = context.getContent()
+      group = targets.flatMap(target => {
+        const drag = target.range && readDrag(content, target.range)
+        if (!drag?.pos) return []
+        const el = drag.via === 'wrapper' ? positionedWrapper(target.el) ?? target.el : target.el
+        return [{ target, el, style: el.getAttribute('style') ?? '', pos: drag.pos }]
+      })
+      if (group.length !== targets.length) { group = []; return }
+      event.preventDefault(); event.stopPropagation()
+      armed.value = true
+      active.value = false
+      pointerStart = { x: event.clientX, y: event.clientY }
+      startNo = current.no
+      startBox = boundsOf(group.map(item => canvas.boxOf(item.el)))
+      groupDelta = { x: 0, y: 0 }
+      const elements = group.map(item => item.target.el)
+      others = mappedElements(current.no).filter(el => !elements.some(selected => el === selected || el.contains(selected) || selected.contains(el))).map(el => canvas.boxOf(el))
+      return
+    }
 
     // Only a completed click on this same object can start a double click.
     // A previous drag or a press on another handle must not swallow this one.
@@ -164,6 +202,26 @@ export function useTransformGizmo(context: {
   }
 
   onDomEvent<PointerEvent>(window, 'pointermove', (event) => {
+    if (group.length) {
+      if (context.getNo() !== startNo) { clearGroup(true); return }
+      const dx = (event.clientX - pointerStart.x) / canvas.scale.value
+      const dy = (event.clientY - pointerStart.y) / canvas.scale.value
+      if (!active.value && Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) < DRAG_THRESHOLD) return
+      active.value = true
+      let box = { ...startBox, x: startBox.x + dx, y: startBox.y + dy }
+      if (snapEnabled.value && !event.altKey) {
+        const result = snapBox(box, { canvas: { w: canvas.slideWidth.value, h: canvas.slideHeight.value }, others, threshold: 6 / canvas.scale.value, grid: gridEnabled.value ? gridSize.value : undefined, edges: { left: true, right: true, top: true, bottom: true } })
+        box = result.box; guides.value = result.guides
+      }
+      else guides.value = []
+      box = clampToCanvas(box)
+      groupDelta = { x: box.x - startBox.x, y: box.y - startBox.y }
+      for (const item of group) {
+        item.el.style.left = `${item.pos.x + groupDelta.x}px`
+        item.el.style.top = `${item.pos.y + groupDelta.y}px`
+      }
+      return
+    }
     if (!armed.value || !gesture || !target)
       return
 
@@ -230,6 +288,13 @@ export function useTransformGizmo(context: {
   })
 
   onDomEvent(window, 'pointerup', async () => {
+    if (group.length) {
+      const next = active.value && context.getNo() === startNo
+        ? movePositions(context.getContent(), group.map(item => item.target.range!), groupDelta.x, groupDelta.y) : null
+      clearGroup(next === null)
+      if (next !== null) await context.commit(next, action('actionMove'), { skipHmr: true, keepSelection: true })
+      return
+    }
     if (!armed.value)
       return
 
@@ -332,6 +397,7 @@ export function useTransformGizmo(context: {
 
     event.preventDefault()
     event.stopImmediatePropagation()
+    if (group.length) { clearGroup(true); return }
     if (painted && !hadPosition)
       painted.setAttribute('style', restore)
     else if (painted)
@@ -345,6 +411,8 @@ export function useTransformGizmo(context: {
     target = null
     painted = null
   }, { capture: true })
+
+  onDomEvent(window, 'pointercancel', () => { if (group.length) clearGroup(true) })
 
   /**
    * The element Slidev positions for a wrapped block, if it is on screen.

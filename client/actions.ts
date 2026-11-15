@@ -4,7 +4,10 @@ import type { SourceRange, StudioTarget } from './types'
 import { positionedUnit, readDrag, removeDrag, writeDrag } from './md/drag'
 import { duplicateListItem, listItemUnit, moveBlock, moveListItem, removeBlock } from './md/lines'
 import { captureBlock, insertCopiedBlock } from './md/clipboard'
-import { activePanel, busy, editing, reportError, selection } from './state'
+import { activePanel, busy, editing, reportError, selection, selectedTargets } from './state'
+import { captureBlocks, insertCopiedBlocks, movePositions, removePositions, writePositions } from './md/batch'
+import { alignDeltas, distributeDeltas } from './selection-geometry'
+import type { Align } from './selection-geometry'
 
 /**
  * What can be done to the selected block, in one place.
@@ -30,7 +33,7 @@ export function isPositioned(content: string, range: SourceRange): boolean {
 }
 
 export function editText() {
-  if (selection.value?.range && selection.value.element !== 'image' && selection.value.element !== 'shape')
+  if (selectedTargets.value.length === 1 && selection.value?.range && selection.value.element !== 'image' && selection.value.element !== 'shape')
     editing.value = true
 }
 
@@ -94,6 +97,15 @@ export function canReorder(target: StudioTarget): boolean {
 }
 
 export async function duplicateBlock(studio: StudioContext, target: StudioTarget) {
+  if (selectedTargets.value.length > 1) {
+    if (editing.value || busy.value) return
+    const no = studio.no()
+    const copied = captureBlocks(studio.content(), selectedTargets.value.map(item => ({ range: item.range!, tag: item.tag })), { deck: '', page: no })
+    const result = insertCopiedBlocks(studio.content(), copied, 20)
+    await studio.commit(result.content, action('actionDuplicateBlock'))
+    if (studio.no() === no) await studio.selectInsertedMany?.(result.inserted)
+    return
+  }
   if (!target.range || !canReorder(target) || editing.value || busy.value)
     return
 
@@ -121,9 +133,11 @@ export async function duplicateBlock(studio: StudioContext, target: StudioTarget
 export async function deleteBlock(studio: StudioContext, target: StudioTarget) {
   if (!target.range)
     return
+  const targets = selectedTargets.value
   const unit = positionedUnit(studio.content(), target.range)
+  const next = targets.length > 1 ? removePositions(studio.content(), targets.map(item => item.range!)) : removeBlock(studio.content(), unit)
   selection.value = null
-  await studio.commit(removeBlock(studio.content(), unit), action('actionDelete', { name: targetName(target) }))
+  await studio.commit(next, action('actionDelete', { name: targetName(target) }))
 }
 
 /**
@@ -145,6 +159,10 @@ export async function nudgeBlock(
     return false
 
   const content = studio.content()
+  if (selectedTargets.value.length > 1) {
+    await studio.commit(movePositions(content, selectedTargets.value.map(item => item.range!), dx, dy), action('actionNudge'))
+    return true
+  }
   const unit = positionedUnit(content, target.range)
   const drag = readDrag(content, unit)
   if (!drag?.pos)
@@ -174,4 +192,23 @@ export async function moveBlockBy(studio: StudioContext, target: StudioTarget, d
   }
   const unit = positionedUnit(studio.content(), target.range)
   await studio.commit(moveBlock(studio.content(), unit, direction), action('actionReorderBlock'))
+}
+
+/** Align in slide coordinates; write only position deltas in each object's own context. */
+export async function arrangeSelection(studio: StudioContext, operation: Align | 'distributeX' | 'distributeY') {
+  const targets = selectedTargets.value
+  if (targets.length < (operation.startsWith('distribute') ? 3 : 2) || busy.value || editing.value) return
+  const scale = studio.canvas.scale.value
+  const boxes = targets.map(target => {
+    const box = target.el.getBoundingClientRect()
+    return { x: box.left / scale, y: box.top / scale, w: box.width / scale, h: box.height / scale }
+  })
+  const deltas = operation === 'distributeX' || operation === 'distributeY'
+    ? distributeDeltas(boxes, operation === 'distributeX' ? 'x' : 'y') : alignDeltas(boxes, operation)
+  const content = studio.content()
+  const changes = targets.flatMap((target, index) => {
+    const pos = target.range && readDrag(content, target.range)?.pos
+    return pos && target.range ? [{ range: target.range, pos: { ...pos, x: pos.x + deltas[index].x, y: pos.y + deltas[index].y } }] : []
+  })
+  await studio.commit(writePositions(content, changes), action('actionArrangeObjects'))
 }
