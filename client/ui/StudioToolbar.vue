@@ -11,6 +11,7 @@ import { useDeckActions } from '../composables/useDeckActions'
 import { projectSaving } from '../project-save'
 import { canRedo, canUndo, lastAction, useStudioHistory } from '../composables/useSlideSource'
 import { appendElement, createTextElement, patchElementStyle } from '../md/elements'
+import { createInteractionButton, createQuizPage, listQuestions, readInteraction } from '../md/interactions'
 import { imageLibraryRequest, imagePending, useImageInsertion } from '../composables/useImageInsertion'
 import ShapePicker from './parts/ShapePicker.vue'
 import ArrangeSelection from './parts/ArrangeSelection.vue'
@@ -34,6 +35,8 @@ const title = computed(() => configs.title || configs.slidesTitle || 'Slidev Stu
 const locked = computed(() => busy.value || editing.value || imagePending.value)
 const mapped = computed(() => !!selection.value?.range)
 const reorderable = computed(() => !!selection.value?.range && canReorder(selection.value))
+const quizQuestions = computed(() => listQuestions(studio.content()).filter((item, _index, all) => item.value.question && item.value.mode && item.value.options?.length
+  && all.filter(other => other.value.question === item.value.question).length === 1))
 const tabs: { id: RibbonTab, label: MessageKey }[] = [
   { id: 'home', label: 'homeTab' }, { id: 'insert', label: 'insertTab' },
   { id: 'design', label: 'designTab' }, { id: 'transition', label: 'transitionsTab' },
@@ -77,6 +80,27 @@ async function insertTextBox(heading = false) {
   selectAllOnEdit.value = true
   editing.value = true
 }
+async function insertQuiz(mode: 'single' | 'multiple') {
+  if (locked.value) return
+  const page = createQuizPage(mode, { width: studio.canvas.slideWidth.value, height: studio.canvas.slideHeight.value }, {
+    title: t(mode === 'single' ? 'quizSingleDefaultTitle' : 'quizMultipleDefaultTitle'),
+    options: [t('quizDefaultOptionA'), t('quizDefaultOptionB'), t('quizDefaultOptionC'), t('quizDefaultOptionD')],
+    correct: t('quizDefaultCorrect'), incorrect: t('quizDefaultIncorrect'), idle: t('quizDefaultIdle'), submit: t('quizSubmit'), clear: t('quizClear'),
+  })
+  await deck.add(studio.no(), page.content, page.frontmatter)
+}
+async function insertQuizButton() {
+  if (locked.value || !quizQuestions.value.length) return
+  const target = selection.value?.range ? readInteraction(studio.content(), selection.value.range) : null
+  const question = quizQuestions.value.find(item => item.value.question === target?.question)?.value.question ?? quizQuestions.value[0].value.question!
+  const snippet = createInteractionButton(studio.content(), { width: studio.canvas.slideWidth.value, height: studio.canvas.slideHeight.value }, t('quizButton'), question)
+  if (!snippet) return
+  const inserted = appendElement(studio.content(), snippet)
+  const no = studio.no()
+  await studio.commit(inserted.content, action('actionInsert', { name: { key: 'quizButton' } }))
+  if (studio.no() === no) await studio.selectInserted('StudioButton', inserted.range)
+  panel('inspect')
+}
 interface Command { label: MessageKey, icon: string, run: () => unknown, disabled?: boolean, pressed?: boolean, hint?: MessageKey }
 interface Group { label: MessageKey, commands: Command[], text?: 'font' | 'paragraph' }
 const groups = computed<Group[]>(() => {
@@ -105,6 +129,11 @@ const groups = computed<Group[]>(() => {
       { label: 'insertTab', commands: [
         { label: 'assets', icon: 'assets', run: () => openLibrary('assets'), pressed: library.value === 'assets' },
         { label: 'components', icon: 'components', run: () => openLibrary('components'), pressed: library.value === 'components' },
+      ] },
+      { label: 'quizInteractions', commands: [
+        { label: 'quizSinglePage', icon: 'list', run: () => insertQuiz('single') },
+        { label: 'quizMultiplePage', icon: 'check', run: () => insertQuiz('multiple') },
+        { label: 'quizButton', icon: 'cursor', run: insertQuizButton, disabled: !quizQuestions.value.length, hint: !quizQuestions.value.length ? 'quizButtonNeedsQuestion' : 'quizButton' },
       ] },
     ]
     case 'design': return [{ label: 'slide', commands: [

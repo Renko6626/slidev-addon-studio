@@ -18,6 +18,8 @@ import StudioIcon from '../parts/StudioIcon.vue'
 import ShapeFields from '../parts/ShapeFields.vue'
 import ImageElementFields from '../parts/ImageElementFields.vue'
 import ArrangeSelection from '../parts/ArrangeSelection.vue'
+import InteractionFields from '../parts/InteractionFields.vue'
+import { isInteractionTag } from '../../md/interactions'
 
 /**
  * The properties panel: where the selected block lives, how it is styled, and
@@ -29,6 +31,7 @@ const { components } = useCatalog()
 
 const element = computed(() => selection.value?.range ? readElement(studio.content(), selection.value.range) : null)
 const range = computed(() => selection.value?.range ?? null)
+const interaction = computed(() => isInteractionTag(selection.value?.tag))
 
 /** Whether this block can carry a class at all, in Markdown or as an attribute. */
 const styleable = computed(() => !!range.value && canStyle(studio.content(), range.value, !!configs.mdc))
@@ -167,6 +170,7 @@ async function remove() {
     <section v-if="element?.kind === 'shape'" class="studio-section"><ShapeFields /></section>
 
     <section v-if="element?.kind === 'image'" class="studio-section"><ImageElementFields /></section>
+    <section v-if="interaction" class="studio-section"><InteractionFields /></section>
 
     <section class="studio-section">
       <h3 class="studio-section__title">
@@ -204,7 +208,7 @@ async function remove() {
       </template>
     </section>
 
-    <section v-if="component" class="studio-section">
+    <section v-if="component && !interaction" class="studio-section">
       <h3 class="studio-section__title">
         {{ t('componentProps', { name: component.name }) }}
       </h3>
