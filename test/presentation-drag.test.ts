@@ -33,7 +33,7 @@ const constants = loadModule(readFileSync(join(client, 'constants.ts'), 'utf8'),
 const utils = loadModule(readFileSync(join(client, 'utils.ts'), 'utf8'), { './env': { configs: {} } })
 const logicUtils = loadModule(readFileSync(join(client, 'logic/utils.ts'), 'utf8'), { '@slidev/parser/core': parser })
 
-async function transform(code = original, id = target, plugin = presentationDragPlugin()) {
+async function transform(code = original, id = target, plugin = presentationDragPlugin(client)) {
   const hook = plugin.transform!
   const handler = typeof hook === 'function' ? hook : hook.handler
   return await (handler as Function).call({ error(message: string) { throw new Error(message) } }, code, id)
@@ -136,7 +136,7 @@ it('exercises upstream activation without the adapter so the lock regression is 
 })
 
 it.each(['serve', 'build'])('installs the transform for %s including Vite query ids', async (command) => {
-  const plugins = vitePlugins({ mode: command === 'serve' ? 'dev' : 'build', roots: [], data: { config: {} } } as any)
+  const plugins = vitePlugins({ mode: command === 'serve' ? 'dev' : 'build', clientRoot: client, roots: [], data: { config: {} } } as any)
   const plugin = plugins.find(plugin => plugin.name === 'slidev-studio-presentation-drag')!
   expect(plugin).toBeDefined()
   expect(plugin.apply).toBeUndefined()
@@ -146,8 +146,15 @@ it.each(['serve', 'build'])('installs the transform for %s including Vite query 
   expect(s.activeDragElement.value).toBeNull()
 })
 
-it('leaves unrelated same-named modules untouched', async () => {
-  expect(await transform(original, '/some-other-addon/composables/useDragElements.ts')).toBeNull()
+it('targets the active Slidev client root and leaves other same-named modules untouched', async () => {
+  const clientRoot = '/deck/slidev-client'
+  const plugin = presentationDragPlugin(clientRoot)
+  expect(await transform(original, target, plugin)).toBeNull()
+  expect(await transform(original, '/some-other-addon/composables/useDragElements.ts', plugin)).toBeNull()
+  const result = await transform(original, `${clientRoot}/composables/useDragElements.ts`, plugin)
+  const s = await mountDrag(true, 'slide', result.code)
+  s.container.querySelector('.directive')!.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+  expect(s.activeDragElement.value).toBeNull()
 })
 
 it.each([

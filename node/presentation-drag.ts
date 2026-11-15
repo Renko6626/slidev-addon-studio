@@ -1,12 +1,12 @@
-import { createRequire } from 'node:module'
+import { join } from 'node:path'
 import type { Plugin } from 'vite'
 
 // This private Slidev 52.19 entry is shared by v-drag, VDrag and VDragArrow.
 // Keep the adapter deliberately narrow: an upstream change needs review.
 const START_DRAGGING = /\bstartDragging\s*\(\s*\)\s*:\s*void\s*\{\s*if\s*\(\s*!enabled\s*\)\s*return\s*updateBounds\(\s*\)\s*activeDragElement\.value\s*=\s*state\s*\}/g
 
-export function presentationDragPlugin(): Plugin {
-  const target = createRequire(import.meta.url).resolve('@slidev/client/composables/useDragElements.ts').replace(/\\/g, '/')
+export function presentationDragPlugin(clientRoot: string): Plugin {
+  const target = join(clientRoot, 'composables/useDragElements.ts').replace(/\\/g, '/')
   return {
     name: 'slidev-studio-presentation-drag',
     enforce: 'pre',

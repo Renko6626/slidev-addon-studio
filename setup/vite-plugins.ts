@@ -10,4 +10,4 @@ import { presentationDragPlugin } from '../node/presentation-drag'
  * Written as a plain default export rather than through `defineVitePluginsSetup`
  * so `@slidev/types` stays a types-only dependency.
  */
-export default (options: ResolvedSlidevOptions) => [studioPlugin(options), presentationDragPlugin()]
+export default (options: ResolvedSlidevOptions) => [studioPlugin(options), presentationDragPlugin(options.clientRoot)]
