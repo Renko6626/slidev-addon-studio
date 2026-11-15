@@ -1,0 +1,4 @@
+/* Loaded in presentations too. Slidev rewrites the ordinary inline z-index. */
+.studio-layer-object {
+  z-index: var(--studio-z-index) !important;
+}

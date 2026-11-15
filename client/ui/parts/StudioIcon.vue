@@ -39,6 +39,8 @@ const paths: Record<string, string> = {
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
   up: 'M12 19V5M5 12l7-7 7 7',
   down: 'M12 5v14M5 12l7 7 7-7',
+  'layer-front': 'M4 4h16M12 20V8M7 13l5-5 5 5',
+  'layer-back': 'M4 20h16M12 4v12M7 11l5 5 5-5',
   eye: 'M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7zM12 15a3 3 0 100-6 3 3 0 000 6z',
   free: 'M4 4h6v6H4zM14 14h6v6h-6zM10 10l4 4',
   flow: 'M4 6h16M4 12h10M4 18h16',

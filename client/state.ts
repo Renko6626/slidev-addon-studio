@@ -2,7 +2,7 @@ import type { StudioTarget } from './types'
 import { useLocalStorage } from '@vueuse/core'
 import { computed, ref, shallowRef, watch } from 'vue'
 
-export type PanelId = 'inspect' | 'animate' | 'layout' | 'transition'
+export type PanelId = 'inspect' | 'animate' | 'layout' | 'transition' | 'layers'
 export type RibbonTab = 'file' | 'home' | 'insert' | 'design' | 'transition' | 'animate' | 'view' | 'object'
 
 /** Studio is off until asked for, so a normal `slidev` session is unchanged. */

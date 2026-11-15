@@ -120,6 +120,7 @@ const groups = computed<Group[]>(() => {
       { label: 'panesGroup', commands: [
         { label: 'slides', icon: 'slides', run: () => (slidesVisible.value = !slidesVisible.value), pressed: slidesVisible.value },
         { label: 'properties', icon: 'settings', run: () => (inspectorVisible.value = !inspectorVisible.value), pressed: inspectorVisible.value },
+        { label: 'layers', icon: 'slides', run: () => panel('layers'), pressed: inspectorVisible.value && activePanel.value === 'layers' },
         { label: 'presenterNotes', icon: 'notes', run: () => (notesVisible.value = !notesVisible.value), pressed: notesVisible.value },
       ] },
       { label: 'guidesGroup', commands: [
@@ -132,6 +133,7 @@ const groups = computed<Group[]>(() => {
     case 'object': return [{ label: 'objectTab', commands: [
       ...(!target?.positioned ? [{ label: 'freePosition' as const, icon: 'free', disabled: !mapped.value, run: () => target && freePosition(studio, target) }] : []),
       { label: 'properties', icon: 'settings', run: () => panel('inspect') },
+      { label: 'layers', icon: 'slides', run: () => panel('layers') },
     ] }]
   }
 })
