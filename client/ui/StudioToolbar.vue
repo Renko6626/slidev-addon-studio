@@ -13,8 +13,9 @@ import { canRedo, canUndo, lastAction, useStudioHistory } from '../composables/u
 import { appendElement, createTextElement, patchElementStyle } from '../md/elements'
 import { imageLibraryRequest, imagePending, useImageInsertion } from '../composables/useImageInsertion'
 import ShapePicker from './parts/ShapePicker.vue'
+import ArrangeSelection from './parts/ArrangeSelection.vue'
 import TextElementFields from './parts/TextElementFields.vue'
-import { activePanel, busy, clearSelection, editing, gridEnabled, inspectorVisible, library, notesVisible, outlineEnabled, ribbonTab, selectAllOnEdit, selection, slidesVisible, snapEnabled, studioOpen } from '../state'
+import { activePanel, busy, clearSelection, editing, gridEnabled, inspectorVisible, library, notesVisible, outlineEnabled, ribbonTab, selectAllOnEdit, selection, selectedTargets, slidesVisible, snapEnabled, studioOpen } from '../state'
 import PanelTransition from './panels/PanelTransition.vue'
 import StudioIcon from './parts/StudioIcon.vue'
 
@@ -91,7 +92,7 @@ const groups = computed<Group[]>(() => {
       { label: 'fontGroup', text: 'font', commands: [] },
       { label: 'paragraphGroup', text: 'paragraph', commands: [] },
       { label: 'editingGroup', commands: [
-        { label: 'editTextCommand', icon: 'edit', run: editText, disabled: !target || (target.element === 'image' || target.element === 'shape') || (!mapped.value && !target.prop) },
+        { label: 'editTextCommand', icon: 'edit', run: editText, disabled: selectedTargets.value.length > 1 || !target || (target.element === 'image' || target.element === 'shape') || (!mapped.value && !target.prop) },
         { label: 'duplicateObject', icon: 'copy', run: () => target && duplicateBlock(studio, target), disabled: !reorderable.value },
         { label: 'deleteObject', icon: 'trash', run: () => target && deleteBlock(studio, target), disabled: !mapped.value },
       ] },
@@ -169,8 +170,9 @@ const groups = computed<Group[]>(() => {
       </div>
       <div v-if="ribbonTab === 'insert'" class="studio-command-group"><ShapePicker /><span class="studio-command-group__label">{{ t('shapes') }}</span></div>
       <fieldset v-if="ribbonTab === 'transition'" class="studio-transition-quick" :disabled="locked"><PanelTransition /></fieldset>
+      <div v-if="selectedTargets.length > 1 && (ribbonTab === 'home' || ribbonTab === 'object')" class="studio-command-group"><ArrangeSelection /></div>
       <div v-for="group in groups" :key="group.label" class="studio-command-group">
-        <TextElementFields v-if="group.text" :group="group.text" />
+        <fieldset v-if="group.text" class="studio-multi-text-fields" :disabled="selectedTargets.length > 1"><TextElementFields :group="group.text" /></fieldset>
         <div v-else class="studio-command-group__buttons">
           <button
             v-for="command in group.commands" :key="command.label" class="studio-command"

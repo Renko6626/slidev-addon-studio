@@ -11,12 +11,13 @@ import { readElement, resizeElement } from '../../md/elements'
 import { getBlock, replaceBlock } from '../../md/lines'
 import { canStyle, readClasses, writeClasses } from '../../md/classes'
 import { canReorder, deleteBlock, duplicateBlock, freePosition } from '../../actions'
-import { busy, editing, missed, selection } from '../../state'
+import { busy, editing, missed, selection, selectedTargets } from '../../state'
 import PropField from '../parts/PropField.vue'
 import StudioField from '../parts/StudioField.vue'
 import StudioIcon from '../parts/StudioIcon.vue'
 import ShapeFields from '../parts/ShapeFields.vue'
 import ImageElementFields from '../parts/ImageElementFields.vue'
+import ArrangeSelection from '../parts/ArrangeSelection.vue'
 
 /**
  * The properties panel: where the selected block lives, how it is styled, and
@@ -136,6 +137,8 @@ async function remove() {
       {{ t('inspectClick') }}
     </template>
   </div>
+
+  <section v-else-if="selectedTargets.length > 1" class="studio-section"><ArrangeSelection actions /></section>
 
   <div v-else-if="selection?.prop" class="studio-empty">
     <p>

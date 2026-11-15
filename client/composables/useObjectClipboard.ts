@@ -1,7 +1,8 @@
 import type { StudioContext } from '../context'
 import { action, t } from '../i18n'
 import { captureBlock, decodeClipboard, encodeClipboard, insertCopiedBlock, OBJECT_CLIPBOARD_TYPE } from '../md/clipboard'
-import { activePanel, busy, editing, library, reportError, ribbonTab, selection, studioOpen } from '../state'
+import { activePanel, busy, editing, library, reportError, ribbonTab, selection, selectedTargets, studioOpen } from '../state'
+import { captureBlocks, combineCopiedBlocks, insertCopiedBlocks, splitCopiedBlocks } from '../md/batch'
 import { onDomEvent } from './useDomEvent'
 
 /** Native clipboard events work without requesting async clipboard permissions. */
@@ -25,7 +26,9 @@ export function useObjectClipboard(studio: StudioContext, deck = window.location
       return
     if (target.kind === 'list' && target.el.parentElement?.closest('li'))
       return
-    const copied = captureBlock(studio.content(), target.range, { deck, page: studio.no(), tag: target.tag })
+    const copied = selectedTargets.value.length > 1
+      ? combineCopiedBlocks(captureBlocks(studio.content(), selectedTargets.value.map(item => ({ range: item.range!, tag: item.tag })), { deck, page: studio.no() }))
+      : captureBlock(studio.content(), target.range, { deck, page: studio.no(), tag: target.tag })
     event.clipboardData.setData(OBJECT_CLIPBOARD_TYPE, encodeClipboard(copied))
     event.clipboardData.setData('text/plain', copied.source)
     event.preventDefault()
@@ -52,12 +55,14 @@ export function useObjectClipboard(studio: StudioContext, deck = window.location
       destination = no
     }
     const offset = 20 * (count + (copied.page === no ? 1 : 0))
-    const inserted = insertCopiedBlock(studio.content(), copied, offset)
+    const blocks = splitCopiedBlocks(copied)
+    const inserted = blocks.length > 1 ? insertCopiedBlocks(studio.content(), blocks, offset) : null
+    const single = inserted ? null : insertCopiedBlock(studio.content(), copied, offset)
     count++
     void (async () => {
-      await studio.commit(inserted.content, action('actionPasteObject'))
+      await studio.commit(inserted?.content ?? single!.content, action('actionPasteObject'))
       if (studio.no() !== no || !studioOpen.value) return
-      if (await studio.selectInserted(copied.tag, inserted.range)) {
+      if (inserted ? await studio.selectInsertedMany?.(inserted.inserted) : await studio.selectInserted(copied.tag, single!.range)) {
         activePanel.value = 'inspect'
         library.value = null
       }

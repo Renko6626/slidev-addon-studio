@@ -3,13 +3,15 @@ import type { ActionLabel } from '../i18n'
 import type { SourceRange, StudioTarget, TargetKind } from '../types'
 import { nextTick, onScopeDispose, watch, watchEffect } from 'vue'
 import { removeBlock } from '../md/lines'
+import { removePositions } from '../md/batch'
+import { positionedUnit } from '../md/drag'
 import { openContextMenu } from '@slidev/client/logic/contextMenu.ts'
 import { belongsToSlide, elementRoot, mappedElements, slideElement } from '../dom'
 import { onDomEvent } from './useDomEvent'
 import { normalise, resolveRange } from '../md/locate'
 import { readDrag } from '../md/drag'
 import { readElement } from '../md/elements'
-import { busy, editing, editPointer, hovered, missed, selection, studioOpen } from '../state'
+import { busy, editing, editPointer, hovered, missed, selection, selectedTargets, setSelectedTargets, marquee, studioOpen } from '../state'
 
 /**
  * Turns a click on the rendered slide into a Markdown range Studio can edit.
@@ -162,16 +164,57 @@ export function useSelection(
     if (isStudioChrome(event.target))
       return
     const target = targetFrom(event.target) ?? targetFromPoint(event.clientX, event.clientY)
-    if (target)
+    if (target && !selectedTargets.value.some(item => item.el === target.el))
       selection.value = target
   }, { capture: true })
+
+  function toggleTarget(target: StudioTarget) {
+    const current = selectedTargets.value.filter(item => isMultiSelectable(item, content()))
+    const exists = current.some(item => item.el === target.el)
+    setSelectedTargets(exists ? current.filter(item => item.el !== target.el) : [...current, target])
+  }
+
+  let boxStart: { x: number, y: number, no: number, base: StudioTarget[] } | null = null
+  function startMarquee(event: PointerEvent) {
+    if (busy.value) return
+    event.preventDefault()
+    event.stopPropagation()
+    boxStart = { x: event.clientX, y: event.clientY, no: no(), base: event.shiftKey ? selectedTargets.value.filter(item => isMultiSelectable(item, content())) : [] }
+  }
+  onDomEvent<PointerEvent>(window, 'pointermove', event => {
+    if (!boxStart) return
+    if (no() !== boxStart.no) { boxStart = null; marquee.value = null; return }
+    if (Math.hypot(event.clientX - boxStart.x, event.clientY - boxStart.y) < 4 && !marquee.value) return
+    const left = Math.min(boxStart.x, event.clientX), top = Math.min(boxStart.y, event.clientY)
+    const width = Math.abs(event.clientX - boxStart.x), height = Math.abs(event.clientY - boxStart.y)
+    marquee.value = { left, top, width, height }
+    const targets = mappedElements(no()).filter(isVisible).map(el => describe(el, no(), content()))
+      .filter(target => isMultiSelectable(target, content()))
+      .filter(target => {
+        const box = target.el.getBoundingClientRect()
+        return box.right >= left && box.left <= left + width && box.bottom >= top && box.top <= top + height
+      })
+    const all = [...boxStart.base, ...targets]
+    setSelectedTargets(all.filter((target, index) => all.findIndex(item => sameRange(item.range, target.range)) === index))
+    missed.value = false
+  })
+  const finishMarquee = () => { boxStart = null; marquee.value = null }
+  onDomEvent(window, 'pointerup', finishMarquee)
+  onDomEvent(window, 'pointercancel', finishMarquee)
 
   function selectOnPointer(event: PointerEvent, startDrag = true) {
     if (!studioOpen.value || event.button !== 0 || editing.value)
       return
     // The overlay and the handles handle themselves.
-    if (isStudioChrome(event.target))
+    if (isStudioChrome(event.target)) {
+      if (event.shiftKey && event.target instanceof Element && event.target.closest('.studio-move')) {
+        const target = throughChrome(event.clientX, event.clientY)
+        if (target && isMultiSelectable(target, content())) {
+          event.preventDefault(); event.stopPropagation(); toggleTarget(target)
+        }
+      }
       return
+    }
     // A field in the dock keeps focus otherwise, and the next Backspace edits
     // that field instead of deleting the selected block.
     if (isTyping(document.activeElement))
@@ -184,15 +227,21 @@ export function useSelection(
       // since leaving the outline behind reads as the click not registering.
       const onSlide = event.target instanceof Element && belongsToSlide(event.target, no())
       missed.value = onSlide
-      if (onSlide)
-        selection.value = null
+      if (onSlide) {
+        startMarquee(event)
+        if (!event.shiftKey) selection.value = null
+      }
       return
     }
     // Claim the gesture before Slidev's own `v-drag` handles or a link can.
     event.preventDefault()
     event.stopPropagation()
     missed.value = false
-    selection.value = target
+    if (event.shiftKey && isMultiSelectable(target, content())) {
+      toggleTarget(target)
+      return
+    }
+    if (!selectedTargets.value.some(item => item.el === target.el)) selection.value = target
     if (startDrag && !busy.value)
       startMove?.(event)
   }
@@ -263,6 +312,8 @@ export function useSelection(
       return
 
     if (event.key === 'Escape') {
+      boxStart = null
+      marquee.value = null
       // One layer at a time. A key pressed in a field belongs to that field,
       // and the inline editor closes itself, so clearing the selection here as
       // well meant cancelling an edit lost the block being edited.
@@ -282,18 +333,21 @@ export function useSelection(
     if (event.key !== 'Backspace' && event.key !== 'Delete')
       return
     // Never while the user is typing into one of the editor's own fields.
-    if (isTyping(event.target) || !selection.value?.range || !remove)
+    if (busy.value || editing.value || isTyping(event.target) || !selection.value?.range || !remove)
       return
 
     // Backspace would otherwise navigate the browser back and lose the deck.
     event.preventDefault()
     const target = selection.value
+    const targets = selectedTargets.value
+    const next = targets.length > 1 ? removePositions(content(), targets.map(item => item.range!)) : removeBlock(content(), positionedUnit(content(), target.range!))
     selection.value = null
-    remove(removeBlock(content(), target.range!), action('actionDelete', { name: targetName(target) }))
+    remove(next, action('actionDelete', { name: targetName(target) }))
   })
 
   watch(studioOpen, (open) => {
     if (!open) {
+      finishMarquee()
       selection.value = null
       hovered.value = null
     }
@@ -392,6 +446,13 @@ export function useSelection(
     // the second drag worked while testing and not while presenting.
     observer = new MutationObserver(() => {
       const current = selection.value
+      if (selectedTargets.value.length > 1 && selectedTargets.value.some(item => !document.contains(item.el))) {
+        if (!rebinding) {
+          rebinding = true
+          reselectTargets(selectedTargets.value).finally(() => (rebinding = false))
+        }
+        return
+      }
       if (rebinding || !current || document.contains(current.el))
         return
 
@@ -405,7 +466,7 @@ export function useSelection(
     observer.observe(document.body, { childList: true, subtree: true })
   })
 
-  onScopeDispose(() => observer?.disconnect())
+  onScopeDispose(() => { observer?.disconnect(); finishMarquee() })
 
   /**
    * Selects a block that was just inserted.
@@ -453,11 +514,36 @@ export function useSelection(
    */
   function selectThrough(x: number, y: number) {
     const target = throughChrome(x, y)
-    if (target && target.el !== selection.value?.el)
+    if (target && !selectedTargets.value.some(item => item.el === target.el))
       selection.value = target
   }
 
-  return { select, targetFrom, reselect, selectInserted, selectThrough, selectOnPointer, editOnPointer }
+  async function selectInsertedMany(items: { range: SourceRange, tag?: string }[]) {
+    if (!items.length) return false
+    const expected = selection.value, expectedTargets = selectedTargets.value, slideNo = no()
+    await nextTick()
+    const deadline = Date.now() + 1500
+    while (Date.now() < deadline && no() === slideNo && selection.value === expected && selectedTargets.value === expectedTargets && studioOpen.value) {
+      const live = mappedElements(slideNo).map(el => describe(el, slideNo, content()))
+      const targets = items.map(item => live.find(target => sameRange(target.range, item.range) && (!item.tag || item.tag === target.tag)))
+      if (targets.every((target): target is StudioTarget => !!target)) {
+        setSelectedTargets(targets)
+        return true
+      }
+      await new Promise(resolve => setTimeout(resolve, 40))
+    }
+    return false
+  }
+
+  async function reselectTargets(targets: StudioTarget[]) {
+    const items = targets.flatMap(target => {
+      const resolved = describe(target.el, no(), content()).range ?? target.range
+      return resolved ? [{ range: resolved, tag: target.tag }] : []
+    })
+    return selectInsertedMany(items)
+  }
+
+  return { select, targetFrom, reselect, reselectTargets, selectInserted, selectInsertedMany, selectThrough, selectOnPointer, editOnPointer }
 }
 
 /**
@@ -549,3 +635,24 @@ function labelFor(kind: TargetKind, tag: string | undefined, el: HTMLElement): s
     default: return el.tagName.toLowerCase()
   }
 }
+
+function sameRange(a: SourceRange | null, b: SourceRange | null) {
+  return !!a && !!b && a[0] === b[0] && a[1] === b[1]
+}
+
+/** Only objects whose source and positioning belong to this selectable root. */
+export function isMultiSelectable(target: StudioTarget, content: string): boolean {
+  if (!target.range || target.nested || target.prop || target.el.closest('[data-studio-background]') || !(target.element || target.kind === 'component')) return false
+  const drag = readDrag(content, target.range)
+  if (!drag?.pos) return false
+  const unit = positionedUnit(content, target.range)
+  // Sharing a wrapper with siblings would move those siblings too.
+  if (drag.via === 'wrapper' && !/^v-?drag$/i.test(target.tag ?? '')) {
+    const before = content.split('\n').slice(unit[0] + 1, target.range[0]).join('\n').trim()
+    const after = content.split('\n').slice(target.range[1], unit[1] - 1).join('\n').trim()
+    if (before || after) return false
+  }
+  return true
+}
+
+export { describe as describeTarget }

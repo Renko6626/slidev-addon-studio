@@ -37,6 +37,7 @@ export interface StudioContext {
   range: () => SourceRange | null
   /** Selects a block that was just inserted, so it can be configured at once. */
   selectInserted: (tag?: string, range?: SourceRange) => Promise<boolean>
+  selectInsertedMany?: (items: { range: SourceRange, tag?: string }[]) => Promise<boolean>
   /**
    * Selects whatever is under a point, looking through the editor's own chrome.
    * A press on the selection overlay that turns out to be a click rather than a

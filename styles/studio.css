@@ -937,3 +937,16 @@ html.slidev-studio-docked #slide-container { cursor: default; }
 .studio-shape-instruction button { margin-left:12px; color:var(--studio-accent); }
 .studio-shape-handle { background:#fbbf24; border-color:#92400e; cursor:crosshair; z-index:2; }
 .studio-shape-handle--endpoint { border-radius:50%; background:var(--studio-bg); border-color:var(--studio-accent); }
+
+/* Multi-selection uses move surfaces per object, keeping the gaps clickable. */
+.studio-marquee { position: fixed; border: 1px solid var(--studio-accent, #7c3aed); background: rgba(124, 58, 237, .10); pointer-events: none; }
+.studio-arrange-selection { max-width: 290px; }
+.studio-arrange-selection .studio-hint { margin: 0 0 6px; }
+.studio-arrange-selection__buttons { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.studio-arrange-selection__buttons .studio-button { padding: 4px 6px; font-size: 11px; }
+.studio-arrange-selection > .studio-button-row { margin-top: 10px; }
+.studio-multi-text-fields { border: 0; margin: 0; padding: 0; min-width: 0; }
+.studio-multi-text-fields:disabled { opacity: .45; }
+
+.studio-ribbon .studio-arrange-selection { width: 320px; max-width: none; }
+.studio-ribbon .studio-arrange-selection__buttons { grid-template-columns: repeat(4, minmax(0, 1fr)); }

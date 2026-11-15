@@ -446,5 +446,16 @@ export default {
   "errorCrossFileMove": "无法将页面移动到另一个 Markdown 文件中。",
   "errorMoveBeforeHeadmatter": "无法将页面移动到全局配置之前。",
   "errorUnsupportedAssetType": "不支持文件类型“{type}”。",
-  "errorAssetTooLarge": "文件大小超过 {size} MB。"
+  "errorAssetTooLarge": "文件大小超过 {size} MB。",
+  "selectedObjects": "已选择 {count} 个对象",
+  "objectsAlignLeft": "左对齐",
+  "objectsAlignCenter": "水平居中",
+  "objectsAlignRight": "右对齐",
+  "objectsAlignTop": "顶端对齐",
+  "objectsAlignMiddle": "垂直居中",
+  "objectsAlignBottom": "底端对齐",
+  "objectsDistributeX": "水平等距",
+  "objectsDistributeY": "垂直等距",
+  "actionArrangeObjects": "排版多个对象",
+  "multiSelectionHint": "按住 Shift 点选可增减对象，也可从页面空白处拖出选框。"
 } satisfies Record<keyof typeof en, string>

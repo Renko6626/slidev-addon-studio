@@ -13,7 +13,7 @@ import { useSlideSource } from '../composables/useSlideSource'
 import { useTransformGizmo } from '../composables/useTransformGizmo'
 import { useTextEditor } from '../composables/useTextEditor'
 import { studioContext, studioKey } from '../context'
-import { busy, dockWidth, editing, inspectorVisible, lastError, notesVisible, ribbonTab, selection, slidesVisible, studioOpen } from '../state'
+import { busy, dockWidth, editing, inspectorVisible, lastError, notesVisible, ribbonTab, selection, selectedTargets, slidesVisible, studioOpen } from '../state'
 import { imagePending } from '../composables/useImageInsertion'
 import { projectSaveStatus, projectWriteError, saveProject } from '../project-save'
 import '../project-host'
@@ -58,6 +58,7 @@ async function save() {
 const canvas = useSlideCanvas(() => Number(source.frontmatter.value.zoom ?? 1))
 async function commit(content: string, label: ActionLabel, options?: { skipHmr?: boolean, keepSelection?: boolean }) {
   const current = selection.value
+  const targets = selectedTargets.value
   await source.setContent(content, label, options)
 
   // Nothing re-rendered, so the element the user is holding is still the one on
@@ -65,7 +66,8 @@ async function commit(content: string, label: ActionLabel, options?: { skipHmr?:
   if (options?.keepSelection || !current || selection.value !== current)
     return
 
-  await selectionApi.reselect(current.range, current.kind, current.tag)
+  if (targets.length > 1) await selectionApi.reselectTargets(targets)
+  else await selectionApi.reselect(current.range, current.kind, current.tag)
 }
 
 const selectionApi = useSelection(
@@ -79,6 +81,7 @@ const selectionApi = useSelection(
 const gizmo = useTransformGizmo({
   canvas,
   getTarget: () => selection.value,
+  getTargets: () => selectedTargets.value,
   getContent: () => source.content.value,
   getNo: () => no.value,
   commit,
@@ -102,6 +105,7 @@ const context: StudioContext = {
   save,
   range: () => selection.value?.range ?? null,
   selectInserted: (tag, range) => selectionApi.selectInserted(tag, range),
+  selectInsertedMany: items => selectionApi.selectInsertedMany(items),
   selectThrough: (x, y) => selectionApi.selectThrough(x, y),
   selectOnPointer: selectionApi.selectOnPointer,
   go: target => nav.go(target),
@@ -149,7 +153,7 @@ onDomEvent<KeyboardEvent>(document, 'keydown', (event) => {
     if (event.key === 'Escape') { event.preventDefault(); ribbonTab.value = 'home' }
     return
   }
-  if (editing.value) return
+  if (editing.value || busy.value) return
   const target = selection.value
   if (!target?.range)
     return
@@ -157,7 +161,7 @@ onDomEvent<KeyboardEvent>(document, 'keydown', (event) => {
   if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"]'))
     return
 
-  if (event.key === 'F2' && context.text.supported.value && !busy.value) {
+  if (selectedTargets.value.length === 1 && event.key === 'F2' && context.text.supported.value && !busy.value) {
     event.preventDefault()
     editing.value = true
     return

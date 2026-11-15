@@ -14,7 +14,7 @@ vi.mock('../client/dom', () => ({
 
 import { useSelection } from '../client/composables/useSelection'
 import { useTransformGizmo } from '../client/composables/useTransformGizmo'
-import { busy, editing, selection, snapEnabled, studioOpen } from '../client/state'
+import { busy, editing, selection, selectedTargets, snapEnabled, studioOpen } from '../client/state'
 
 class SlideElement extends EventTarget {
   tagName: string
@@ -28,6 +28,10 @@ class SlideElement extends EventTarget {
   }
   closest(selector: string) { return selector.includes('[data-studio-src]') ? this : null }
   contains(el: unknown) { return el === this }
+  getBoundingClientRect() {
+    const left = this.dataset.studioSrc?.startsWith('0,') ? 10 : 200
+    return { left, top: 20, width: 100, height: 80, right: left + 100, bottom: 100 }
+  }
   getAttribute() { return '' }
   setAttribute() {}
 }
@@ -76,16 +80,16 @@ function setup(firstSource = a) {
       rect: ref({ left: 0, top: 0, width: 960, height: 540 }),
       boxOf: () => ({ x: 10, y: 20, w: 100, h: 80 }), originOf: () => ({ x: 0, y: 0 }),
     } as any,
-    getTarget: () => selection.value, getContent: () => content, getNo: () => 1,
+    getTarget: () => selection.value, getTargets: () => selectedTargets.value, getContent: () => content, getNo: () => 1,
     commit: async (next) => { content = next; writes++ },
     selectThrough: select.selectThrough,
     onDoubleClick: event => select.editOnPointer(event),
   }))!
-  function pointer(type: string, el = first, x = 30, y = 40) {
+  function pointer(type: string, el = first, x = 30, y = 40, shiftKey = false) {
     const event = new Event(type, { cancelable: true })
     Object.defineProperties(event, {
       target: { value: el }, button: { value: 0 },
-      clientX: { value: x }, clientY: { value: y },
+      clientX: { value: x }, clientY: { value: y }, shiftKey: { value: shiftKey },
     })
     ;(type === 'pointerdown' ? document : window).dispatchEvent(event)
   }
@@ -198,5 +202,43 @@ it('restores a shape rotation when Escape cancels the gesture', () => {
   Object.defineProperty(escape, 'key', { value: 'Escape' })
   window.dispatchEvent(escape)
   expect(s.first.style.transform).toBe('rotate(30deg)')
+  expect(s.writes()).toBe(0)
+})
+
+it('Shift-selects independent text objects and moves the selection with one write', async () => {
+  const text = '<div data-studio-element="text" v-drag="[10,20,100,NaN]">Hello</div>'
+  const s = setup(text)
+  // A separately positioned component is eligible alongside Studio basic objects.
+  s.second.dataset.studioKind = 'component'
+  s.pointer('pointerdown')
+  s.pointer('pointerup')
+  s.pointer('pointerdown', s.second, 30, 40, true)
+  expect(selectedTargets.value.map(target => target.el)).toEqual([s.first, s.second])
+  s.pointer('pointerdown', s.first)
+  s.pointer('pointermove', s.first, 70, 60)
+  expect(s.first.style.left).toBe('50px')
+  expect(s.second.style.left).toBe('50px')
+  expect(s.writes()).toBe(0)
+  s.pointer('pointerup')
+  await nextTick()
+  expect(s.content()).toContain('v-drag="[50,40,100,NaN]"')
+  expect(s.content()).toContain('v-drag="[50,40,100,80]"')
+  expect(s.writes()).toBe(1)
+  s.select.select(s.first)
+  expect(selectedTargets.value).toHaveLength(1)
+})
+
+it('box-selects independent objects from slide space and clears the marquee on release', () => {
+  const s = setup('<div data-studio-element="text" v-drag="[10,20,100,NaN]">Hello</div>')
+  s.second.dataset.studioKind = 'component'
+  const blank = new SlideElement(4, '<div />')
+  blank.closest = () => null
+  host.elements.push(blank)
+  s.pointer('pointerdown', blank, 0, 0)
+  s.pointer('pointermove', blank, 150, 150)
+  expect(selectedTargets.value.map(target => target.el)).toEqual([s.first])
+  s.pointer('pointermove', blank, 350, 150)
+  expect(selectedTargets.value.map(target => target.el)).toEqual([s.first, s.second])
+  s.pointer('pointerup', blank)
   expect(s.writes()).toBe(0)
 })

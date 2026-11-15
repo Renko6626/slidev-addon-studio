@@ -6,7 +6,7 @@ import { useRafFn } from '@vueuse/core'
 import { computed, ref } from 'vue'
 import { mappedElements } from '../dom'
 import { useStudio } from '../context'
-import { editing, hovered, outlineEnabled, selection } from '../state'
+import { editing, hovered, outlineEnabled, selection, selectedTargets, marquee } from '../state'
 
 /**
  * Everything drawn on top of the slide: the hover outline, the selection box
@@ -52,6 +52,7 @@ function turnedElement(el: HTMLElement): { el: HTMLElement, rotate: number } {
 }
 
 const selectionRect = ref<Rect | null>(null)
+const multipleRects = ref<Rect[]>([])
 const hoverRect = ref<Rect | null>(null)
 const outlineRects = ref<Rect[]>([])
 
@@ -86,7 +87,8 @@ function rectOf(el: Element | null | undefined): Rect | null {
 }
 
 useRafFn(() => {
-  selectionRect.value = rectOf(selection.value?.el)
+  selectionRect.value = selectedTargets.value.length === 1 ? rectOf(selection.value?.el) : null
+  multipleRects.value = selectedTargets.value.length > 1 ? selectedTargets.value.map(target => rectOf(target.el)).filter((rect): rect is Rect => !!rect) : []
   hoverRect.value = hovered.value?.el === selection.value?.el ? null : rectOf(hovered.value?.el)
   outlineRects.value = outlineEnabled.value
     ? mappedElements(studio.no()).map(rectOf).filter((r): r is Rect => !!r)
@@ -172,6 +174,15 @@ function handleStyle(rect: Rect, handle: typeof handles[number]) {
     />
 
     <div v-if="hoverRect" class="studio-outline studio-outline--hover" :style="style(hoverRect)" />
+
+    <div v-if="marquee" class="studio-marquee" :style="{ left: `${marquee.left}px`, top: `${marquee.top}px`, width: `${marquee.width}px`, height: `${marquee.height}px` }" />
+    <template v-if="multipleRects.length && !editing">
+      <div v-for="(rect, index) in multipleRects" :key="`selected-${index}`" class="studio-frame" :style="frameStyle(rect)">
+        <div class="studio-outline studio-outline--frame" />
+        <div class="studio-move" @pointerdown="studio.gizmo.startMove($event)" />
+      </div>
+      <div class="studio-badge" :style="{ left: `${multipleRects[0].left}px`, top: `${multipleRects[0].top - 4}px` }">{{ t('selectedObjects', { count: multipleRects.length }) }}</div>
+    </template>
 
     <template v-if="selectionRect && selection && !editing">
       <!-- The label stays upright, so it is readable however the block is turned. -->
