@@ -1,6 +1,11 @@
 import type en from './en'
 
 export default {
+  "studioCheckUpdates": "检查 Studio 更新",
+  "viewZoom": "画布缩放（%）",
+  "zoomIn": "放大画布",
+  "zoomOut": "缩小画布",
+  "canvasNavigationHint": "Ctrl/Cmd 加滚轮缩放。缩放后滚轮平移，Shift 加滚轮横向平移；也可按住鼠标中键拖动。适应窗口可恢复视图。",
   "mediaPlaybackHint": "编辑时不播放；离开播放页后暂停并回到起播时间。有声自动播放可能需要先点击。",
   "assetSizeHint": "单文件上限：图片 32 MiB，音视频 128 MiB。更大的文件可直接放入工程 public 目录。",
   "mediaCompatibility": "播放取决于文件编码和浏览器。视频建议使用 MP4（H.264/AAC）或 WebM，音频建议使用 MP3 或 WAV。不提供自动转码。",
@@ -535,7 +540,15 @@ export default {
   "quizOptionsAndAnswers": "选项与正确答案",
   "quizCorrectOption": "将 {option} 设为正确答案",
   "quizOptionText": "选项 {option} 文字",
-  "quizAnswerHint": "在选项旁标记正确答案。首版保留模板的四个选项。",
+  "quizAnswerHint": "在选项旁标记正确答案。新增按钮出现在画布中央，可拖动调整；删除选项会同时删除对应的内置选项按钮。",
+  "quizAddOption": "添加选项",
+  "quizRemoveOption": "删除选项 {option}",
+  "quizNewOption": "新选项",
+  "projectOpenFolder": "打开项目文件夹",
+  "projectOpenLogs": "打开运行日志",
+  "projectAgentTitle": "交给 coding agent 修改",
+  "projectAgentHint": "让 coding agent 去这里改：以这个文件夹作为工作目录，修改文稿、组件或交互逻辑。",
+  "projectAgentSkillHint": "请先阅读项目内的 skill，再开始修改。以下路径相对于项目根目录：",
   "quizButtonAction": "按钮用途",
   "quizActionTextHint": "修改用途会保留按钮内容；文字通过“编辑内容”调整。",
   "quizButtonOption": "对应选项",

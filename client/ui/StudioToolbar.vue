@@ -9,6 +9,7 @@ import { canReorder, deleteBlock, duplicateBlock, editText, freePosition } from 
 import { useStudio } from '../context'
 import { useDeckActions } from '../composables/useDeckActions'
 import { projectSaving } from '../project-save'
+import { projectHost } from '../project-host'
 import { canRedo, canUndo, lastAction, useStudioHistory } from '../composables/useSlideSource'
 import { appendElement, createTextElement, patchElementStyle } from '../md/elements'
 import { createInteractionButton, createQuizPage, listQuestions, readInteraction } from '../md/interactions'
@@ -22,6 +23,7 @@ import StudioIcon from './parts/StudioIcon.vue'
 
 const emit = defineEmits<{ preview: [], present: [], fit: [] }>()
 const studio = useStudio()
+const desktop = !!projectHost()
 const nav = useNav()
 const deck = useDeckActions()
 const images = useImageInsertion()
@@ -171,7 +173,7 @@ const groups = computed<Group[]>(() => {
 
 <template>
   <header class="studio-ribbon">
-    <div class="studio-titlebar">
+    <div class="studio-titlebar" :class="{ 'studio-titlebar--desktop': desktop }">
       <span class="studio-brand"><StudioIcon name="slides" :size="19" />Studio</span>
       <div class="studio-quick-actions" data-studio-text-controls>
         <button class="studio-icon-button" :disabled="busy || imagePending || projectSaving" :title="t('saveProject') + ' (Ctrl / Cmd + S)'" @click="studio.save"><StudioIcon name="save" /></button>

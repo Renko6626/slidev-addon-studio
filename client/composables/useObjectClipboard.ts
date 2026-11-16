@@ -4,15 +4,18 @@ import { captureBlock, decodeClipboard, encodeClipboard, insertCopiedBlock, OBJE
 import { activePanel, busy, editing, library, reportError, ribbonTab, selection, selectedTargets, studioOpen } from '../state'
 import { captureBlocks, combineCopiedBlocks, insertCopiedBlocks, splitCopiedBlocks } from '../md/batch'
 import { onDomEvent } from './useDomEvent'
+import { imagePending, useImageInsertion } from './useImageInsertion'
+import { assetKind } from '../../shared/assets'
 
 /** Native clipboard events work without requesting async clipboard permissions. */
 export function useObjectClipboard(studio: StudioContext, deck = window.location.origin + import.meta.env.BASE_URL) {
+  const images = useImageInsertion(studio)
   let previous = ''
   let destination = 0
   let count = 0
 
   function available(event: Event) {
-    if (!studioOpen.value || ribbonTab.value === 'file' || editing.value || busy.value)
+    if (!studioOpen.value || ribbonTab.value === 'file' || editing.value || busy.value || imagePending.value)
       return false
     const inField = (target: EventTarget | null) => typeof Element !== 'undefined' && target instanceof Element
       && (target.closest('input, textarea, select') || (target as HTMLElement).isContentEditable)
@@ -41,8 +44,23 @@ export function useObjectClipboard(studio: StudioContext, deck = window.location
       return
     const raw = event.clipboardData.getData(OBJECT_CLIPBOARD_TYPE)
     const copied = decodeClipboard(raw, deck)
-    if (!copied)
+    if (!copied) {
+      const files = [...(event.clipboardData.files ?? [])]
+      if (!files.length) {
+        for (const item of event.clipboardData.items ?? []) {
+          if (item.kind === 'file') {
+            const file = item.getAsFile()
+            if (file) files.push(file)
+          }
+        }
+      }
+      const image = files.find(file => file.type.startsWith('image/') || assetKind(file.name) === 'image')
+      if (image) {
+        event.preventDefault()
+        void images.fromClipboard(image)
+      }
       return
+    }
     event.preventDefault()
     if (!studio.sourceReady()) {
       reportError(new Error(t('clipboardPageLoading')))

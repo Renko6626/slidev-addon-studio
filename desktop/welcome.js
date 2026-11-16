@@ -35,7 +35,9 @@ for (const button of buttons) button.addEventListener('click', async () => {
   const projectAction = button.dataset.action !== 'logs'
   if (projectAction) working(true)
   try {
-    const result = await window.studioDesktop.perform(button.dataset.action)
+    const result = button.dataset.action === 'studioUpdate'
+      ? await window.studioDesktop.studioUpdate()
+      : await window.studioDesktop.perform(button.dataset.action)
     if (result.error) status.textContent = result.error
   }
   catch (error) { status.textContent = error.message }

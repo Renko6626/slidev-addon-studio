@@ -217,3 +217,28 @@ The package `files` list includes `runtime/`, `setup/`, `components/` and
 are excluded from the published package. Static presentation output uses runtime
 and shared logic; editor `client/` UI must not enter the built bundle. Packaging
 checks and static builds do not publish a release or validate Windows/multiplayer.
+
+
+## Desktop package versions and updates
+
+The host in `desktop/` and the Studio npm package have independent X.Y.Z versions.
+`pnpm release:version studio X.Y.Z` changes the root package; use `desktop` instead
+to change only the host. Studio's `vX.Y.Z` tag publishes npm; desktop Releases use
+`desktop-vX.Y.Z` and remain manual. Neither command creates tags or publishes.
+
+`pnpm desktop:dev` packs the current workspace for local development. Formal
+`pnpm release:build` and desktop `make` fetch the exact already-published Studio
+version specified in the root manifest. They do not substitute local source if
+that version is missing. `--offline` additionally collects the standard Windows
+x64 dependency store; it does not change the Studio acquisition/update protocol.
+
+`desktop/studio-packages.cjs` owns version/archive selection and registry access.
+`desktop/projects.cjs` owns portable project dependency changes and offline baseline
+eligibility. `desktop/studio-update.cjs` sequences a user-approved current-project
+update; the main process supplies dialogs, save, stop and reopen. pnpm retains
+ownership of dependency storage. There is no background update service.
+
+The optional preload `studioUpdate()` capability keeps new Studio usable with old
+hosts and standalone browser sessions. Desktop shell version is never used as
+an installed Studio version. Package tests use local HTTP and temporary files;
+actual Windows dialogs, networking and process restart require manual acceptance.

@@ -72,6 +72,10 @@
   file editor or file rename/delete operations are added. Windows native behavior
   remains subject to preview testing; the current source and Windows preview have separate delivery records; new
   media behavior still requires acceptance on Windows. See [desktop validation](../desktop/README.md).
+- Updated desktop hosts provide explicit Studio package updates. Opening an existing
+  project preserves its version; the Electron shell is updated separately. Full
+  packages include the standard dependency cache, which may not include dependencies
+  introduced by a newer Studio. Windows update behavior still needs acceptance.
 - Project ZIP is a source transfer format, not an offline runtime. Dependencies
   and external assets are not embedded, and local `link:` dependencies are not
   rewritten. Source symlinks and imported Markdown outside the project must be
@@ -114,6 +118,10 @@
   layout or shared-group semantics.
 - Clipboard managers or other applications may remove Studio's custom clipboard
   format. Copy the object again in Studio if canvas paste no longer recognises it.
+- Screenshots and external images can be pasted when the clipboard supplies an
+  image file. The first image is saved as a local asset and inserted as a picture;
+  image URLs supplied only as text are not downloaded. Text editing retains native
+  paste behavior.
 - Create copy remains available for individual list items under the existing
   list-editing rules; this is separate from cross-slide clipboard copying.
 - Return to flow and source-order movement are temporarily hidden in the
@@ -136,7 +144,10 @@
   these controls; existing layout background parameters remain separate. An effective
   change clears the object selection. Pictures fill the page from the centre; the
   background is saved as a non-interactive source element below page objects.
-- Manual viewport zoom and hidden-slide management remain future work. Windows
+- Canvas view supports 25–300% zoom and panning; Fit to window restores automatic
+  fitting. Finish text editing before changing the view. These controls do not
+  change source geometry or presentation size. Hidden-slide management remains
+  future work. Windows
   desktop ZIP packaging is available as a preview, without an installer, signing
   or automatic updates.
 

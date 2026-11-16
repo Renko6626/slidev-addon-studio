@@ -1,7 +1,7 @@
 {
   "name": "@renko_1055/slidev-addon-studio",
   "type": "module",
-  "version": "0.4.0-renko.1",
+  "version": "0.5.1",
   "description": "A visual editor for Slidev. Select, drag, resize, animate and compose slides on the canvas, with every change written back to your Markdown.",
   "license": "MIT",
   "packageManager": "pnpm@11.20.0",
@@ -50,7 +50,11 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "desktop:dev": "pnpm --dir desktop start",
-    "desktop:make": "pnpm --dir desktop make"
+    "desktop:make": "node scripts/release.cjs build",
+    "desktop:make:offline": "node scripts/release.cjs build --offline",
+    "release:version": "node scripts/release.cjs version",
+    "release:build": "node scripts/release.cjs build",
+    "release:publish": "node scripts/release.cjs publish"
   },
   "peerDependencies": {
     "@slidev/cli": ">=52.0.0",

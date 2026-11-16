@@ -1,6 +1,7 @@
 import type { PropMeta, SourceRange, StudioAsset, StudioTarget } from '../types'
 import { ref, shallowRef } from 'vue'
 import { useStudio } from '../context'
+import type { StudioContext } from '../context'
 import { action, t } from '../i18n'
 import { appendElement, createImageElement, patchElementAttribute, readElement } from '../md/elements'
 import { readComponentString, writeComponentString } from '../md/component-fields'
@@ -8,14 +9,13 @@ import { getBlock } from '../md/lines'
 import { changePageBackground, isFreeCanvasPage } from './usePageBackground'
 import { activePanel, busy, editing, inspectorVisible, library, reportError, selection } from '../state'
 import { assetApi, readAsBase64 } from './useDeckApi'
-import { assetAccept } from '../../shared/assets'
+import { assetAccept, assetKind } from '../../shared/assets'
 
 interface ImageRequest { no: number, field?: { range: SourceRange, source: string, prop: PropMeta, tag?: string }, background?: boolean, replace?: { range: SourceRange, source: string } }
 export const imageLibraryRequest = shallowRef<ImageRequest | null>(null)
 export const imagePending = ref(false)
 
-export function useImageInsertion() {
-  const studio = useStudio()
+export function useImageInsertion(studio: StudioContext = useStudio()) {
   function capture(replace: boolean, background = false, field?: { owner: StudioTarget, prop: PropMeta }): ImageRequest | null {
     if (busy.value || editing.value || imagePending.value) return null
     if (field) {
@@ -86,6 +86,26 @@ export function useImageInsertion() {
     catch (error) { reportError(error) }
     finally { imagePending.value = false }
   }
+  async function fromClipboard(file: File) {
+    const request = capture(false)
+    if (!request) return
+    if (!studio.sourceReady()) { reportError(new Error(t('clipboardPageLoading'))); return }
+    // Screenshots may arrive without an extension; the upload endpoint uses it.
+    const extensions: Record<string, string> = {
+      'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp',
+      'image/svg+xml': 'svg', 'image/avif': 'avif', 'image/bmp': 'bmp',
+      'image/apng': 'apng', 'image/x-icon': 'ico', 'image/vnd.microsoft.icon': 'ico',
+    }
+    if (assetKind(file.name) !== 'image' && extensions[file.type])
+      file = new File([file], `pasted-image.${extensions[file.type]}`, { type: file.type })
+    imagePending.value = true
+    try {
+      const asset = await assetApi.upload(file.name, await readAsBase64(file))
+      if (asset) await place(asset, request)
+    }
+    catch (error) { reportError(error) }
+    finally { imagePending.value = false }
+  }
   function fromFile(replace = false, background = false, field?: { owner: StudioTarget, prop: PropMeta }) {
     const request = capture(replace, background, field)
     if (!request) return
@@ -115,5 +135,5 @@ export function useImageInsertion() {
     imageLibraryRequest.value = request
     library.value = 'assets'
   }
-  return { forField: (owner: StudioTarget, prop: PropMeta, file: boolean) => file ? fromFile(false, false, { owner, prop }) : fromLibrary(false, false, { owner, prop }), fromFile, fromLibrary, chooseAsset, backgroundFromFile: () => fromFile(false, true), backgroundFromLibrary: () => fromLibrary(false, true) }
+  return { forField: (owner: StudioTarget, prop: PropMeta, file: boolean) => file ? fromFile(false, false, { owner, prop }) : fromLibrary(false, false, { owner, prop }), fromFile, fromLibrary, fromClipboard, chooseAsset, backgroundFromFile: () => fromFile(false, true), backgroundFromLibrary: () => fromLibrary(false, true) }
 }

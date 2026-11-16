@@ -43,6 +43,7 @@ function createRuntime({ executable, pnpm, userData, onStatus = () => {} }) {
     await fsp.mkdir(path.join(userData, 'logs'), { recursive: true })
     logPath = path.join(userData, 'logs', 'current-project.log')
     const output = fs.createWriteStream(logPath, { flags: 'a' })
+    output.write(`\n[${new Date().toISOString()}] ${JSON.stringify([executable, ...args])}\n工作目录：${root}\n`)
     const env = await nodeEnvironment(executable, userData)
     const processChild = spawn(executable, args, {
       cwd: root, env, windowsHide: true, detached: process.platform !== 'win32',
@@ -56,8 +57,8 @@ function createRuntime({ executable, pnpm, userData, onStatus = () => {} }) {
         readline.createInterface({ input, terminal: false, crlfDelay: Infinity }).on('line', onLine)
     }
     exit = new Promise((resolve, reject) => {
-      processChild.once('error', error => { output.end(); reject(error) })
-      processChild.once('close', code => output.end(() => resolve(code)))
+      processChild.once('error', error => { output.write(`${error.stack || error.message}\n`); reject(error) })
+      processChild.once('close', (code, signal) => output.end(`\n进程结束：${code ?? signal}\n`, () => resolve(code)))
     })
     // A long-lived server is polled below, so handle its exit promise even if
     // startup fails before a caller awaits it.
@@ -78,34 +79,46 @@ function createRuntime({ executable, pnpm, userData, onStatus = () => {} }) {
     if (code !== 0) throw new Error(`依赖准备未完成（退出码 ${code}）。请查看日志：${logPath}`)
   }
 
-  async function install(project, { changed = false, importLock = false, offlineStore } = {}) {
-    if (offlineStore) {
-      await runPnpm(project, ['install', '--offline', '--frozen-lockfile', '--ignore-scripts', '--package-import-method=copy', '--store-dir', offlineStore, '--reporter=append-only'], '正在从随附文件准备离线依赖，无需联网。')
+  async function install(project, { changed = false, importLock = false, storeDir, offline = false } = {}) {
+    const storeArgs = storeDir ? ['--store-dir', storeDir] : []
+    if (offline) {
+      await runPnpm(project, ['install', '--offline', '--frozen-lockfile', '--ignore-scripts', '--package-import-method=copy', ...storeArgs, '--reporter=append-only'], '正在从随附文件准备离线依赖，无需联网。')
       return
     }
     if (importLock) await runPnpm(project, ['import'], '正在读取工程的依赖锁文件。')
     const frozen = !changed && fs.existsSync(path.join(project.root, 'pnpm-lock.yaml'))
-    await runPnpm(project, ['install', '--reporter=append-only', frozen ? '--frozen-lockfile' : '--no-frozen-lockfile'], '正在安装项目依赖，首次下载需要联网。')
+    await runPnpm(project, ['install', '--prefer-offline', ...storeArgs, '--reporter=append-only', frozen ? '--frozen-lockfile' : '--no-frozen-lockfile'], '正在准备项目依赖，优先使用本机缓存。')
   }
 
   async function start(project) {
-    status('正在启动编辑器。')
+    const message = '正在启动编辑器，首次编译可能需要一些时间。'
+    status(message)
     const cli = path.join(project.root, 'node_modules', '@slidev', 'cli', 'bin', 'slidev.mjs')
     const port = await freePort()
-    await launch([cli, project.entry, '--port', String(port), '--remote', '--bind', '127.0.0.1', '--log', 'info'], project.root)
+    const server = await launch([cli, project.entry, '--port', String(port), '--remote', '--bind', '127.0.0.1', '--log', 'info'], project.root,
+      line => { if (line.trim()) status(message, line.trim()) })
     const origin = `http://127.0.0.1:${port}/`
-    const deadline = Date.now() + 60000
-    while (Date.now() < deadline) {
-      if (!child || child.exitCode !== null) throw new Error(`编辑器已退出，请查看日志：${logPath}`)
-      try {
-        const response = await fetch(origin, { signal: AbortSignal.timeout(1000) })
-        if (response.ok && response.headers.get('Content-Type')?.includes('text/html')) return origin
+    const deadline = Date.now() + 180000
+    const exited = exit.then(code => { throw new Error(`编辑器已退出（${code ?? server.signalCode}），请查看日志：${logPath}`) })
+    exited.catch(() => {})
+    try {
+      while (Date.now() < deadline) {
+        if (child !== server) throw new Error('编辑器启动已取消。')
+        const ready = await Promise.race([
+          exited,
+          fetch(origin, { signal: AbortSignal.timeout(Math.max(1, Math.min(10000, deadline - Date.now()))) })
+            .then(response => response.ok && response.headers.get('Content-Type')?.includes('text/html'))
+            .catch(() => false),
+        ])
+        if (ready) return origin
+        await new Promise(resolve => setTimeout(resolve, 200))
       }
-      catch {}
-      await new Promise(resolve => setTimeout(resolve, 200))
+      throw new Error(`编辑器启动超过 3 分钟，请查看日志：${logPath}`)
     }
-    await stop()
-    throw new Error(`编辑器启动超时，请查看日志：${logPath}`)
+    catch (error) {
+      await stop()
+      throw error
+    }
   }
 
   async function stop() {

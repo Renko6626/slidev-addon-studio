@@ -16,10 +16,10 @@ server; authored content also renders in presentations and static builds.
 
 ## Version and installation
 
-The current fork version is **0.4.0-renko.1**. It includes the current editor,
+The Studio source and desktop host are currently **0.5.1**, with independently maintained versions. The last published npm version is **0.4.0-renko.1**. It includes the current editor,
 component fields and runtime, the bundled human–agent authoring skill and example,
 and native audio/video assets. Publication status and validation are recorded in
-[the release notes](docs/releases/0.4.0-renko.1.md). Existing projects keep their
+[the published release notes](docs/releases/0.4.0-renko.1.md). Local packaging and manual GitHub publication are described in [the desktop guide](desktop/README.md). Existing projects keep their
 installed versions until explicitly upgraded.
 
 To try the current source:
@@ -102,7 +102,7 @@ Linked source files and imported Markdown outside the project must be moved
 inside before export; Studio reports the path rather than silently omitting it.
 New/open/save-copy operations belong to the workspace or desktop application and
 are not supplied by this standalone addon. The companion [Windows desktop preview](desktop/README.md)
-provides these operations through the same File page and native menus. This File page exports editable
+provides these operations through the same File page and native menus. It also supplies manual Studio update checks from the welcome screen and supported File pages. Bundled and downloaded versions use the same local tgz installation; updating one project preserves the others. Light and full desktop packages differ only in the dependency cache they include. This File page exports editable
 projects; PDF, PowerPoint and built presentation exports are not included.
 
 ## Workspace
@@ -116,8 +116,12 @@ projects; PDF, PowerPoint and built presentation exports are not included.
 | Component and asset libraries | Insert existing project content without replacing the filmstrip |
 | Notes and status bar | Speaker notes, current page, view scale and Fit to window |
 
-The canvas fits the space left by the panels. Its display percentage does not
-change the slide's frontmatter `zoom`. The properties pane collapses on narrow
+The canvas initially fits the space left by the panels. Use the status-bar
+percentage or −/+ buttons for 25–300% zoom, or Ctrl/Cmd+wheel over the canvas.
+After zooming, wheel to pan (Shift+wheel horizontally), or drag with the middle
+mouse button. Fit to window restores automatic fitting. Finish text editing
+before changing the view. These controls do not change the slide's frontmatter
+`zoom` or presentation size. The properties pane collapses on narrow
 windows and can be reopened from View.
 
 ## New slides and layouts
@@ -186,6 +190,13 @@ supports alternative text, replacement, and two display modes:
 | --- | --- |
 | Show entire image | Preserves the whole image, with empty space when frame ratios differ |
 | Fill frame | Fills the frame, hiding the excess; adjust horizontal and vertical position to keep the subject visible |
+
+You can also paste a screenshot or an image copied from another application with
+Ctrl/Cmd+V while the canvas is active. Studio saves the clipboard image in the
+project's local assets and inserts a selected, editable picture. Text inputs and
+active text edits keep their normal paste behavior. The clipboard must contain
+image data; a copied image URL alone is not downloaded. If several image files
+are supplied together, the first is inserted.
 
 Replacement keeps position, frame dimensions, rotation, alternative text,
 display mode and image position. Image positioning saves standard CSS
@@ -314,8 +325,8 @@ Studio clipboard format, copy the object again in Studio.
   be dragged across Markdown files.
 - The source remains Markdown. Complex content may require the source editor;
   not every rendered element can be traced to an independently editable block.
-- Permanent grouping, batch resizing/rotation, selection across slides, manual
-  viewport zoom, font installation and interactive crop handles remain future work.
+- Permanent grouping, batch resizing/rotation, selection across slides,
+  font installation and interactive crop handles remain future work.
   Layer ordering is limited to supported objects in the same parent container.
 - Return to flow and source-order controls are temporarily hidden throughout
   the editor. Unpositioned content still offers Free position. Editing context

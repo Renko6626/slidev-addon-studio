@@ -3,6 +3,7 @@ const path = require('node:path')
 const os = require('node:os')
 const { spawn } = require('node:child_process')
 const { createProject } = require('../projects.cjs')
+const { readBundledStudio } = require('../studio-packages.cjs')
 
 /** Collect a fresh Windows-only pnpm store, never the developer's global store. */
 async function prepareOffline({ resources, pnpm }) {
@@ -12,7 +13,7 @@ async function prepareOffline({ resources, pnpm }) {
   await fs.mkdir(bundle, { recursive: true })
   try {
     // No existing offline seed is copied while preparing the new bundle.
-    const project = await createProject(path.join(temporary, 'project'), resources, { platform: 'build' })
+    const project = await createProject(path.join(temporary, 'project'), resources, { platform: 'build', studioPackage: await readBundledStudio(resources) })
     const workspace = 'packages:\n  - .\n'
     await fs.writeFile(path.join(project.root, 'pnpm-workspace.yaml'), `${workspace}supportedArchitectures:\n  os: [win32]\n  cpu: [x64]\n`)
     const run = args => new Promise((resolve, reject) => {

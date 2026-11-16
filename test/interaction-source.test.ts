@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import { parse } from 'yaml'
-import { createInteractionButton, createQuizPage, listQuestions, patchInteraction, readInteraction, remapCopiedInteractions, setButtonAction } from '../client/md/interactions'
+import { addQuizOption, removeQuizOption, createInteractionButton, createQuizPage, listQuestions, patchInteraction, readInteraction, remapCopiedInteractions, setButtonAction } from '../client/md/interactions'
 import { readComponentString, writeComponentString } from '../client/md/component-fields'
 import { readTextContent } from '../client/md/elements'
 import { readDrag } from '../client/md/drag'
@@ -8,6 +8,38 @@ import { readDrag } from '../client/md/drag'
 const text = { title: 'Choose the answer', options: ['A option', 'B option', 'C option', 'D option'], correct: 'Correct!', incorrect: 'Try again.', idle: 'Choose an option.', submit: 'Confirm', clear: 'Clear' }
 const canvas = { width: 960, height: 540 }
 const contentProp = { name: 'contentHtml', control: 'richtext' as const }
+
+it.each(['single', 'multiple'] as const)('adds an option and its working button to a %s question', mode => {
+  const page = createQuizPage(mode, canvas, text)
+  const next = addQuizOption(page.content, [0, 1], canvas, 'New option')
+  expect(listQuestions(next)[0].value.options).toEqual([...listQuestions(page.content)[0].value.options!, { id: 'E', correct: false }])
+  const button = next.trim().split('\n\n').at(-1)!
+  expect(readInteraction(button, [0, 1])).toMatchObject({ question: 'question-1', option: 'E', action: mode === 'single' ? 'choose' : 'set-option' })
+  expect(readComponentString(button, [0, 1], contentProp)).toMatchObject({ value: '<p>New option</p>' })
+  expect(next).toContain(page.content.split('\n\n').slice(1).join('\n\n'))
+})
+
+it('removes only the matching option buttons and keeps the control source range stable', () => {
+  const button = '<StudioButton question="q" action="choose" option="A" />'
+  const other = '<StudioButton question="other" action="choose" option="A" />'
+  const clear = '<StudioButton question="q" action="clear-pending" option="A" />'
+  const control = '<StudioQuestion question="q" :options="[{ id: \'A\', correct: true }, { id: \'B\', correct: false }]" />'
+  const source = [button, control, button.replace('/>', '></StudioButton>'), other, clear].join('\n\n')
+  const next = removeQuizOption(source, [2, 3], 'A')
+  expect(listQuestions(next)[0]).toMatchObject({ range: [2, 3], value: { options: [{ id: 'B', correct: false }] } })
+  expect(next.match(/<StudioButton\b/g)).toHaveLength(2)
+  expect(next).toContain(other)
+  expect(next).toContain(clear)
+  const empty = removeQuizOption(next, [2, 3], 'B')
+  expect(listQuestions(empty)[0].value.options).toEqual([])
+  expect(listQuestions(addQuizOption(empty, [2, 3], canvas, 'New option'))[0].value.options).toEqual([{ id: 'A', correct: false }])
+})
+
+it('leaves dynamic option rules untouched when adding or removing options', () => {
+  const source = '<StudioQuestion question="q" :options="getOptions()" />'
+  expect(addQuizOption(source, [0, 1], canvas, 'Option')).toBe(source)
+  expect(removeQuizOption(source, [0, 1], 'A')).toBe(source)
+})
 
 it.each(['single', 'multiple'] as const)('creates a %s page with rule-only control and independently authored content', mode => {
   const page = createQuizPage(mode, canvas, text)

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { editorOpenFromQuery, fitSlide } from '../client/editor-view'
+import { editorOpenFromQuery, fitSlide, placeSlide } from '../client/editor-view'
 
 describe('editor view', () => {
   it('honours explicit entry modes without discarding the ordinary preference', () => {
@@ -23,5 +23,10 @@ describe('editor view', () => {
   it('keeps an unmeasured workspace finite', () => {
     expect(fitSlide({ left: 0, top: 0, width: 0, height: 0 }, { width: 1600, height: 900 }))
       .toEqual({ left: 0, top: 0, width: 0, height: 0, scale: 0 })
+  })
+
+  it('centres a manually enlarged canvas and applies screen-space panning', () => {
+    expect(placeSlide({ left: 200, top: 120, width: 848, height: 648 }, { width: 1000, height: 600 }, 2, { x: 100, y: -40 }))
+      .toEqual({ left: -276, top: -196, width: 2000, height: 1200, scale: 2 })
   })
 })

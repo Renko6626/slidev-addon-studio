@@ -1,6 +1,7 @@
-export type ProjectHostAction = 'new' | 'open' | 'saveAs' | 'close'
+export type ProjectHostAction = 'new' | 'open' | 'saveAs' | 'close' | 'openFolder' | 'logs'
 export interface ProjectHost {
   perform: (action: ProjectHostAction) => Promise<{ ok: boolean, error?: string }>
+  studioUpdate?: () => Promise<{ ok: boolean, error?: string }>
 }
 
 declare global {

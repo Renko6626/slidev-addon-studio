@@ -5,7 +5,7 @@ import type { ButtonAction } from '../../md/interactions'
 import type { MessageKey } from '../../i18n'
 import { useStudio } from '../../context'
 import { action, t } from '../../i18n'
-import { listQuestions, patchInteraction, readInteraction, setButtonAction } from '../../md/interactions'
+import { addQuizOption, removeQuizOption, listQuestions, patchInteraction, readInteraction, setButtonAction } from '../../md/interactions'
 import { activePanel, busy, editing, inspectorVisible, selection } from '../../state'
 import { imagePending } from '../../composables/useImageInsertion'
 import StudioField from './StudioField.vue'
@@ -52,6 +52,16 @@ async function setController(values: Record<string, string | QuizOption[]>) {
 function correct(id: string, checked: boolean) {
   const question = controller.value?.value
   if (question?.options) return setController({ options: question.options.map(option => ({ ...option, correct: question.mode === 'single' ? option.id === id : option.id === id ? checked : option.correct })) })
+}
+async function addOption() {
+  if (locked.value || !controller.value) return
+  const next = addQuizOption(studio.content(), controller.value.range,
+    { width: studio.canvas.slideWidth.value, height: studio.canvas.slideHeight.value }, t('quizNewOption'))
+  await studio.commit(next, action('actionQuizEdit'))
+}
+async function removeOption(id: string) {
+  if (locked.value || !controller.value) return
+  await studio.commit(removeQuizOption(studio.content(), controller.value.range, id), action('actionQuizEdit'))
 }
 function changeQuestion(id: string) {
   const target = questions.value.find(item => item.value.question === id)?.value
@@ -100,10 +110,12 @@ async function goToControl() {
         <StudioField :label="t('quizType')"><span>{{ t(form.mode === null ? 'quizAdvancedValue' : form.mode === 'multiple' ? 'quizMultiple' : 'quizSingle') }}</span></StudioField>
         <div v-if="form.options && form.mode" class="studio-quiz-options">
           <strong>{{ t('quizOptionsAndAnswers') }}</strong>
-          <label v-for="option in form.options" :key="option.id" class="studio-quiz-option">
+          <div v-for="option in form.options" :key="option.id" class="studio-quiz-option">
             <input :type="form.mode === 'single' ? 'radio' : 'checkbox'" :checked="option.correct" name="studio-quiz-answer" :aria-label="t('quizCorrectOption', { option: option.id })" @change="correct(option.id, ($event.target as HTMLInputElement).checked)">
             <span>{{ option.id }}</span>
-          </label>
+            <button type="button" class="studio-button studio-quiz-option__remove" :aria-label="t('quizRemoveOption', { option: option.id })" @click="removeOption(option.id)">{{ t('delete') }}</button>
+          </div>
+          <button type="button" class="studio-button" @click="addOption">{{ t('quizAddOption') }}</button>
           <p class="studio-hint">{{ t('quizAnswerHint') }}</p>
         </div>
         <p v-else class="studio-hint">{{ t('quizAdvancedHint') }}</p>

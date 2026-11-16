@@ -1,8 +1,10 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
 const path = require('node:path')
 const { pathToFileURL } = require('node:url')
-const { exists, inspectProject, createProject, enableStudio, hasBundledStudio, saveProjectCopy, dependencyPreparation } = require('./projects.cjs')
+const { exists, inspectProject, createProject, enableStudio, readProjectStudio, saveProjectCopy, dependencyPreparation } = require('./projects.cjs')
 const { createRuntime } = require('./runtime.cjs')
+const { createStudioPackageSource } = require('./studio-packages.cjs')
+const { runStudioUpdate } = require('./studio-update.cjs')
 
 let window
 let current = null
@@ -13,6 +15,7 @@ let lastStatus = { message: '选择一个工程开始编辑。', logPath: '' }
 const welcome = pathToFileURL(path.join(__dirname, 'welcome.html')).href
 const resources = app.isPackaged ? path.join(process.resourcesPath, 'studio-resources') : path.join(__dirname, 'studio-resources')
 const pnpm = app.isPackaged ? path.join(process.resourcesPath, 'pnpm/bin/pnpm.cjs') : path.join(__dirname, 'node_modules/pnpm/bin/pnpm.cjs')
+const packages = createStudioPackageSource({ resources, userData: app.getPath('userData') })
 function reportStatus(status) {
   lastStatus = { ...status, working }
   if (window && !window.isDestroyed()) window.webContents.send('studio:status', lastStatus)
@@ -65,11 +68,12 @@ async function chooseProject() {
 }
 
 async function prepareExisting(project) {
-  if (await hasBundledStudio(project, resources)) return { changed: false }
+  if ((await readProjectStudio(project)).configured) return { changed: false }
+  const studio = await packages.local()
   const result = await dialog.showMessageBox(window, {
-    type: 'question', message: '在这个工程中启用应用随附的 Studio？',
-    detail: '将添加 vendor/slidev-addon-studio.tgz，并更新 package.json 中的 Studio 依赖及启用配置。保留现有 Slidev、主题、Vue 版本和文稿；随后使用内置 pnpm 准备依赖。',
-    buttons: ['启用随附 Studio', '保留工程现有环境', '取消'], defaultId: 0, cancelId: 2,
+    type: 'question', message: `在这个工程中启用 Studio ${studio.version}？`,
+    detail: '将添加本机已有的 Studio 包，并更新工程的 Studio 依赖及启用配置。保留现有 Slidev、主题、Vue 版本和文稿；随后使用内置 pnpm 准备依赖。',
+    buttons: ['启用 Studio', '保留工程现有环境', '取消'], defaultId: 0, cancelId: 2,
   })
   if (result.response === 2) return null
   if (result.response === 1) return { changed: false }
@@ -77,7 +81,7 @@ async function prepareExisting(project) {
 }
 
 async function openPrepared(project, { changed = false, enable = false } = {}) {
-  const preparation = await dependencyPreparation(project, resources)
+  let preparation = await dependencyPreparation(project, resources)
   const needsInstall = enable || changed || preparation.needsInstall
   const otherLock = !await exists(path.join(project.root, 'pnpm-lock.yaml'))
     && (await exists(path.join(project.root, 'package-lock.json')) || await exists(path.join(project.root, 'yarn.lock')))
@@ -89,20 +93,33 @@ async function openPrepared(project, { changed = false, enable = false } = {}) {
     })
     if (result.response !== 1) return false
   }
-  if (enable) await enableStudio(project, resources)
+  if (enable) {
+    await enableStudio(project, resources, await packages.local())
+    preparation = await dependencyPreparation(project, resources)
+  }
   await runtime.stop()
   current = null
   await showWelcome('正在准备工程。')
-  if (needsInstall) await runtime.install(project, { changed: changed || await hasBundledStudio(project, resources), importLock: otherLock, offlineStore: preparation.offlineStore })
+  if (needsInstall) await runtime.install(project, { changed: changed || enable, importLock: otherLock, storeDir: preparation.storeDir, offline: preparation.offline })
   if (quitting) return false
   const origin = await runtime.start(project)
   current = { ...project, origin }
-  await window.loadURL(`${origin}1?studio=1`)
+  try { await window.loadURL(`${origin}1?studio=1`) }
+  catch (error) {
+    current = null
+    await runtime.stop()
+    throw new Error(`编辑器页面加载失败：${error.message}。请查看日志：${runtime.logPath}`)
+  }
   window.setTitle(`Slidev Studio — ${path.basename(project.root)}`)
   return true
 }
 
 async function perform(action) {
+  if (action === 'openFolder') {
+    if (!current) return { ok: false, error: '请先打开一个工程。' }
+    const error = await shell.openPath(current.root)
+    return error ? { ok: false, error } : { ok: true }
+  }
   if (action === 'logs') {
     if (runtime.logPath) await shell.openPath(runtime.logPath)
     return { ok: true }
@@ -125,7 +142,7 @@ async function perform(action) {
       const destination = await chooseDestination('新建 Slidev 工程', path.join(app.getPath('documents'), '新的演示'))
       if (!destination) return { ok: false }
       reportStatus({ message: '正在创建工程文件。', logPath: runtime.logPath })
-      project = await createProject(destination, resources)
+      project = await createProject(destination, resources, { studioPackage: await packages.local() })
       settings.changed = true
     }
     else if (action === 'open') {
@@ -162,6 +179,45 @@ async function perform(action) {
   }
 }
 
+async function studioUpdate() {
+  if (working) return { ok: false, error: '正在准备工程，请等待当前操作完成。' }
+  working = true
+  try {
+    const project = current ? await inspectProject(current.entry) : null
+    return await runStudioUpdate({
+      packages, resources, project, save: ensureSaved, status: reportStatus,
+      stop: async () => { await runtime.stop(); current = null },
+      open: updated => openPrepared(updated, { changed: true }),
+      confirm: async info => {
+        if (quitting || window.isDestroyed()) return false
+        const detail = [
+          ...(info.projectName ? [`工程：${info.projectName}`, `当前工程 Studio：${info.currentVersion}`] : []),
+          `本机可用：${info.localVersion}`, `最新发布：${info.latestVersion}`,
+          info.canUpdate ? (project ? `将当前工程更新到 ${info.targetVersion}，保存后重启编辑器。其他工程不变。` : `下载 Studio ${info.targetVersion}，供之后新建工程使用。`) : '当前没有更高版本可更新。',
+        ].join('\n')
+        const result = await dialog.showMessageBox(window, {
+          type: 'info', message: 'Studio 更新', detail,
+          buttons: info.canUpdate ? ['取消', project ? '更新并重启编辑器' : '下载更新'] : ['知道了'], defaultId: 0, cancelId: 0,
+        })
+        return info.canUpdate && result.response === 1
+      },
+    })
+  }
+  catch (error) {
+    if (quitting || window.isDestroyed()) return { ok: false }
+    const message = error instanceof Error ? error.message : String(error)
+    await dialog.showMessageBox(window, { type: 'error', message: 'Studio 更新未完成', detail: `${message}\n运行日志：${runtime.logPath || '尚未启动工程'}`, buttons: ['知道了'] })
+    if (!current) await showWelcome(message)
+    else reportStatus({ message })
+    return { ok: false, error: message }
+  }
+  finally {
+    working = false
+    lastStatus.working = false
+    if (window && !window.isDestroyed()) window.webContents.send('studio:status', lastStatus)
+  }
+}
+
 async function quit() {
   if (quitting) return
   if (working) {
@@ -178,6 +234,8 @@ async function quit() {
 app.whenReady().then(async () => {
   window = new BrowserWindow({
     width: 1440, height: 920, minWidth: 800, minHeight: 600, title: 'Slidev Studio', backgroundColor: '#202229',
+    titleBarStyle: 'hidden',
+    titleBarOverlay: { color: '#17181c', symbolColor: '#e6e7ea', height: 44 },
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true },
   })
   window.webContents.on('did-finish-load', () => window.webContents.send('studio:status', { ...lastStatus, working }))
@@ -197,13 +255,21 @@ app.whenReady().then(async () => {
       throw new Error('工程操作只允许从主窗口发起。')
     return perform(action)
   })
-  const command = (label, action, accelerator) => ({ label, accelerator, click: () => { void perform(action) } })
-  Menu.setApplicationMenu(Menu.buildFromTemplate([
-    { label: '文件', submenu: [command('新建工程', 'new', 'Ctrl+N'), command('打开工程', 'open', 'Ctrl+O'), { type: 'separator' }, command('保存', 'save'), command('另存为', 'saveAs', 'Ctrl+Shift+S'), command('关闭工程', 'close'), { type: 'separator' }, { label: '退出', accelerator: 'Alt+F4', click: () => { void quit() } }] },
-    // Studio/Tiptap own undo shortcuts; native undo roles would intercept them.
-    { label: '编辑', submenu: [{ role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
-    { label: '帮助', submenu: [command('打开运行日志', 'logs'), { role: 'toggleDevTools', label: '开发者工具' }] },
-  ]))
+  ipcMain.handle('studio:updates', event => {
+    if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame)
+      throw new Error('Studio 更新只允许从主窗口发起。')
+    return studioUpdate()
+  })
+  Menu.setApplicationMenu(null)
+  window.webContents.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown' || input.alt || !(input.control || input.meta)) return
+    const key = input.key.toLowerCase()
+    const action = !input.shift && key === 'n' ? 'new' : !input.shift && key === 'o' ? 'open'
+      : input.shift && key === 's' ? 'saveAs' : null
+    if (action) { event.preventDefault(); void perform(action) }
+    else if (input.shift && key === 'i') { event.preventDefault(); window.webContents.toggleDevTools() }
+    // Studio/Tiptap and Chromium keep save, undo and text editing shortcuts.
+  })
   await showWelcome()
 })
 app.on('window-all-closed', () => app.quit())

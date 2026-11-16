@@ -1,10 +1,10 @@
 const fs = require('node:fs/promises')
 const path = require('node:path')
-const crypto = require('node:crypto')
 const JSZip = require('jszip')
+const { STUDIO_PACKAGE, packageIntegrity, readBundledStudio, compareStudioVersions } = require('./studio-packages.cjs')
 
 const ADDON = 'slidev-addon-studio'
-const ARCHIVE = 'vendor/slidev-addon-studio.tgz'
+const archivePath = version => `vendor/slidev-addon-studio-${version}.tgz`
 const BASE_DEPENDENCIES = {
   '@slidev/cli': '52.19.0', '@slidev/theme-default': '0.25.0', vue: '3.5.41',
   // The CLI's Markdown plugins currently import markdown-it 14 internals.
@@ -40,14 +40,32 @@ async function emptyDirectory(directory) {
 
 async function hasBundledStudio(project, resources) {
   const deps = { ...project.manifest.devDependencies, ...project.manifest.dependencies }
-  if (deps[ADDON] !== `file:${ARCHIVE}` || !project.manifest.slidev?.addons?.includes(ADDON)) return false
-  const target = path.join(project.root, ARCHIVE)
+  const source = deps[ADDON]
+  if (typeof source !== 'string' || !/^file:vendor\/slidev-addon-studio(?:-\d+\.\d+\.\d+)?\.tgz$/.test(source) || !project.manifest.slidev?.addons?.includes(ADDON)) return false
+  const target = path.join(project.root, source.slice(5))
   if (!await exists(target)) return false
-  const hash = data => crypto.createHash('sha256').update(data).digest('hex')
-  return hash(await fs.readFile(target)) === hash(await fs.readFile(path.join(resources, 'slidev-addon-studio.tgz')))
+  return packageIntegrity(await fs.readFile(target)) === (await readBundledStudio(resources)).integrity
 }
 
-async function enableStudio(project, resources) {
+async function readProjectStudio(project) {
+  const deps = { ...project.manifest.devDependencies, ...project.manifest.dependencies }
+  const source = deps[ADDON]
+  const configured = typeof source === 'string' && !!project.manifest.slidev?.addons?.includes(ADDON)
+  const managed = configured && /^file:vendor\/slidev-addon-studio(?:-\d+\.\d+\.\d+)?\.tgz$/.test(source)
+  let installedVersion = null
+  const installed = path.join(project.root, 'node_modules/slidev-addon-studio/package.json')
+  if (await exists(installed)) installedVersion = JSON.parse(await fs.readFile(installed, 'utf8')).version ?? null
+  const expectedVersion = managed ? source.match(/-(\d+\.\d+\.\d+)\.tgz$/)?.[1] ?? null : null
+  return { installedVersion, expectedVersion, configured, managed }
+}
+
+async function enableStudio(project, resources, studioPackage) {
+  studioPackage ??= await readBundledStudio(resources)
+  if (studioPackage.name !== STUDIO_PACKAGE) throw new Error('Studio 包名称不匹配。')
+  compareStudioVersions(studioPackage.version, studioPackage.version)
+  const bytes = await fs.readFile(studioPackage.archive)
+  if (packageIntegrity(bytes) !== studioPackage.integrity) throw new Error('Studio 本地包校验失败。')
+  const archive = archivePath(studioPackage.version)
   const manifest = structuredClone(project.manifest)
   manifest.devDependencies ??= {}
   const deps = { ...manifest.devDependencies, ...manifest.dependencies }
@@ -58,7 +76,7 @@ async function enableStudio(project, resources) {
       if (!deps[name]) manifest.devDependencies[name] = version
   }
   const group = manifest.dependencies?.[ADDON] ? manifest.dependencies : manifest.devDependencies
-  group[ADDON] = `file:${ARCHIVE}`
+  group[ADDON] = `file:${archive}`
   manifest.slidev ??= {}
   if (typeof manifest.slidev !== 'object' || Array.isArray(manifest.slidev))
     throw new Error('package.json 的 slidev 配置需要是一个对象，请先修正后重新打开。')
@@ -66,7 +84,7 @@ async function enableStudio(project, resources) {
   if (!Array.isArray(addons)) throw new Error('package.json 中的 slidev.addons 需要是数组。')
   manifest.slidev.addons = [...new Set([...addons, ADDON])]
   await fs.mkdir(path.join(project.root, 'vendor'), { recursive: true })
-  await fs.copyFile(path.join(resources, 'slidev-addon-studio.tgz'), path.join(project.root, ARCHIVE))
+  await fs.writeFile(path.join(project.root, archive), bytes)
   await fs.writeFile(path.join(project.root, 'package.json'), `${JSON.stringify(manifest, null, 2)}\n`)
   project.manifest = manifest
 }
@@ -75,22 +93,24 @@ async function createProject(directory, resources, target = {}) {
   directory = path.resolve(directory)
   await emptyDirectory(directory)
   await fs.cp(path.join(resources, 'template'), directory, { recursive: true })
-  const manifest = standardManifest()
+  const studioPackage = target.studioPackage ?? await readBundledStudio(resources)
+  const manifest = standardManifest(studioPackage.version)
   const project = { root: directory, entry: path.join(directory, 'slides.md'), manifest }
-  await enableStudio(project, resources)
+  await enableStudio(project, resources, studioPackage)
   const bundle = offlineDirectory(resources, target)
-  if (bundle && await exists(path.join(bundle, 'pnpm-lock.yaml'))) {
+  if (bundle && await exists(path.join(bundle, 'pnpm-lock.yaml')) && await hasBundledStudio(project, resources)) {
     for (const name of ['pnpm-lock.yaml', 'pnpm-workspace.yaml'])
       await fs.copyFile(path.join(bundle, name), path.join(directory, name))
   }
   return project
 }
 
-function standardManifest() {
+function standardManifest(version) {
   return {
     name: 'studio-presentation', private: true, type: 'module', packageManager: 'pnpm@10.33.0',
     scripts: { dev: 'slidev slides.md', build: 'slidev build slides.md' },
-    devDependencies: { ...BASE_DEPENDENCIES, pinia: '3.0.4' },
+    devDependencies: { ...BASE_DEPENDENCIES, pinia: '3.0.4', [ADDON]: `file:${archivePath(version)}` },
+    slidev: { addons: [ADDON] },
   }
 }
 
@@ -105,24 +125,36 @@ async function sameFile(left, right) {
 
 /** Recognize only the shipped baseline; custom projects retain their own environment. */
 async function dependencyPreparation(project, resources, target = {}) {
-  const managed = await hasBundledStudio(project, resources)
+  const studio = await readProjectStudio(project)
   const cli = path.join(project.root, 'node_modules/@slidev/cli/bin/slidev.mjs')
-  const ordinary = { needsInstall: managed || !await exists(cli) }
-  const bundle = offlineDirectory(resources, target)
-  if (!managed || !bundle || !await exists(path.join(bundle, 'store')) || !await exists(path.join(bundle, 'package.json'))) return ordinary
-  const baseline = JSON.parse(await fs.readFile(path.join(bundle, 'package.json'), 'utf8'))
+  const candidate = offlineDirectory(resources, target)
+  const bundle = candidate && await exists(path.join(candidate, 'store')) && await exists(path.join(candidate, 'package.json')) ? candidate : null
+  const store = bundle ? { storeDir: path.join(bundle, 'store') } : {}
+  const ordinary = { needsInstall: true, ...store, offline: false }
+  const runtimePresent = await exists(cli) && (!studio.configured || studio.installedVersion && await exists(path.join(project.root, 'node_modules/slidev-addon-studio/runtime/index.ts')))
+  if (!studio.managed) return { ...ordinary, needsInstall: !runtimePresent }
+  const deps = { ...project.manifest.devDependencies, ...project.manifest.dependencies }
+  if (!await exists(path.join(project.root, deps[ADDON].slice(5)))) return ordinary
+  const expectedVersion = studio.expectedVersion ?? studio.installedVersion ?? (await readBundledStudio(resources)).version
+  const baseline = standardManifest(expectedVersion)
+  baseline.devDependencies[ADDON] = deps[ADDON]
   const ordered = value => Object.entries(value ?? {}).sort(([a], [b]) => a.localeCompare(b))
   for (const field of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies', 'pnpm', 'scripts'])
     if (JSON.stringify(ordered(project.manifest[field])) !== JSON.stringify(ordered(baseline[field]))) return ordinary
   if (project.manifest.packageManager !== baseline.packageManager) return ordinary
   for (const name of ['.pnpmfile.cjs', '.pnpmfile.mjs'])
     if (await exists(path.join(project.root, name))) return ordinary
-  for (const name of ['pnpm-lock.yaml', 'pnpm-workspace.yaml'])
-    if (!await sameFile(path.join(project.root, name), path.join(bundle, name))) return ordinary
-  const prepared = await exists(cli)
-    && await exists(path.join(project.root, 'node_modules/slidev-addon-studio/runtime/index.ts'))
+  let offline = false
+  if (bundle && await hasBundledStudio(project, resources)) {
+    const bundledManifest = JSON.parse(await fs.readFile(path.join(bundle, 'package.json'), 'utf8'))
+    offline = JSON.stringify(ordered(project.manifest.devDependencies)) === JSON.stringify(ordered(bundledManifest.devDependencies))
+      && await sameFile(path.join(project.root, 'pnpm-lock.yaml'), path.join(bundle, 'pnpm-lock.yaml'))
+      && await sameFile(path.join(project.root, 'pnpm-workspace.yaml'), path.join(bundle, 'pnpm-workspace.yaml'))
+  }
+  const prepared = runtimePresent
+    && studio.installedVersion === expectedVersion
     && await sameFile(path.join(project.root, 'pnpm-lock.yaml'), path.join(project.root, 'node_modules/.pnpm/lock.yaml'))
-  return { needsInstall: !prepared, offlineStore: path.join(bundle, 'store') }
+  return { needsInstall: !prepared, ...store, offline }
 }
 
 async function saveProjectCopy(data, destination, sourceRoot) {
@@ -150,4 +182,4 @@ async function saveProjectCopy(data, destination, sourceRoot) {
   }
 }
 
-module.exports = { exists, inspectProject, createProject, enableStudio, hasBundledStudio, saveProjectCopy, standardManifest, dependencyPreparation }
+module.exports = { exists, inspectProject, createProject, enableStudio, hasBundledStudio, readProjectStudio, saveProjectCopy, standardManifest, dependencyPreparation }

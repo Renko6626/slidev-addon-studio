@@ -2,7 +2,7 @@ import type { QuestionPresentation, QuizMode, QuizOption, QuizSignal } from '../
 import type { SourceRange } from '../types'
 import { createTextElement } from './elements'
 import { formatPos } from './drag'
-import { getBlock, replaceBlock } from './lines'
+import { append, getBlock, replaceBlock } from './lines'
 import { parseObjectArray } from './literals'
 import { findAttr, opensWithTag, parseAttrs, sameAttr, writeAttr } from './tags'
 
@@ -172,6 +172,45 @@ export function patchInteraction(content: string, range: SourceRange, patch: Rec
     block = writeValue(block, current.kind === 'content' && name === 'question' && findAttr(block, 'data-studio-question-ref') ? 'data-studio-question-ref' : name, value)
   }
   return replaceBlock(content, range, block)
+}
+
+/** Structural edits own both the rule list and its standard option buttons. */
+export function addQuizOption(content: string, range: SourceRange, canvas: { width: number, height: number }, label: string): string {
+  const question = readInteraction(content, range)
+  if (question?.kind !== 'question' || !question.question || !question.mode || !question.options
+    || !findQuestion(content, question.question)) return content
+  const used = new Set(question.options.map(option => option.id))
+  let id = '', number = 0
+  do {
+    id = ''
+    for (let value = ++number; value > 0; value = Math.floor((value - 1) / 26))
+      id = String.fromCharCode(65 + (value - 1) % 26) + id
+  } while (used.has(id))
+  const options = [...question.options, { id, correct: false }]
+  const next = replaceBlock(content, range, writeValue(getBlock(content, range), 'options', options))
+  let button = createInteractionButton(next, canvas, label, question.question)!
+  button = writeValue(button, 'option', id)
+  button = writeAttr(button, 'v-drag', formatPos({ x: canvas.width * 0.3, y: canvas.height * 0.4, w: canvas.width * 0.4, h: canvas.height * 0.14, rotate: 0 }, 'attr'))
+  return append(next, button)
+}
+
+export function removeQuizOption(content: string, range: SourceRange, id: string): string {
+  const question = readInteraction(content, range)
+  if (question?.kind !== 'question' || !question.question || !question.mode || !question.options?.some(option => option.id === id)
+    || !findQuestion(content, question.question)) return content
+  let next = replaceBlock(content, range, writeValue(getBlock(content, range), 'options', question.options.filter(option => option.id !== id)))
+  const buttons = interactionTags(next).filter(item => item.tag === 'StudioButton'
+    && stringValue(item.block, 'question') === question.question && stringValue(item.block, 'option') === id
+    && ['choose', 'set-option'].includes(stringValue(item.block, 'action') ?? ''))
+  for (const button of buttons.reverse()) {
+    const close = opensWithTag(button.block)!.selfClosing ? null : next.slice(button.end).match(/^\s*<\/StudioButton\s*>/)
+    if (!opensWithTag(button.block)!.selfClosing && !close) continue
+    const end = button.end + (close?.[0].length ?? 0)
+    // Keep line numbers stable so the selected control stays selected, even
+    // when its buttons appeared earlier in the source.
+    next = next.slice(0, button.start) + next.slice(button.start, end).replace(/[^\r\n]/g, '') + next.slice(end)
+  }
+  return next
 }
 
 /** Actions change the binding, while the button keeps its authored content. */

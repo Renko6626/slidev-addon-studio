@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="welcome.css">
 </head>
 <body>
+  <header class="desktop-titlebar">Slidev Studio</header>
   <main>
     <div class="slide-mark" aria-hidden="true"><span></span><span></span><span></span></div>
     <h1>Slidev Studio</h1>
@@ -21,7 +22,8 @@
       <div id="progress-bar" role="progressbar" aria-label="工程准备进度" hidden><span></span></div>
       <p id="detail" hidden></p>
     </section>
-    <p class="note">文稿保存在你选择的文件夹中。首次准备依赖需要联网。</p>
+    <p class="note">文稿保存在你选择的文件夹中。轻量版首次安装缺少的依赖时需要联网，完整版随附标准工程依赖。</p>
+    <button class="logs" data-action="studioUpdate">检查 Studio 更新</button>
     <button class="logs" data-action="logs">查看运行日志</button>
   </main>
   <script src="welcome.js"></script>

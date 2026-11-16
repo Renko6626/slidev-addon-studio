@@ -6,7 +6,49 @@ import { afterEach, expect, it } from 'vitest'
 
 const { nodeEnvironment, createRuntime } = createRequire(import.meta.url)('../desktop/runtime.cjs')
 const roots: string[] = []
-afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))) })
+const runtimes: ReturnType<typeof createRuntime>[] = []
+afterEach(async () => {
+  await Promise.all(runtimes.splice(0).map(runtime => runtime.stop()))
+  await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true })))
+})
+
+it('accepts a healthy editor whose initial HTML response takes more than one second', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'studio-slow-start-'))
+  roots.push(root)
+  const bin = join(root, 'node_modules/@slidev/cli/bin')
+  await mkdir(bin, { recursive: true })
+  await writeFile(join(bin, 'slidev.mjs'), `import http from 'node:http'
+const port = Number(process.argv[process.argv.indexOf('--port') + 1])
+http.createServer((_req, res) => setTimeout(() => {
+  res.writeHead(200, { 'Content-Type': 'text/html' }); res.end('<html>Ready</html>')
+}, 1300)).listen(port, '127.0.0.1')`)
+  const runtime = createRuntime({ executable: process.execPath, pnpm: '', userData: join(root, 'data') })
+  runtimes.push(runtime)
+  let timer: ReturnType<typeof setTimeout>
+  try {
+    const origin = await Promise.race([
+      runtime.start({ root, entry: join(root, 'slides.md') }),
+      new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error('Healthy slow editor was not accepted')), 4500) }),
+    ])
+    expect(origin).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/)
+  }
+  finally { clearTimeout(timer!) }
+}, 10000)
+
+it('reports editor process errors immediately instead of waiting for startup timeout', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'studio-failed-start-'))
+  roots.push(root)
+  const runtime = createRuntime({ executable: join(root, 'missing-node'), pnpm: '', userData: join(root, 'data') })
+  runtimes.push(runtime)
+  let timer: ReturnType<typeof setTimeout>
+  try {
+    await expect(Promise.race([
+      runtime.start({ root, entry: join(root, 'slides.md') }),
+      new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error('Spawn failure was not reported')), 1500) }),
+    ])).rejects.toThrow('ENOENT')
+  }
+  finally { clearTimeout(timer!) }
+})
 
 it('creates a Windows node command bridge to the application exe without shipping another runtime', async () => {
   const root = await mkdtemp(join(tmpdir(), 'studio-node-bridge-'))

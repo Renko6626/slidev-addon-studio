@@ -16,8 +16,8 @@ import { studioContext, studioKey } from '../context'
 import { activePanel, busy, dockWidth, editing, inspectorVisible, lastError, notesVisible, ribbonTab, selection, selectedTargets, slidesVisible, studioOpen } from '../state'
 import { imagePending } from '../composables/useImageInsertion'
 import { projectSaveStatus, projectWriteError, saveProject } from '../project-save'
-import '../project-host'
-import { fitSlide } from '../editor-view'
+import { projectHost } from '../project-host'
+import { fitSlide, placeSlide } from '../editor-view'
 import { t } from '../i18n'
 import { useEditorMode } from '../composables/useEditorMode'
 import { useObjectClipboard } from '../composables/useObjectClipboard'
@@ -43,6 +43,7 @@ import '../../styles/studio.css'
  * ending up in an exported slide.
  */
 const nav = useNav()
+const desktop = !!projectHost()
 const no = computed(() => nav.currentSlideNo.value)
 
 const source = useSlideSource(no)
@@ -213,7 +214,62 @@ const mode = useEditorMode()
 const viewport = useWindowSize()
 const stage = ref<HTMLElement | null>(null)
 const bounds = useElementBounding(stage)
-const fitted = computed(() => fitSlide({ left: bounds.left.value, top: bounds.top.value, width: bounds.width.value, height: bounds.height.value }, { width: slideWidth.value, height: slideHeight.value }))
+const zoom = ref<number | null>(null)
+const pan = ref({ x: 0, y: 0 })
+const area = computed(() => ({ left: bounds.left.value, top: bounds.top.value, width: bounds.width.value, height: bounds.height.value }))
+const slideSize = computed(() => ({ width: slideWidth.value, height: slideHeight.value }))
+const fitted = computed(() => zoom.value === null ? fitSlide(area.value, slideSize.value) : placeSlide(area.value, slideSize.value, zoom.value, pan.value))
+function fitView() {
+  zoom.value = null
+  pan.value = { x: 0, y: 0 }
+  bounds.update()
+}
+function setZoom(value: number, anchor = { x: area.value.left + area.value.width / 2, y: area.value.top + area.value.height / 2 }) {
+  if (!Number.isFinite(value) || editing.value) return
+  const scale = Math.max(0.25, Math.min(3, value))
+  const previous = fitted.value
+  const next = placeSlide(area.value, slideSize.value, scale)
+  const ratio = previous.scale ? scale / previous.scale : 1
+  pan.value = { x: anchor.x - (anchor.x - previous.left) * ratio - next.left, y: anchor.y - (anchor.y - previous.top) * ratio - next.top }
+  zoom.value = scale
+}
+function overCanvas(event: MouseEvent) {
+  if (!studioOpen.value || ribbonTab.value === 'file' || editing.value) return false
+  if (event.target instanceof Element && event.target.closest('.studio-library, input, textarea, select, [contenteditable="true"]')) return false
+  return event.clientX >= bounds.left.value && event.clientX < bounds.right.value
+    && event.clientY >= bounds.top.value && event.clientY < bounds.bottom.value
+}
+onDomEvent<WheelEvent>(document, 'wheel', event => {
+  if (!overCanvas(event)) return
+  if (event.ctrlKey || event.metaKey) {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    setZoom(fitted.value.scale * Math.exp(-event.deltaY * 0.002), { x: event.clientX, y: event.clientY })
+  }
+  else if (zoom.value !== null) {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    const unit = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? area.value.height : 1
+    pan.value = { x: pan.value.x - (event.shiftKey ? event.deltaY : event.deltaX) * unit, y: pan.value.y - (event.shiftKey ? 0 : event.deltaY) * unit }
+  }
+}, { capture: true, passive: false })
+let panStart: { x: number, y: number, offset: { x: number, y: number } } | null = null
+onDomEvent<PointerEvent>(document, 'pointerdown', event => {
+  if (event.button !== 1 || !overCanvas(event)) return
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  zoom.value ??= fitted.value.scale
+  panStart = { x: event.clientX, y: event.clientY, offset: { ...pan.value } }
+}, { capture: true })
+onDomEvent<PointerEvent>(document, 'pointermove', event => {
+  if (!panStart) return
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  pan.value = { x: panStart.offset.x + event.clientX - panStart.x, y: panStart.offset.y + event.clientY - panStart.y }
+}, { capture: true })
+onDomEvent(document, 'pointerup', () => { panStart = null })
+onDomEvent(document, 'pointercancel', () => { panStart = null })
+onDomEvent(window, 'blur', () => { panStart = null })
 const shellStyle = computed(() => ({
   '--studio-left-width': slidesVisible.value && viewport.width.value >= 700 ? '224px' : '0px',
   '--studio-right-width': inspectorVisible.value && viewport.width.value >= 1000 ? `${dockWidth.value}px` : '0px',
@@ -243,10 +299,13 @@ onScopeDispose(resetView)
 <template>
   <Teleport to="body">
     <div class="slidev-studio">
+      <div v-if="desktop && !studioOpen && !mode.isFullscreen.value" class="studio-desktop-preview-titlebar">
+        <div class="studio-titlebar studio-titlebar--desktop">Slidev Studio</div>
+      </div>
       <template v-if="studioOpen">
         <div class="studio-backdrop" />
         <div class="studio-workspace" :style="shellStyle">
-          <StudioToolbar @preview="mode.preview" @present="mode.present" @fit="bounds.update()" />
+          <StudioToolbar @preview="mode.preview" @present="mode.present" @fit="fitView" />
           <StudioFile v-if="ribbonTab === 'file'" />
           <aside v-if="slidesVisible" v-show="ribbonTab !== 'file'" class="studio-navigation"><PanelSlides /></aside>
           <main v-show="ribbonTab !== 'file'" class="studio-center">
@@ -259,13 +318,17 @@ onScopeDispose(resetView)
             <span role="status" :class="{ 'studio-file-error': projectWriteError }">{{ t(projectSaveStatus(editing || !!notesEditor?.dirty)) }}</span>
             <span class="studio-statusbar__spacer" />
             <button :aria-pressed="notesVisible" @click="notesVisible = !notesVisible">{{ t('presenterNotes') }}</button>
-            <span>{{ Math.round(fitted.scale * 100) }}%</span>
-            <button class="studio-statusbar__fit" @click="bounds.update()"><StudioIcon name="fit" :size="14" />{{ t('fitWindow') }}</button>
+            <div class="studio-zoom" :title="t('canvasNavigationHint')">
+              <button :disabled="editing || fitted.scale <= 0.25" :title="t('zoomOut')" :aria-label="t('zoomOut')" @click="setZoom(fitted.scale - 0.1)">−</button>
+              <label><input type="number" min="25" max="300" step="10" :disabled="editing" :aria-label="t('viewZoom')" :value="Math.round(fitted.scale * 100)" @change="setZoom(Number(($event.target as HTMLInputElement).value) / 100)">%</label>
+              <button :disabled="editing || fitted.scale >= 3" :title="t('zoomIn')" :aria-label="t('zoomIn')" @click="setZoom(fitted.scale + 0.1)">+</button>
+            </div>
+            <button class="studio-statusbar__fit" :disabled="editing" :aria-pressed="zoom === null" @click="fitView"><StudioIcon name="fit" :size="14" />{{ t('fitWindow') }}</button>
           </footer>
         </div>
         <QuestionRelations v-if="ribbonTab !== 'file'" />
         <SelectionLayer v-if="ribbonTab !== 'file'" />
-        <ShapeDrawingLayer v-if="ribbonTab !== 'file'" />
+        <ShapeDrawingLayer v-if="ribbonTab !== 'file'" :viewport="area" />
         <InlineEditor ref="inlineEditor" />
         <StudioLibrary v-if="ribbonTab !== 'file'" />
       </template>
