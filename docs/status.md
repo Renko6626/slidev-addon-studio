@@ -2,6 +2,10 @@
 
 ## 当前源码：人机协同制作与原生素材，2026-11-16
 
+发布结果：源码 `10a1f40` 与 `v0.4.0-renko.1` 标签已推送；npm latest 已确认是 `0.4.0-renko.1`，公开注册库 SHA-512 与验证过的 tgz 完全相同。发布命令曾返回 202，等待注册库版本实际可查询后才确认完成。GitHub Actions 未产生本轮运行，故使用已登录的本机 npm 完成授权发布；未修改工作流。
+
+Windows 0.2.0 ZIP 已打包并核对内含 addon、skill、样例及模板，位于 `../release/studio-human-agent-media-2026-11-16/`；没有 Windows 实机验收。
+
 版本为 `0.4.0-renko.1`。随包增加 studio-authoring skill、公开 API 的完整样例及音视频素材；agent 指南与桌面 AGENTS 明确人机协同的编辑交接。StudioMedia 沿用现有 runtime 控制播放资格，素材支持与限制见 [素材说明](custom-code/media.md)，升级说明见 [发布记录](releases/0.4.0-renko.1.md)。
 
 验证：
