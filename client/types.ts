@@ -1,3 +1,7 @@
+import type { ComponentEntry, LayoutEntry } from '../shared/catalog'
+
+export type { PropControl, PropField, PropMeta, PropOption } from '../shared/catalog'
+
 /** A line range inside a slide's Markdown content: `[start, end)`, zero-based. */
 export type SourceRange = [start: number, end: number]
 
@@ -64,54 +68,13 @@ export interface ClickConfig {
   motion?: string
 }
 
-export interface PropOption {
-  value: string
-  /** Thumbnail URL, when the options are backed by image files. */
-  preview?: string
-}
-
-export type PropControl = 'text' | 'number' | 'boolean' | 'select' | 'list' | 'color' | 'color[]' | 'object[]'
-
-export interface PropField {
-  name: string
-  type?: string
-}
-
-export interface PropMeta {
-  name: string
-  type?: string
-  /** For an array of records, the fields each row holds. */
-  fields?: PropField[]
-  required?: boolean
-  default?: string
-  label?: string
-  control?: PropControl
-  options?: PropOption[]
-  hidden?: boolean
-}
-
-export interface CatalogComponent {
-  name: string
-  file: string
-  source: 'builtin' | 'theme' | 'addon' | 'project'
-  origin: string
-  description?: string
-  category?: string
-  snippet: string
-  preview: string
-  props: PropMeta[]
-  previewable: boolean
+/** Catalog data with the browser-only component loader. */
+export interface CatalogComponent extends ComponentEntry {
   load?: () => Promise<any>
 }
 
-export interface CatalogLayout {
-  name: string
-  file: string
-  source: CatalogComponent['source']
-  origin: string
-  description?: string
-  /** Frontmatter keys this layout reads, editable as a form. */
-  props: PropMeta[]
+/** Catalog data with the browser-only layout loader. */
+export interface CatalogLayout extends LayoutEntry {
   load?: () => Promise<any>
 }
 

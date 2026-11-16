@@ -113,7 +113,10 @@ addon source merge.
 | Area | Files |
 | --- | --- |
 | Workspace, ribbon and panes | `client/ui/StudioRoot.vue`, `StudioToolbar.vue`, `StudioDock.vue`, `StudioLibrary.vue`, `StudioNotes.vue` |
-| Selection and transforms | `client/composables/useSelection.ts`, `useSlideCanvas.ts`, `useTransformGizmo.ts` |
+| Selection events and target lookup | `client/composables/useSelection.ts`, `client/selection-target.ts` |
+| Selection rebinding after source changes | `client/composables/useSelectionRebind.ts` |
+| Canvas and transforms | `client/composables/useSlideCanvas.ts`, `useTransformGizmo.ts` |
+| Shared catalog types and HTML scanning | `shared/catalog.ts`, `shared/html-scan.ts`; client catalog types add browser-only loaders |
 | Text boxes and pictures | `client/md/elements.ts`, `useElementProperties.ts`, `useImageInsertion.ts`, element field components |
 | Object clipboard | `client/md/clipboard.ts`, `client/composables/useObjectClipboard.ts` |
 | Source writes and history | `client/composables/useSlideSource.ts`, `client/actions.ts` |

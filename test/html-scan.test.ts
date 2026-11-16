@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { scanTags } from '../node/html-scan'
+import { scanTags } from '../shared/html-scan'
 
 describe('scanTags', () => {
   it('finds every tag in a block, each on its own line', () => {

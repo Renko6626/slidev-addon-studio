@@ -1,3 +1,4 @@
+import type { PropControl, PropOption } from '../shared/catalog'
 import { readdir } from 'node:fs/promises'
 import { dirname, extname, join, resolve } from 'node:path'
 import YAML from 'yaml'
@@ -15,41 +16,7 @@ import YAML from 'yaml'
  * 3. The props themselves, as a last resort.
  */
 
-export interface PropOption {
-  value: string
-  /** URL of a thumbnail, when the options are backed by image files. */
-  preview?: string
-}
-
-/**
- * The control the inspector should use.
- *
- * Most are inferred from the prop's type. `color` and `color[]` are not, since
- * nothing in `string` says the string is a colour, so an author declares those.
- */
-export type PropControl = 'text' | 'number' | 'boolean' | 'select' | 'list' | 'color' | 'color[]' | 'object[]'
-
-export interface PropField {
-  name: string
-  type?: string
-}
-
-export interface PropMeta {
-  name: string
-  type?: string
-  /** For an array of records, the fields each row holds. */
-  fields?: PropField[]
-  required?: boolean
-  default?: string
-  /** Human label for the inspector; defaults to the prop name. */
-  label?: string
-  control?: PropControl
-  options?: PropOption[]
-  /** Write as `:prop="…"` rather than `prop="…"`. */
-  bind?: boolean
-  /** Keep this prop out of the inspector. */
-  hidden?: boolean
-}
+export type { PropControl, PropField, PropMeta, PropOption } from '../shared/catalog'
 
 export interface StudioMeta {
   description?: string

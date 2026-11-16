@@ -1,49 +1,11 @@
 import type { ResolvedSlidevOptions } from '@slidev/types'
-import type { PropField, PropMeta, PropOption } from './metadata'
+import type { Catalog, ComponentEntry, ComponentSource, LayoutEntry, PropField, PropMeta, PropOption } from '../shared/catalog'
 import { readdir, readFile } from 'node:fs/promises'
 import { basename, extname, join, relative, resolve, sep } from 'node:path'
 import { BUILTIN_META } from './builtin-meta'
 import { parseStudioBlock, parseUsageExample, resolveOptions } from './metadata'
 
-export type { PropControl, PropField, PropMeta, PropOption } from './metadata'
-
-export type ComponentSource = 'builtin' | 'theme' | 'addon' | 'project'
-
-export interface ComponentEntry {
-  name: string
-  file: string
-  source: ComponentSource
-  /** Directory or package the component came from, used to group the palette. */
-  origin: string
-  description?: string
-  category?: string
-  /** Markup inserted into the slide when the component is picked. */
-  snippet: string
-  /** Markup rendered in the palette thumbnail. Empty when it cannot be shown. */
-  preview: string
-  props: PropMeta[]
-  previewable: boolean
-}
-
-export interface LayoutEntry {
-  name: string
-  file: string
-  source: ComponentSource
-  origin: string
-  description?: string
-  /**
-   * A layout's props are supplied by the slide's frontmatter, so these are the
-   * frontmatter keys that layout understands. For a slide like `layout: fact`,
-   * whose whole text lives in `value` and `label`, this is the only way to edit
-   * it: nothing on screen came through Markdown.
-   */
-  props: PropMeta[]
-}
-
-export interface Catalog {
-  components: ComponentEntry[]
-  layouts: LayoutEntry[]
-}
+export type { Catalog, ComponentEntry, ComponentSource, LayoutEntry, PropControl, PropField, PropMeta, PropOption } from '../shared/catalog'
 
 const COMPONENT_EXTENSIONS = new Set(['.vue', '.ts', '.js', '.tsx', '.jsx'])
 

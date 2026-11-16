@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, onScopeDispose, shallowRef, watch } from 'vue'
 import { useStudio } from '../../context'
 import { mappedElements } from '../../dom'
-import { describeTarget } from '../../composables/useSelection'
+import { describeTarget } from '../../selection-target'
 import { action, t, targetLabel } from '../../i18n'
 import { canMoveLayer, objectLayers, reorderLayers } from '../../layers'
 import type { LayerMove, StudioLayer } from '../../layers'

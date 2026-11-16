@@ -3,7 +3,7 @@ import { positionedUnit, readDrag, writeDrag } from './drag'
 import { removeBlock, toLines } from './lines'
 import { captureBlock, insertCopiedBlock } from './clipboard'
 import type { CopiedBlock } from './clipboard'
-import { scanTags } from '../../node/html-scan'
+import { scanTags } from '../../shared/html-scan'
 import { remapCopiedInteractions } from './interactions'
 
 /** Independent source ranges are edited from the bottom, preserving earlier ranges. */
