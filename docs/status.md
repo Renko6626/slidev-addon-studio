@@ -1,8 +1,8 @@
 # Studio 阶段状态
 
-## 当前分支：Pinia 自定义交互基础，2026-11-16
+## 当前源码：Pinia 自定义交互基础，2026-11-16
 
-`codex/studio-custom-runtime` 提供应用级 Pinia、公共运行上下文、独立预览状态、题目首次答对计数、普通可定位计数组件和自定义示例。排版拖拽由 Studio 制作工具负责，播放时关闭 Slidev 原生拖拽入口。新桌面工程声明 Pinia，并附 agent 接入指南。当前是分支源码成果，未合并 main、推送、发布 npm 或打包桌面版本。
+`codex/studio-custom-runtime` 提供应用级 Pinia、公共运行上下文、独立预览状态、题目首次答对计数、普通可定位计数组件和自定义示例。排版拖拽由 Studio 制作工具负责，播放时关闭 Slidev 原生拖拽入口。新桌面工程声明 Pinia，并附 agent 接入指南。本阶段源码已从 `codex/studio-custom-runtime` 快进合并到 main；未发布 npm 或打包桌面版本。
 
 源码扩展 API 变更：`dispatchInteraction(signal)` 改为 `dispatchInteraction(runtime, signal)`；组件内使用 `useQuiz().dispatch(signal)`。Pinia 固定 3.0.4，Vue peer 下限 ^3.5.11；拖拽私有适配仅核对本仓库 Slidev 52.19。
 
