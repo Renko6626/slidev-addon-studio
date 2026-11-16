@@ -4,6 +4,8 @@ import type { StudioAsset } from '../types'
 import { busy, reportError } from '../state'
 import { trackProjectWrite } from '../project-save'
 import { assetKind, assetLimitMiB } from '../../shared/assets'
+import type { FontUpload } from '../../shared/fonts'
+import { FONT_LIMIT_MIB, isFontFile } from '../../shared/fonts'
 
 /**
  * The dev-only endpoints Studio adds on top of Slidev's own.
@@ -65,13 +67,19 @@ export const assetApi = {
   upload: (name: string, data: string, dir?: string) => post<StudioAsset>('assets', { name, data, dir }),
 }
 
+export const fontApi = {
+  list: () => request<{ css: string }>('fonts'),
+  upload: (payload: FontUpload) => post<{ css: string }>('fonts', payload),
+}
+
 /** Reads a dropped file as base64 for the upload endpoint. */
 export function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const kind = assetKind(file.name)
-    if (!kind) return reject(new Error(t('errorUnsupportedAssetType', { type: file.name.split('.').pop() ?? file.name })))
-    if (file.size > assetLimitMiB(kind) * 1024 * 1024)
-      return reject(new Error(t('errorAssetTooLarge', { size: assetLimitMiB(kind) })))
+    const limit = kind ? assetLimitMiB(kind) : isFontFile(file.name) ? FONT_LIMIT_MIB : null
+    if (limit === null) return reject(new Error(t('errorUnsupportedAssetType', { type: file.name.split('.').pop() ?? file.name })))
+    if (file.size > limit * 1024 * 1024)
+      return reject(new Error(t('errorAssetTooLarge', { size: limit })))
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result))
     reader.onerror = () => reject(reader.error)

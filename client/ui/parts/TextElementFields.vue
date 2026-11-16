@@ -7,6 +7,7 @@ import type { TextCommand } from '../../text/editor'
 import ColorSwatch from './ColorSwatch.vue'
 import StudioField from './StudioField.vue'
 import StudioIcon from './StudioIcon.vue'
+import FontPicker from './FontPicker.vue'
 
 defineProps<{ group: 'font' | 'paragraph' }>()
 const { text } = useStudio()
@@ -15,9 +16,7 @@ const disabled = computed(() => busy.value || !supported.value || (editing.value
 const hint = computed(() => supported.value ? t(scope.value)
   : selection.value?.range && selection.value.element !== 'image' ? t('textSourceFallback') : t('selectTextBoxForFormat'))
 const emptyLabel = computed(() => format.value ? t('mixedFormat') : '—')
-const fontId = useId()
 const sizeId = useId()
-const fonts = ['sans-serif', 'serif', 'monospace', 'Arial', 'Calibri', 'Verdana', 'Georgia', 'Times New Roman', 'Microsoft YaHei', 'SimSun', 'SimHei', 'Noto Sans CJK SC']
 const sizes = [8, 10, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 48, 60, 72, 96]
 const lineHeights = ['1', '1.15', '1.3', '1.5', '2', '2.5', '3']
 const marks = [
@@ -56,8 +55,7 @@ function run(command: TextCommand, value?: string) { void text.run(command, valu
   <fieldset class="studio-element-fields studio-rich-fields" :disabled="disabled" data-studio-text-controls @mousedown="keepTextFocus" @keydown="fieldKey" @focusin="rememberField" :title="hint" :aria-label="t(group === 'font' ? 'fontGroup' : 'paragraphGroup')">
     <div v-if="group === 'font'" class="studio-rich-fields__font">
       <StudioField :label="t('fontFamily')">
-        <input type="text" class="studio-font-name" :style="{ fontFamily: format?.fontFamily || undefined }" :list="fontId" :value="format?.fontFamily ?? ''" :placeholder="emptyLabel" :title="t('fontFamily')" @change="run('fontFamily', ($event.target as HTMLInputElement).value)">
-        <datalist :id="fontId"><option v-for="font in fonts" :key="font" :value="font" /></datalist>
+        <FontPicker :value="format?.fontFamily ?? null" :placeholder="emptyLabel" :disabled="disabled" @change="run('fontFamily', $event)" />
       </StudioField>
       <StudioField :label="t('fontSizePx')">
         <input type="number" min="8" max="200" step="1" :list="sizeId" :value="format?.fontSize ?? ''" :placeholder="emptyLabel" :title="t('fontSizePx')" @change="run('fontSize', ($event.target as HTMLInputElement).value)">

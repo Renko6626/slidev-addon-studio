@@ -61,19 +61,25 @@ export interface UploadPayload {
 
 export async function saveAsset(options: ResolvedSlidevOptions, payload: UploadPayload): Promise<AssetEntry> {
   const file = basename(payload.name.replace(/\\/g, '/')).replace(/[ .]+$/, '')
-  const ext = extname(file).toLowerCase()
   const kind = assetKind(file)
   if (!kind)
-    throw new StudioError('unsupportedAssetType', `Unsupported file type "${ext || payload.name}"`, { type: ext || payload.name })
+    throw new StudioError('unsupportedAssetType', `Unsupported file type "${extname(payload.name) || payload.name}"`, { type: extname(payload.name) || payload.name })
+  const dir = process.env.SLIDEV_STUDIO_ASSET_DIR ?? payload.dir ?? ''
+  return { ...await savePublicFile(options, payload, dir, assetLimitMiB(kind)), kind }
+}
+
+/** Shared disk naming for media and explicitly imported project fonts. */
+export async function savePublicFile(options: ResolvedSlidevOptions, payload: UploadPayload, directory: string, limit: number) {
+  const file = basename(payload.name.replace(/\\/g, '/')).replace(/[ .]+$/, '')
+  const ext = extname(file).toLowerCase()
 
   const base64 = payload.data.includes(',') ? payload.data.slice(payload.data.indexOf(',') + 1) : payload.data
   const buffer = Buffer.from(base64, 'base64')
-  const limit = assetLimitMiB(kind)
   if (buffer.byteLength > limit * 1024 * 1024)
     throw new StudioError('assetTooLarge', `File is larger than ${limit} MiB`, { size: limit })
 
   const publicRoot = assetRoot(options)
-  const dir = sanitizeSegment(process.env.SLIDEV_STUDIO_ASSET_DIR ?? payload.dir ?? '')
+  const dir = sanitizeSegment(directory)
   const targetDir = dir ? join(publicRoot, dir) : publicRoot
   await mkdir(targetDir, { recursive: true })
 
@@ -84,7 +90,6 @@ export async function saveAsset(options: ResolvedSlidevOptions, payload: UploadP
     url: assetUrl([dir, name].filter(Boolean).join('/')),
     name,
     size: buffer.byteLength,
-    kind,
   }
 }
 

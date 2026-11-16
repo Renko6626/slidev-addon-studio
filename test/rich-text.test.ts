@@ -138,6 +138,20 @@ it('keeps the text range after a toolbar field takes focus, with draft changes i
   expect(s.text.changed()).toBe(false)
 })
 
+it('edits within a text box content container and keeps that layout when applying formatting', async () => {
+  const s = textbox('<div data-studio-text-content style="width:100%;flex:none"><p>hello world</p></div>')
+  const target = selection.value!
+  const container = s.root.firstElementChild
+  const source = readEditableText(s.source(), target)!
+  expect(source.html).toBe('<p>hello world</p>')
+  expect(s.text.start(target, source.html, true, () => {})).toBe(true)
+  expect(s.root.firstElementChild).toBe(container)
+  await s.text.run('fontSize', '40')
+  await s.text.apply()
+  expect(readEditableText(s.source(), target)!.html).toContain('font-size: 40px')
+  expect(rendered(s.source()).querySelector('[data-studio-text-content]')).not.toBeNull()
+})
+
 it('formats all text in a selected box while preserving its position and existing defaults', async () => {
   const s = textbox('<p>one <strong>two</strong></p>')
   await s.text.run('fontSize', '36')

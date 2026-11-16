@@ -96,6 +96,11 @@ Studio. It includes a static site, local media and miniserve; external assets ma
 still need a network connection. Keep the source project for further editing.
 PowerPoint import is not provided.
 
+Text boxes support automatic height or fixed size, vertical alignment and padding.
+The font picker previews and searches project fonts and local candidates. Import
+WOFF2/WOFF/TTF/OTF files to keep fonts with the source project and web export;
+registration stays ordinary CSS under `public/fonts/`.
+
 **View → Source** shows the current page's original Markdown, component file
 locations and copyable page information. It is read-only; complex code changes
 continue in your external tools. The desktop's native project menu remains

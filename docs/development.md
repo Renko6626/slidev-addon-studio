@@ -135,10 +135,37 @@ addon source merge.
 | Quiz state and public API | `runtime/stores/quiz.ts`, `runtime/interactions.ts`, `runtime/index.ts`, `shared/quiz.ts` |
 | Presentation drag adapter | `node/presentation-drag.ts`, installed by `setup/vite-plugins.ts` |
 | Interface translations | `client/i18n/en.ts`, `client/i18n/zh-CN.ts` |
+| Text box layout | `client/md/elements.ts`, `client/ui/parts/TextBoxFields.vue`; ordinary root CSS, content div and existing `v-drag` dimensions |
+| Project fonts | `node/fonts.ts`, `shared/fonts.ts`, `client/fonts.ts`, `client/ui/parts/FontPicker.vue`; standard font files/CSS, existing dev API and Vite virtual CSS |
 
 Keep source edits inspectable. New basic elements use ordinary HTML plus
 `v-drag`; images remain file references under `public/`. Studio's editing UI is
 dev-only, while authored content continues to render in production builds.
+
+Text box layout edits add a single `data-studio-text-content` div inside the
+existing marked root. The root is a column flex container with border-box sizing;
+the content remains one non-shrinking item so inline formatting and paragraphs
+stay together. Text reads/writes unwrap and retain this div; Tiptap mounts inside
+it. `v-drag` height stays `NaN` for automatic height or numeric for fixed size.
+Ordinary text edits do not change the root's dimensions or padding.
+
+`GET <base>@studio/fonts` returns `{ css }`; POST accepts
+`{ name, data, family, weight, style }`, where data uses the existing base64
+upload format, weight is 1–1000 and style is `normal` or `italic`. Registration
+appends standard `@font-face` CSS with relative file URLs to
+`public/fonts/studio-fonts.css`. The CSS is the registry; no JSON font database
+or parser dependency is added. File naming and size limits reuse the existing
+public asset writer; fonts remain outside the image/audio/video asset palette.
+
+The Vite plugin exposes the registry as `virtual:slidev-studio/fonts.css`,
+imported by the addon's presentation entry in dev and production. Vite applies
+the configured base to public font URLs. Missing registration yields empty CSS.
+Import validates a `FontFace`, writes files via
+the tracked project write API, then uses the loaded face immediately. The picker
+reads the same CSS through CSSOM and rebases preview URLs against its stylesheet
+location. The ordinary public directory supplies both source and web exports.
+Only the font stylesheet loader operates in production; the write API and picker
+remain editor-only. External fonts and Slidev font configuration are preserved.
 
 ## Verification
 

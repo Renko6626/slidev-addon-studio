@@ -11,6 +11,7 @@ const errorMessages = {
   moveBeforeHeadmatter: 'errorMoveBeforeHeadmatter',
   unsupportedAssetType: 'errorUnsupportedAssetType',
   assetTooLarge: 'errorAssetTooLarge',
+  invalidFont: 'errorInvalidFont',
   projectLinkedFile: 'errorProjectLinkedFile',
   projectExternalSource: 'errorProjectExternalSource',
   projectExcludedSource: 'errorProjectExcludedSource',
