@@ -23,6 +23,7 @@ import ShapeFields from '../parts/ShapeFields.vue'
 import ImageElementFields from '../parts/ImageElementFields.vue'
 import ArrangeSelection from '../parts/ArrangeSelection.vue'
 import InteractionFields from '../parts/InteractionFields.vue'
+import MediaFields from '../parts/MediaFields.vue'
 import { readInteraction } from '../../md/interactions'
 
 /**
@@ -184,6 +185,7 @@ async function remove() {
 
     <section v-if="element?.kind === 'image'" class="studio-section"><ImageElementFields /></section>
     <section v-if="interaction" class="studio-section"><InteractionFields /></section>
+    <section v-if="selection.tag === 'StudioMedia'" class="studio-section"><MediaFields /></section>
 
     <section class="studio-section">
       <h3 class="studio-section__title">

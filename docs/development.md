@@ -180,8 +180,8 @@ have been exercised.
 ## Distribution
 
 `main` contains the current source. The editor workspace, new basic elements and
-object clipboard described here are currently unreleased changes relative to
-`0.3.1-renko.1`. A source merge does not update installed activity dependencies.
+object clipboard are included in the prepared `0.4.0-renko.1` release; see
+[release status](releases/0.4.0-renko.1.md). A source merge does not update installed activity dependencies.
 
 The existing CI runs tests and type checking on main pushes and pull requests.
 The Release workflow publishes only on a `v*` tag and verifies the tag against
@@ -209,11 +209,11 @@ for read/reset rules and a service assembly sketch without a network transport.
 `options.clientRoot` from the existing Vite setup. It transforms only that client's
 `composables/useDragElements.ts`, disabling native `startDragging` while preserving
 position rendering. A mismatched method fails with a compatibility error. The
-adapter targets the locally installed Slidev 52.19; workbench Slidev 53.0 requires
-separate validation. Both dev and static builds apply this adapter.
+adapter has been built with Slidev 52.19 and the workbench 53.0 template; these
+checks do not establish Windows interaction acceptance. Both dev and static builds apply this adapter.
 
 The package `files` list includes `runtime/`, `setup/`, `components/` and
-`docs/custom-code/`. The design/plan records remain repository documentation and
+`docs/custom-code/`, `skills/` and `examples/`. The design/plan records remain repository documentation and
 are excluded from the published package. Static presentation output uses runtime
 and shared logic; editor `client/` UI must not enter the built bundle. Packaging
 checks and static builds do not publish a release or validate Windows/multiplayer.

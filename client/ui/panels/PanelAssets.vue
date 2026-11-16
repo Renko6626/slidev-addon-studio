@@ -4,8 +4,10 @@ import type { StudioAsset } from '../../types'
 import { computed, onMounted, ref } from 'vue'
 import { assetApi, readAsBase64 } from '../../composables/useDeckApi'
 import { useStudio } from '../../context'
-import { assetSnippet, insertSnippet, positioned } from '../../md/insert'
-import { busy, editing, selection } from '../../state'
+import { assetSnippet, positioned } from '../../md/insert'
+import { appendElement } from '../../md/elements'
+import { busy, editing, reportError, activePanel, inspectorVisible, library } from '../../state'
+import { assetAccept } from '../../../shared/assets'
 import { imageLibraryRequest, imagePending, useImageInsertion } from '../../composables/useImageInsertion'
 
 /**
@@ -32,12 +34,14 @@ async function refresh() {
 onMounted(refresh)
 
 async function upload(files: FileList | null) {
-  if (!files?.length)
+  if (!files?.length || uploading.value || busy.value || editing.value)
     return
   uploading.value = true
   try {
-    for (const file of files)
-      await assetApi.upload(file.name, await readAsBase64(file))
+    for (const file of files) {
+      try { await assetApi.upload(file.name, await readAsBase64(file)) }
+      catch (error) { reportError(error); break }
+    }
     await refresh()
   }
   finally {
@@ -50,16 +54,15 @@ async function insert(asset: StudioAsset) {
     await images.chooseAsset(asset)
     return
   }
-  const range = selection.value?.range
-  await studio.commit(
-    insertSnippet(studio.content(), assetSnippet(asset), range ? { mode: 'after', range } : { mode: 'append' }),
-    action('actionInsert', { name: asset.name }),
-  )
-}
-
-async function place(asset: StudioAsset) {
-  const snippet = positioned(assetSnippet(asset), { x: 80, y: 80, w: 320, h: null, rotate: 0 })
-  await studio.commit(insertSnippet(studio.content(), snippet, { mode: 'append' }), action('actionPlace', { name: asset.name }))
+  const page = studio.no()
+  const snippet = positioned(assetSnippet(asset), { x: 80, y: 80, w: 480, h: asset.kind === 'audio' ? 100 : 270, rotate: 0 })
+  const inserted = appendElement(studio.content(), snippet)
+  await studio.commit(inserted.content, action('actionInsert', { name: asset.name }))
+  if (studio.no() === page && await studio.selectInserted('StudioMedia', inserted.range)) {
+    activePanel.value = 'inspect'
+    inspectorVisible.value = true
+    library.value = null
+  }
 }
 </script>
 
@@ -72,9 +75,11 @@ async function place(asset: StudioAsset) {
     @dragleave="over = false"
     @drop.prevent="over = false; upload(($event.dataTransfer as DataTransfer).files)"
   >
-    <input type="file" multiple accept="image/*,video/*" hidden @change="upload(($event.target as HTMLInputElement).files)">
+    <input type="file" multiple :accept="assetAccept()" :disabled="uploading || busy || editing" hidden @change="upload(($event.target as HTMLInputElement).files); ($event.target as HTMLInputElement).value = ''">
     {{ uploading ? t('uploading') : t('dropAssets') }}
   </label>
+  <p v-if="!imageLibraryRequest" class="studio-hint">{{ t('mediaCompatibility') }}</p>
+  <p v-if="!imageLibraryRequest" class="studio-hint">{{ t('assetSizeHint') }}</p>
 
   <div v-if="!visibleAssets.length" class="studio-empty">
     <p>{{ t('noAssets') }}</p>
@@ -88,11 +93,12 @@ async function place(asset: StudioAsset) {
       v-for="asset in visibleAssets"
       :key="asset.url"
       class="studio-asset"
-      :title="imageLibraryRequest?.replace ? t('replaceImage') : t('picture')"
-      :disabled="busy || editing || imagePending"
-      @click="asset.kind === 'video' && $event.shiftKey ? place(asset) : insert(asset)"
+      :title="imageLibraryRequest?.replace ? t('replaceImage') : asset.name"
+      :disabled="busy || editing || imagePending || uploading"
+      @click="insert(asset)"
     >
-      <img v-if="asset.kind === 'image'" :src="importBase(asset.url)" :alt="asset.name" loading="lazy">
+      <img v-if="asset.kind === 'image'" :src="importBase(asset.url)" :alt="asset.name" loading="lazy" @error="($event.target as HTMLImageElement).alt = t('imageLoadFailed')">
+      <span v-else>{{ t(asset.kind === 'audio' ? 'mediaAudio' : 'mediaVideo') }}</span>
       <span class="studio-asset__name">{{ asset.name }}</span>
     </button>
   </div>

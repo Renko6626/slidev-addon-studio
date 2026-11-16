@@ -22,7 +22,7 @@ export function positioned(snippet: string, pos: DragPos): string {
 }
 
 export function assetSnippet(asset: StudioAsset, alt = ''): string {
-  if (asset.kind === 'video')
-    return `<SlidevVideo autoplay controls>\n  <source src="${asset.url}" />\n</SlidevVideo>`
+  if (asset.kind === 'video' || asset.kind === 'audio')
+    return `<StudioMedia kind="${asset.kind}" src="${asset.url.replaceAll('&', '&amp;').replaceAll('"', '&quot;')}" />`
   return `![${alt || asset.name.replace(/\.[^.]+$/, '')}](${asset.url})`
 }

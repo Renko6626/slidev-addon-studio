@@ -29,7 +29,7 @@ describe('localized server errors', () => {
     const response = studioErrorResponse(error)
     expect(response.error).toBe('Unsupported file type ".exe"')
     studioLocale.value = 'zh-CN'
-    expect(serverErrorText(response)).toBe('不支持文件类型“.exe”。')
+    expect(serverErrorText(response)).toBe('不支持文件类型“.exe”。HEIC、TIFF 等图片请先转成 PNG/JPEG/WebP；其他音视频请转成 MP4/WebM 或 MP3/WAV。')
   })
 
   it('keeps uncoded diagnostics and unknown server codes compatible', () => {

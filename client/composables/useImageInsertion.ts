@@ -8,6 +8,7 @@ import { getBlock } from '../md/lines'
 import { changePageBackground, isFreeCanvasPage } from './usePageBackground'
 import { activePanel, busy, editing, inspectorVisible, library, reportError, selection } from '../state'
 import { assetApi, readAsBase64 } from './useDeckApi'
+import { assetAccept } from '../../shared/assets'
 
 interface ImageRequest { no: number, field?: { range: SourceRange, source: string, prop: PropMeta, tag?: string }, background?: boolean, replace?: { range: SourceRange, source: string } }
 export const imageLibraryRequest = shallowRef<ImageRequest | null>(null)
@@ -90,7 +91,7 @@ export function useImageInsertion() {
     if (!request) return
     const input = document.createElement('input')
     input.type = 'file'
-    input.accept = '.png,.jpg,.jpeg,.gif,.svg,.webp,.avif'
+    input.accept = assetAccept('image')
     input.hidden = true
     input.addEventListener('cancel', () => input.remove(), { once: true })
     input.addEventListener('change', async () => {

@@ -3,6 +3,7 @@ import { serverErrorText } from '../i18n/errors'
 import type { StudioAsset } from '../types'
 import { busy, reportError } from '../state'
 import { trackProjectWrite } from '../project-save'
+import { assetKind, assetLimitMiB } from '../../shared/assets'
 
 /**
  * The dev-only endpoints Studio adds on top of Slidev's own.
@@ -67,6 +68,10 @@ export const assetApi = {
 /** Reads a dropped file as base64 for the upload endpoint. */
 export function readAsBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
+    const kind = assetKind(file.name)
+    if (!kind) return reject(new Error(t('errorUnsupportedAssetType', { type: file.name.split('.').pop() ?? file.name })))
+    if (file.size > assetLimitMiB(kind) * 1024 * 1024)
+      return reject(new Error(t('errorAssetTooLarge', { size: assetLimitMiB(kind) })))
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result))
     reader.onerror = () => reject(reader.error)

@@ -45,3 +45,5 @@ pnpm desktop:make
 已在 Linux 完成真实文件测试，并用 Electron 45.3.2 / 内置 Node 24.22.2 创建全新工程、安装依赖、运行安装脚本、启动 Slidev、保存及另存。安装脚本记录的执行程序确认为 Electron。已交叉打包 Windows ZIP 并检查 exe、生产依赖、pnpm JS、模板及当前 addon。
 
 没有 Windows/Wine 环境；Windows 原生对话框、node.cmd 实际执行、窗口关闭、剪贴板与 ZIP 解压启动仍需实机试用。Linux 探针不能替代 Windows 验收。本轮未接入签名、安装器、自动更新、网站同步或云端发布。
+
+0.2.0 随附 Studio 0.4.0-renko.1、人机协同 skill 与完整样例；新工程 AGENTS 指向随包技能。样例在项目安装后的 node_modules/slidev-addon-studio/examples/human-agent 中。

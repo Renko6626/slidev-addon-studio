@@ -3,6 +3,8 @@ import { Buffer } from 'node:buffer'
 import { mkdir, readdir, stat, writeFile } from 'node:fs/promises'
 import { basename, extname, join, resolve } from 'node:path'
 import { StudioError } from '../shared/errors'
+import { assetKind, assetLimitMiB } from '../shared/assets'
+import type { AssetKind } from '../shared/assets'
 
 /**
  * The asset drawer is backed by the deck's own `public/` directory, so an
@@ -10,16 +12,12 @@ import { StudioError } from '../shared/errors'
  * the slide references it with a plain `/file.png` URL.
  */
 
-const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.avif'])
-const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.mov'])
-const MAX_UPLOAD_BYTES = 32 * 1024 * 1024
-
 export interface AssetEntry {
   /** URL to use inside a slide. */
   url: string
   name: string
   size: number
-  kind: 'image' | 'video'
+  kind: AssetKind
 }
 
 /** Where `public/` resolves to, which is the deck's directory, not the repo root. */
@@ -42,8 +40,7 @@ export async function listAssets(options: ResolvedSlidevOptions): Promise<AssetE
   for (const entry of entries as any[]) {
     if (!entry.isFile())
       continue
-    const ext = extname(entry.name).toLowerCase()
-    const kind = IMAGE_EXTENSIONS.has(ext) ? 'image' : VIDEO_EXTENSIONS.has(ext) ? 'video' : null
+    const kind = assetKind(entry.name)
     if (!kind)
       continue
     const full = resolve(entry.parentPath ?? root, entry.name)
@@ -65,13 +62,15 @@ export interface UploadPayload {
 export async function saveAsset(options: ResolvedSlidevOptions, payload: UploadPayload): Promise<AssetEntry> {
   const file = basename(payload.name.replace(/\\/g, '/')).replace(/[ .]+$/, '')
   const ext = extname(file).toLowerCase()
-  if (!IMAGE_EXTENSIONS.has(ext) && !VIDEO_EXTENSIONS.has(ext))
+  const kind = assetKind(file)
+  if (!kind)
     throw new StudioError('unsupportedAssetType', `Unsupported file type "${ext || payload.name}"`, { type: ext || payload.name })
 
   const base64 = payload.data.includes(',') ? payload.data.slice(payload.data.indexOf(',') + 1) : payload.data
   const buffer = Buffer.from(base64, 'base64')
-  if (buffer.byteLength > MAX_UPLOAD_BYTES)
-    throw new StudioError('assetTooLarge', `File is larger than ${MAX_UPLOAD_BYTES / 1024 / 1024} MB`, { size: MAX_UPLOAD_BYTES / 1024 / 1024 })
+  const limit = assetLimitMiB(kind)
+  if (buffer.byteLength > limit * 1024 * 1024)
+    throw new StudioError('assetTooLarge', `File is larger than ${limit} MiB`, { size: limit })
 
   const publicRoot = assetRoot(options)
   const dir = sanitizeSegment(process.env.SLIDEV_STUDIO_ASSET_DIR ?? payload.dir ?? '')
@@ -85,7 +84,7 @@ export async function saveAsset(options: ResolvedSlidevOptions, payload: UploadP
     url: assetUrl([dir, name].filter(Boolean).join('/')),
     name,
     size: buffer.byteLength,
-    kind: IMAGE_EXTENSIONS.has(ext) ? 'image' : 'video',
+    kind,
   }
 }
 

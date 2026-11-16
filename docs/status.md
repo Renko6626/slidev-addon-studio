@@ -1,5 +1,20 @@
 # Studio 阶段状态
 
+## 当前源码：人机协同制作与原生素材，2026-11-16
+
+版本为 `0.4.0-renko.1`。随包增加 studio-authoring skill、公开 API 的完整样例及音视频素材；agent 指南与桌面 AGENTS 明确人机协同的编辑交接。StudioMedia 沿用现有 runtime 控制播放资格，素材支持与限制见 [素材说明](custom-code/media.md)，升级说明见 [发布记录](releases/0.4.0-renko.1.md)。
+
+验证：
+
+- `pnpm test`：368 项中 367 通过、1 项既有可选 HTTP QA 跳过；`pnpm typecheck` 和 `vue-tsc@3.1.8 --noEmit` 通过。
+- 实际 tgz 安装到独立 52.19 样例后，根路径和 `/edit/example/` 静态构建通过；样例包含本地 MP4/WAV。
+- 保留工作台模板 53.0 与既有 patches 的临时工程安装、`/preview/release/` 构建通过；没有改动线上服务。
+- `playground/component-fields.md` 子路径构建和既有 playground 构建通过；skill 校验与包库存检查通过。
+- 一次只读审阅发现已处于播放状态时首次挂载未自动播放；已用真实 SFC 测试复现并修复。未扩大为重试或恢复机制。
+- 未执行浏览器自动交互、Windows 实机或实际音视频解码验收。上述媒体单元测试模拟浏览器原生播放调用。
+
+下文各阶段“未发布”“尚未打包”均描述当时状态。
+
 ## 当前源码：字段化题目模板，2026-11-16
 
 `codex/studio-component-fields` 已将标准题目页改为规则控件、普通富文本题干、字段化 StudioButton 和拥有自身文案的 StudioFeedback。题目配置只保留 mode 与 `{ id, correct }` 选项；移除 StudioQuestionTitle 与旧的跨对象文字回写。普通文本框、自定义组件及标准交互对象的题目绑定在整题复制时统一更新。按用户要求不提供历史文稿迁移或兼容分支。

@@ -82,5 +82,5 @@ export interface StudioAsset {
   url: string
   name: string
   size: number
-  kind: 'image' | 'video'
+  kind: import('../shared/assets').AssetKind
 }

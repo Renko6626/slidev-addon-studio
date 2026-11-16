@@ -154,3 +154,5 @@ function restartTrial() {
 `correctCount.value` 是整场共享的次数，`currentQuestion.value?.state` 是当前页题目的只读答案。全局层可以读次数，但没有当前题目，不能通过 `useQuiz().dispatch` 答题。内置题目没有单题撤销计数 API；改题目配置会重置该题记录和贡献。需要整场归零时明确调用 `resetTrial()`。
 
 仓库的 `playground/components/QuizProgress.vue` 是完整实现，只通过公共入口读取次数、检查 active 并重置。`playground/custom-code.md` 展示它与内置计数器共享状态；`playground/interactions.md` 展示单选、多选的不同摆放。它们属于源码示例，不随安装包分发；本地 checkout 可运行 `pnpm exec slidev playground/custom-code.md`。
+
+随 npm 包分发的完整工程位于 `examples/human-agent/`：GuestSpotlight 展示复杂内部效果与可编辑图文的边界，后续页面复用内置题目和计数。复制整个目录安装依赖即可运行，组件只导入公共 runtime。

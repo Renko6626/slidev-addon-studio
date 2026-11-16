@@ -16,14 +16,11 @@ server; authored content also renders in presentations and static builds.
 
 ## Version and installation
 
-The workspace, object tools, multi-selection, layers, backgrounds and questions in this
-README describe the current repository source. They have not been published as a
-new npm release.
-The package manifest still identifies `0.3.1-renko.1`, the earlier fork release
-with English/Chinese UI and workbench path support. Merging source does not update
-an already installed npm package. A Windows desktop preview is available, but
-the recent object tools and question interactions have not been packaged into an
-updated preview or accepted on Windows.
+The current fork version is **0.4.0-renko.1**. It includes the current editor,
+component fields and runtime, the bundled human–agent authoring skill and example,
+and native audio/video assets. Publication status and validation are recorded in
+[the release notes](docs/releases/0.4.0-renko.1.md). Existing projects keep their
+installed versions until explicitly upgraded.
 
 To try the current source:
 
@@ -40,10 +37,10 @@ To use this checkout in another local Slidev project, run from that project:
 pnpm add -D "link:../slidev-addon-studio"
 ```
 
-For the earlier npm release:
+Install the fork from npm:
 
 ```bash
-pnpm add -D slidev-addon-studio@npm:@renko_1055/slidev-addon-studio@0.3.1-renko.1
+pnpm add -D slidev-addon-studio@npm:@renko_1055/slidev-addon-studio@0.4.0-renko.1
 ```
 
 The alias keeps the addon name `slidev-addon-studio`. Installing that name without
@@ -327,6 +324,29 @@ Studio clipboard format, copy the object again in Studio.
 See [all limitations](docs/limitations.md) and the [stage status](docs/status.md)
 for validation scope. Native clipboard, IME, file-picker, dragging and fullscreen
 interaction are not claimed as browser-automated acceptance tests.
+
+## Human–agent authoring and media
+
+Let the agent build the effects, interaction rules and first layout. Keep titles,
+copy and replaceable pictures editable so a person can finish in Studio. The
+bundled `skills/studio-authoring/SKILL.md` describes this handoff; read it directly
+or copy its folder into your agent's skill directory. Studio does not install it
+into machine-wide agent settings automatically.
+
+Copy `examples/human-agent/` to a writable directory, install dependencies and run
+`pnpm dev`. It contains a configurable animated guest card, independent text boxes
+and shared quiz state, using public addon imports. See its README for edit points.
+
+**Insert → Assets** accepts images, audio and video. New audio/video objects use
+`StudioMedia`, with file replacement, poster, autoplay, controls, loop, mute,
+volume and start-time settings. Editing and thumbnail views do not play; leaving
+the active slide pauses and resets to the start time. Autoplay is opt-in, and a
+blocked autoplay offers a manual Play button.
+
+Images keep a 32 MiB upload limit; audio/video allow 128 MiB. The original file is
+retained without transcoding. HEIC/TIFF images require conversion; media container
+extensions alone do not guarantee codec support. Larger files can be placed in
+`public/` directly. See [formats and playback](docs/custom-code/media.md).
 
 ## Language, extensions and development
 

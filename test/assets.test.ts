@@ -4,10 +4,40 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
 import { listAssets, saveAsset } from '../node/assets'
+import { assetSnippet } from '../client/md/insert'
 
 const directories: string[] = []
 afterEach(async () => {
   await Promise.all(directories.splice(0).map(dir => rm(dir, { recursive: true, force: true })))
+})
+
+it('stores native audio, video and additional image formats without converting their bytes', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'studio-media-'))
+  directories.push(root)
+  const options = { userRoot: root } as ResolvedSlidevOptions
+  const data = Buffer.from('original asset bytes')
+  for (const [name, kind] of [['音乐.mp3', 'audio'], ['旁白.m4a', 'audio'], ['片头.webm', 'video'], ['动画.apng', 'image'], ['照片.jfif', 'image'], ['图标.ico', 'image'], ['位图.bmp', 'image']] as const) {
+    const saved = await saveAsset(options, { name, data: data.toString('base64') })
+    expect(saved.kind).toBe(kind)
+    expect(await readFile(join(root, 'public', name))).toEqual(data)
+  }
+  expect((await listAssets(options)).map(asset => asset.kind).sort()).toEqual(['audio', 'audio', 'image', 'image', 'image', 'image', 'video'])
+})
+
+it('accepts media above the image limit while keeping the image limit', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'studio-media-size-'))
+  directories.push(root)
+  const options = { userRoot: root } as ResolvedSlidevOptions
+  const data = Buffer.alloc(33 * 1024 * 1024).toString('base64')
+  const asset = await saveAsset(options, { name: 'intro.mp4', data })
+  expect(asset.size).toBe(33 * 1024 * 1024)
+  await expect(saveAsset(options, { name: 'poster.png', data })).rejects.toMatchObject({ code: 'assetTooLarge', params: { size: 32 } })
+  await expect(saveAsset(options, { name: 'photo.heic', data: '' })).rejects.toMatchObject({ code: 'unsupportedAssetType' })
+})
+
+it('inserts media using an editable player with playback opt-in', () => {
+  expect(assetSnippet({ kind: 'audio', name: '音乐.mp3', url: '/music.mp3', size: 12 })).toBe('<StudioMedia kind="audio" src="/music.mp3" />')
+  expect(assetSnippet({ kind: 'video', name: 'intro.mp4', url: '/intro.mp4', size: 12 })).toBe('<StudioMedia kind="video" src="/intro.mp4" />')
 })
 
 it('preserves Chinese filenames and adds collision suffixes before the extension', async () => {

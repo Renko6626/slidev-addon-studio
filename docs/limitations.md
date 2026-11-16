@@ -70,9 +70,8 @@
 - Standalone File manages the current project only. The optional Windows desktop
   host supplies creating, opening, saving a copy and closing projects. No generic
   file editor or file rename/delete operations are added. Windows native behavior
-  remains subject to preview testing; the current multi-selection, layers and
-  background/image-position stages have not been packaged into an updated Windows
-  preview or accepted on Windows. See [desktop validation](../desktop/README.md).
+  remains subject to preview testing; the current source and Windows preview have separate delivery records; new
+  media behavior still requires acceptance on Windows. See [desktop validation](../desktop/README.md).
 - Project ZIP is a source transfer format, not an offline runtime. Dependencies
   and external assets are not embedded, and local `link:` dependencies are not
   rewritten. Source symlinks and imported Markdown outside the project must be
@@ -162,8 +161,12 @@
   transport, phone UI, identities, host reveal flow, persistence or cross-device
   synchronization is supplied.
 - Presentation layout dragging is disabled by a narrow adapter for Slidev's private
-  `useDragElements.ts`. It supports the locally installed 52.19 implementation and
-  fails on a mismatched method. Workbench Slidev 53.0, Windows native behavior and
-  real remote/multiplayer workflows have not been validated in this phase.
+  `useDragElements.ts`. The adapter has been built with 52.19 and the workbench 53.0 template and
+  fails on a mismatched method. Windows native behavior and real remote/multiplayer
+  workflows still need separate acceptance.
 - Runtime, examples and desktop template changes here are source changes; publishing,
   Windows repackaging and sibling workbench upgrades remain separate tasks.
+
+## Native media
+
+New StudioMedia objects use native browser decoding; the editor does not transcode, trim or mix media. Autoplay may be blocked and offers a manual start. Leaving the playing slide pauses and resets, so this is not cross-slide background music. Existing SlidevVideo/raw media tags keep their previous behavior. See [media formats](custom-code/media.md).
