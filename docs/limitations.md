@@ -67,6 +67,21 @@
 
 ## Current editor boundaries
 
+- Source is read-only. Page text comes from Slidev's original source,
+  including frontmatter and notes; selected components expose their catalog paths.
+  The project script inventory is not a dependency graph. Clipboard can require a
+  secure browser context; the read-only text can also be selected manually.
+- The desktop native project menu and Ctrl/Cmd+Shift+M do not depend on project
+  compilation. Explicit reload/home commands require confirmation and bypass the
+  renderer save hook, preserving disk files and potentially discarding unapplied
+  edits. The last attempted project remains available for diagnostics after failed
+  startup. This does not isolate the full Studio app, arbitrary script hangs or
+  every renderer failure. Browser-only users repair shared startup errors externally.
+- Component palette previews catch descendant runtime failures and fall back to
+  the component name; thumbnail handling remains independent. Compilation failures
+  still use Vite/Slidev diagnostics. Recent client errors are available only if the
+  client loaded; native diagnostics use the existing process log.
+
 - Standalone File manages the current project only. The optional Windows desktop
   host supplies creating, opening, saving a copy and closing projects. No generic
   file editor or file rename/delete operations are added. Windows native behavior
@@ -83,7 +98,17 @@
   the same project externally while a download is being prepared.
 - The project tree omits the same local files as export: dependencies, Git
   metadata, build output, caches, `.env` values and `.npmrc`/Yarn local config.
-  PDF, PowerPoint and built-site exports are not exposed by this File page.
+  File's presentation export entry opens Slidev's existing browser exporter after
+  saving. PDF uses printing; PNGs are a tar.gz archive and PPTX slides are images.
+  Desktop export opens the system browser, so keep the project running. Image
+  capture requires sharing the current tab. Built-site export, editable PPTX
+  conversion and PowerPoint import are not supplied. Disabling `browserExporter`
+  disables this entry.
+- Hosts with the optional `importProject()` capability can extract project ZIPs
+  into an empty directory and follow the normal opening workflow. The user picks
+  a nested Markdown entry when there is no root `slides.md`; no new entry manifest
+  is added. Old hosts and browser sessions can unzip externally. Native Windows
+  import dialogs and browser export require manual acceptance.
 - Save reports failed writes and stops export; it does not add automatic retry
   or recovery. Check the files and refresh after a failed write. Only applied
   text is automatically written; Ctrl/Cmd+S also applies the active text and notes.

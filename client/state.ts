@@ -4,7 +4,7 @@ import { useLocalStorage } from '@vueuse/core'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { editorOpenStorageKey } from '../shared/editor-mode'
 
-export type PanelId = 'inspect' | 'animate' | 'layout' | 'transition' | 'layers'
+export type PanelId = 'inspect' | 'animate' | 'layout' | 'transition' | 'layers' | 'source'
 export type RibbonTab = 'file' | 'home' | 'insert' | 'design' | 'transition' | 'animate' | 'view' | 'object'
 
 /** Studio is off until asked for, so a normal `slidev` session is unchanged. */
@@ -62,6 +62,15 @@ export const hovered = shallowRef<StudioTarget | null>(null)
 /** A write is in flight; the UI blocks further edits until it lands. */
 export const busy = ref(false)
 export const lastError = ref<string | null>(null)
+export const lastCompileError = ref<string | null>(null)
+if (import.meta.hot) {
+  const onCompileError = ({ err }: { err: { message: string, id?: string, frame?: string, loc?: { file?: string, line?: number, column?: number } } }) => {
+    const file = err.loc?.file ?? err.id
+    lastCompileError.value = [file ? `${file}${err.loc?.line ? ':' + err.loc.line : ''}` : '', err.message, err.frame].filter(Boolean).join('\n')
+  }
+  import.meta.hot.on('vite:error', onCompileError)
+  import.meta.hot.dispose(() => import.meta.hot?.off('vite:error', onCompileError))
+}
 
 export function reportError(error: unknown) {
   lastError.value = error instanceof Error ? error.message : String(error)

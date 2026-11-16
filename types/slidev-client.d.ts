@@ -17,6 +17,8 @@ declare module '@slidev/client' {
       currentRoute: Ref<{ query: Record<string, string | null | (string | null)[] | undefined> }>
       replace: (location: { query: Record<string, string | null | (string | null)[] | undefined> }) => Promise<unknown>
       isReady: () => Promise<void>
+      hasRoute: (name: string) => boolean
+      push: (location: { name: string, query?: Record<string, string> }) => Promise<unknown>
     }
     slides: ShallowRef<(SlideRoute & { meta: { slide: SlideInfo } })[]>
     total: ComputedRef<number>

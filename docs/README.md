@@ -6,12 +6,12 @@ Slidev Studio 面向一个人与 coding agent 多轮协同创作演示文稿。�
 | --- | --- |
 | [整体定位与约束](overall.md) | 创作模式、人与 agent 的分工、工程与模块边界、改动决策 |
 | [项目首页](../README.md) | 安装、启动与文档入口 |
-| [中文使用指南](usage.zh-CN.md) | 画布、文字、素材、页面、题目与放映操作 |
+| [中文使用指南](usage.zh-CN.md) | 画布、文字、素材、源码、页面、题目、放映与导出 |
 | [组件与布局元数据](components.md) | Props、`<studio>`、布局文字及题目 API |
 | [开发与配置](development.md) | 源码职责、配置、验证和发布方式 |
 | [已知限制](limitations.md) | 源码映射、对象编辑、runtime 和素材边界 |
 | [当前状态](status.md) | 当前源码、已有交付记录与验收缺口 |
-| [Windows 桌面指南](../desktop/README.md) | 本地工程、日志、更新、离线范围与打包 |
+| [Windows 桌面指南](../desktop/README.md) | 工程 ZIP 导入、原生管理、日志、更新、离线范围与打包 |
 | [Coding agent 接入指南](custom-code/agent-guide.md) | 读取工程、保留人的修改与交付要求 |
 | [自定义组件规范](custom-code/components.md) | 定位、可编辑字段、预览和运行契约 |
 | [自定义代码约定](custom-code/conventions.md) | Pinia、公共 runtime 与服务生命周期 |

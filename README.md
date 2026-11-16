@@ -85,9 +85,21 @@ arrangement, layers, backgrounds, component fields, animation and quiz pages.
 The [usage guide](docs/usage.zh-CN.md) describes controls and shortcuts.
 
 A project is an ordinary Slidev directory. File provides save status, a read-only
-tree and editable project ZIP export; the desktop host adds new/open/save-copy
-operations. The ZIP excludes dependencies and machine credentials. PowerPoint
-import/export is not provided by Studio's File page.
+tree, project ZIP export and presentation export. **Export presentation** saves
+first, then opens Slidev's browser exporter for PDF, PNG and image-based PPTX.
+The desktop host adds new/open/save-copy and project ZIP import; it opens the
+presentation exporter in the system browser. Keep the project running until export
+finishes. PNGs download as tar.gz; PPTX pages are pictures rather than editable
+objects. Built-site ZIP export and PowerPoint import are not provided.
+
+**View → Source** shows the current page's original Markdown, component file
+locations and copyable page information. It is read-only; complex code changes
+continue in your external tools. The desktop's native project menu remains
+available when the project's renderer cannot load. See the [usage guide](docs/usage.zh-CN.md)
+and [desktop guide](desktop/README.md) for the operating boundaries.
+
+Project ZIP excludes dependencies and machine credentials. Desktop import extracts
+an archive into an empty directory, then follows the normal project-opening flow.
 
 Not every rendered element is an independent editable object. Keep frequently
 changed text and pictures in page objects or declared component fields; use source

@@ -153,6 +153,7 @@ const groups = computed<Group[]>(() => {
         { label: 'slides', icon: 'slides', run: () => (slidesVisible.value = !slidesVisible.value), pressed: slidesVisible.value },
         { label: 'properties', icon: 'settings', run: () => (inspectorVisible.value = !inspectorVisible.value), pressed: inspectorVisible.value },
         { label: 'layers', icon: 'slides', run: () => panel('layers'), pressed: inspectorVisible.value && activePanel.value === 'layers' },
+        { label: 'sourcePanel', icon: 'code', run: () => panel('source'), pressed: inspectorVisible.value && activePanel.value === 'source' },
         { label: 'presenterNotes', icon: 'notes', run: () => (notesVisible.value = !notesVisible.value), pressed: notesVisible.value },
       ] },
       { label: 'guidesGroup', commands: [
@@ -166,6 +167,7 @@ const groups = computed<Group[]>(() => {
       ...(!target?.positioned ? [{ label: 'freePosition' as const, icon: 'free', disabled: !mapped.value, run: () => target && freePosition(studio, target) }] : []),
       { label: 'properties', icon: 'settings', run: () => panel('inspect') },
       { label: 'layers', icon: 'slides', run: () => panel('layers') },
+      { label: 'sourcePanel', icon: 'code', run: () => panel('source') },
     ] }]
   }
 })

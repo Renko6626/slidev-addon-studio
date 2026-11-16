@@ -15,6 +15,7 @@ export function useProject(save: () => Promise<boolean>) {
   const project = shallowRef<ProjectInfo | null>(null)
   const loading = ref(false)
   const downloading = ref(false)
+  const exporting = ref(false)
   const error = ref<string | null>(null)
 
   async function refresh() {
@@ -53,5 +54,16 @@ export function useProject(save: () => Promise<boolean>) {
     finally { downloading.value = false }
   }
 
-  return { project, loading, downloading, error, refresh, download }
+  async function exportPresentation(open: () => unknown) {
+    if (exporting.value) return
+    exporting.value = true
+    error.value = null
+    try {
+      if (await save()) await open()
+    }
+    catch (cause) { error.value = cause instanceof Error ? cause.message : String(cause) }
+    finally { exporting.value = false }
+  }
+
+  return { project, loading, downloading, exporting, error, refresh, download, exportPresentation }
 }

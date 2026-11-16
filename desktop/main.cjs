@@ -1,13 +1,16 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, Menu, clipboard, dialog, ipcMain, shell } = require('electron')
 const path = require('node:path')
 const { pathToFileURL } = require('node:url')
-const { exists, inspectProject, createProject, enableStudio, readProjectStudio, saveProjectCopy, dependencyPreparation } = require('./projects.cjs')
+const { exists, inspectProject, createProject, enableStudio, readProjectStudio, saveProjectCopy, extractProjectArchive, dependencyPreparation } = require('./projects.cjs')
+const fs = require('node:fs/promises')
 const { createRuntime } = require('./runtime.cjs')
 const { createStudioPackageSource } = require('./studio-packages.cjs')
 const { runStudioUpdate } = require('./studio-update.cjs')
+const { createProjectManagement } = require('./project-management.cjs')
 
 let window
 let current = null
+let lastProject = null
 let working = false
 let allowClose = false
 let quitting = false
@@ -23,6 +26,28 @@ function reportStatus(status) {
 const runtime = createRuntime({
   executable: process.execPath, pnpm, userData: app.getPath('userData'),
   onStatus: reportStatus,
+})
+const manageProject = createProjectManagement({
+  getWindow: () => window, getProject: () => current ?? lastProject,
+  getLogPath: () => runtime.logPath, isWorking: () => working,
+  dialog, shell, clipboard,
+  recover: async (action, project) => {
+    working = true
+    try {
+      if (action === 'reload') await openPrepared(await inspectProject(project.entry))
+      else {
+        await runtime.stop()
+        current = null
+        await showWelcome()
+        window.setTitle('Slidev Studio')
+      }
+    }
+    catch (error) {
+      if (!current) await showWelcome(error instanceof Error ? error.message : String(error))
+      throw error
+    }
+    finally { working = false; reportStatus(lastStatus) }
+  },
 })
 
 async function showWelcome(message = '选择一个工程开始编辑。') {
@@ -58,9 +83,13 @@ async function chooseDestination(title, defaultPath) {
 async function chooseProject() {
   const result = await dialog.showOpenDialog(window, { title: '打开 Slidev 工程文件夹', properties: ['openDirectory'] })
   if (result.canceled) return null
-  let entry = path.join(result.filePaths[0], 'slides.md')
+  return chooseProjectEntry(result.filePaths[0])
+}
+
+async function chooseProjectEntry(root) {
+  let entry = path.join(root, 'slides.md')
   if (!await exists(entry)) {
-    const file = await dialog.showOpenDialog(window, { title: '选择幻灯片入口', defaultPath: result.filePaths[0], properties: ['openFile'], filters: [{ name: 'Slidev Markdown', extensions: ['md'] }] })
+    const file = await dialog.showOpenDialog(window, { title: '选择幻灯片入口', defaultPath: root, properties: ['openFile'], filters: [{ name: 'Slidev Markdown', extensions: ['md'] }] })
     if (file.canceled) return null
     entry = file.filePaths[0]
   }
@@ -81,6 +110,7 @@ async function prepareExisting(project) {
 }
 
 async function openPrepared(project, { changed = false, enable = false } = {}) {
+  lastProject = project
   let preparation = await dependencyPreparation(project, resources)
   const needsInstall = enable || changed || preparation.needsInstall
   const otherLock = !await exists(path.join(project.root, 'pnpm-lock.yaml'))
@@ -124,7 +154,7 @@ async function perform(action) {
     if (runtime.logPath) await shell.openPath(runtime.logPath)
     return { ok: true }
   }
-  if (!['new', 'open', 'save', 'saveAs', 'close'].includes(action)) return { ok: false, error: '不支持的工程操作。' }
+  if (!['new', 'open', 'import', 'save', 'saveAs', 'close'].includes(action)) return { ok: false, error: '不支持的工程操作。' }
   if (working) return { ok: false, error: '正在准备工程，请等待当前操作完成。' }
   working = true
   try {
@@ -149,6 +179,19 @@ async function perform(action) {
       project = await chooseProject()
       if (!project) return { ok: false }
       if (current?.entry === project.entry) return { ok: true }
+      settings = await prepareExisting(project)
+      if (!settings) return { ok: false }
+    }
+    else if (action === 'import') {
+      const archive = await dialog.showOpenDialog(window, { title: '导入 Studio 工程 ZIP', properties: ['openFile'], filters: [{ name: 'Studio 工程 ZIP', extensions: ['zip'] }] })
+      if (archive.canceled) return { ok: false }
+      const source = archive.filePaths[0]
+      const destination = await chooseDestination('选择空文件夹解包工程', path.join(app.getPath('documents'), path.basename(source, path.extname(source))))
+      if (!destination) return { ok: false }
+      reportStatus({ message: '正在解包工程。', logPath: runtime.logPath })
+      await extractProjectArchive(await fs.readFile(source), destination)
+      project = await chooseProjectEntry(destination)
+      if (!project) return { ok: false }
       settings = await prepareExisting(project)
       if (!settings) return { ok: false }
     }
@@ -234,7 +277,7 @@ async function quit() {
 app.whenReady().then(async () => {
   window = new BrowserWindow({
     width: 1440, height: 920, minWidth: 800, minHeight: 600, title: 'Slidev Studio', backgroundColor: '#202229',
-    titleBarStyle: 'hidden',
+    titleBarStyle: 'hidden', autoHideMenuBar: true,
     titleBarOverlay: { color: '#17181c', symbolColor: '#e6e7ea', height: 44 },
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true },
   })
@@ -260,10 +303,19 @@ app.whenReady().then(async () => {
       throw new Error('Studio 更新只允许从主窗口发起。')
     return studioUpdate()
   })
-  Menu.setApplicationMenu(null)
+  const managementMenu = Menu.buildFromTemplate([
+    { label: '打开工程目录', click: () => { void manageProject('folder') } },
+    { label: '查看运行日志', click: () => { void manageProject('logs') } },
+    { label: '复制工程诊断', click: () => { void manageProject('diagnostics') } },
+    { type: 'separator' },
+    { label: '从磁盘重新加载工程…', click: () => { void manageProject('reload') } },
+    { label: '返回主页…', click: () => { void manageProject('home') } },
+  ])
+  Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: '工程管理', submenu: managementMenu }]))
   window.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown' || input.alt || !(input.control || input.meta)) return
     const key = input.key.toLowerCase()
+    if (input.shift && key === 'm') { event.preventDefault(); managementMenu.popup({ window }); return }
     const action = !input.shift && key === 'n' ? 'new' : !input.shift && key === 'o' ? 'open'
       : input.shift && key === 's' ? 'saveAs' : null
     if (action) { event.preventDefault(); void perform(action) }

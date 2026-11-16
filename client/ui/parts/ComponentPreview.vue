@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CatalogComponent } from '../../types'
-import { compile, computed, defineComponent, h, onScopeDispose, shallowRef, watchEffect } from 'vue'
+import { compile, computed, defineComponent, h, onErrorCaptured, onScopeDispose, ref, shallowRef, watch, watchEffect } from 'vue'
 import { useDeckPaint } from '../../composables/useDeckPaint'
 import { createPreviewRuntime, disposePreviewRuntime, providePreviewRuntime } from '../../../runtime/preview'
 
@@ -36,6 +36,8 @@ const PLACEHOLDER = defineComponent({
 const paint = useDeckPaint()
 
 const loaded = shallowRef<any>(null)
+const failed = ref(false)
+onErrorCaptured(() => { failed.value = true; return false })
 
 watchEffect(async () => {
   if (!props.component.previewable || !props.component.load)
@@ -74,11 +76,12 @@ const preview = computed(() => {
     return null
   }
 })
+watch(preview, () => { failed.value = false })
 </script>
 
 <template>
-  <div class="studio-card__preview" :style="preview ? paint : undefined">
-    <div v-if="preview" class="studio-card__preview-inner">
+  <div class="studio-card__preview" :style="preview && !failed ? paint : undefined">
+    <div v-if="preview && !failed" class="studio-card__preview-inner">
       <component :is="preview" />
     </div>
     <span v-else class="studio-card__placeholder">&lt;{{ component.name }}&gt;</span>
