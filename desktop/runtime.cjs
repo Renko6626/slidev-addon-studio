@@ -78,7 +78,11 @@ function createRuntime({ executable, pnpm, userData, onStatus = () => {} }) {
     if (code !== 0) throw new Error(`依赖准备未完成（退出码 ${code}）。请查看日志：${logPath}`)
   }
 
-  async function install(project, { changed = false, importLock = false } = {}) {
+  async function install(project, { changed = false, importLock = false, offlineStore } = {}) {
+    if (offlineStore) {
+      await runPnpm(project, ['install', '--offline', '--frozen-lockfile', '--ignore-scripts', '--package-import-method=copy', '--store-dir', offlineStore, '--reporter=append-only'], '正在从随附文件准备离线依赖，无需联网。')
+      return
+    }
     if (importLock) await runPnpm(project, ['import'], '正在读取工程的依赖锁文件。')
     const frozen = !changed && fs.existsSync(path.join(project.root, 'pnpm-lock.yaml'))
     await runPnpm(project, ['install', '--reporter=append-only', frozen ? '--frozen-lockfile' : '--no-frozen-lockfile'], '正在安装项目依赖，首次下载需要联网。')

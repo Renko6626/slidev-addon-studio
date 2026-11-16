@@ -71,18 +71,58 @@ async function enableStudio(project, resources) {
   project.manifest = manifest
 }
 
-async function createProject(directory, resources) {
+async function createProject(directory, resources, target = {}) {
   directory = path.resolve(directory)
   await emptyDirectory(directory)
   await fs.cp(path.join(resources, 'template'), directory, { recursive: true })
-  const manifest = {
+  const manifest = standardManifest()
+  const project = { root: directory, entry: path.join(directory, 'slides.md'), manifest }
+  await enableStudio(project, resources)
+  const bundle = offlineDirectory(resources, target)
+  if (bundle && await exists(path.join(bundle, 'pnpm-lock.yaml'))) {
+    for (const name of ['pnpm-lock.yaml', 'pnpm-workspace.yaml'])
+      await fs.copyFile(path.join(bundle, name), path.join(directory, name))
+  }
+  return project
+}
+
+function standardManifest() {
+  return {
     name: 'studio-presentation', private: true, type: 'module', packageManager: 'pnpm@10.33.0',
     scripts: { dev: 'slidev slides.md', build: 'slidev build slides.md' },
     devDependencies: { ...BASE_DEPENDENCIES, pinia: '3.0.4' },
   }
-  const project = { root: directory, entry: path.join(directory, 'slides.md'), manifest }
-  await enableStudio(project, resources)
-  return project
+}
+
+function offlineDirectory(resources, { platform = process.platform, arch = process.arch } = {}) {
+  return platform === 'win32' && arch === 'x64' ? path.join(resources, 'offline', 'win32-x64') : null
+}
+
+async function sameFile(left, right) {
+  if (!await exists(left) || !await exists(right)) return false
+  return (await fs.readFile(left)).equals(await fs.readFile(right))
+}
+
+/** Recognize only the shipped baseline; custom projects retain their own environment. */
+async function dependencyPreparation(project, resources, target = {}) {
+  const managed = await hasBundledStudio(project, resources)
+  const cli = path.join(project.root, 'node_modules/@slidev/cli/bin/slidev.mjs')
+  const ordinary = { needsInstall: managed || !await exists(cli) }
+  const bundle = offlineDirectory(resources, target)
+  if (!managed || !bundle || !await exists(path.join(bundle, 'store')) || !await exists(path.join(bundle, 'package.json'))) return ordinary
+  const baseline = JSON.parse(await fs.readFile(path.join(bundle, 'package.json'), 'utf8'))
+  const ordered = value => Object.entries(value ?? {}).sort(([a], [b]) => a.localeCompare(b))
+  for (const field of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies', 'pnpm', 'scripts'])
+    if (JSON.stringify(ordered(project.manifest[field])) !== JSON.stringify(ordered(baseline[field]))) return ordinary
+  if (project.manifest.packageManager !== baseline.packageManager) return ordinary
+  for (const name of ['.pnpmfile.cjs', '.pnpmfile.mjs'])
+    if (await exists(path.join(project.root, name))) return ordinary
+  for (const name of ['pnpm-lock.yaml', 'pnpm-workspace.yaml'])
+    if (!await sameFile(path.join(project.root, name), path.join(bundle, name))) return ordinary
+  const prepared = await exists(cli)
+    && await exists(path.join(project.root, 'node_modules/slidev-addon-studio/runtime/index.ts'))
+    && await sameFile(path.join(project.root, 'pnpm-lock.yaml'), path.join(project.root, 'node_modules/.pnpm/lock.yaml'))
+  return { needsInstall: !prepared, offlineStore: path.join(bundle, 'store') }
 }
 
 async function saveProjectCopy(data, destination, sourceRoot) {
@@ -110,4 +150,4 @@ async function saveProjectCopy(data, destination, sourceRoot) {
   }
 }
 
-module.exports = { exists, inspectProject, createProject, enableStudio, hasBundledStudio, saveProjectCopy }
+module.exports = { exists, inspectProject, createProject, enableStudio, hasBundledStudio, saveProjectCopy, standardManifest, dependencyPreparation }

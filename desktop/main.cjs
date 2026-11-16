@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
 const path = require('node:path')
 const { pathToFileURL } = require('node:url')
-const { exists, inspectProject, createProject, enableStudio, hasBundledStudio, saveProjectCopy } = require('./projects.cjs')
+const { exists, inspectProject, createProject, enableStudio, hasBundledStudio, saveProjectCopy, dependencyPreparation } = require('./projects.cjs')
 const { createRuntime } = require('./runtime.cjs')
 
 let window
@@ -77,8 +77,8 @@ async function prepareExisting(project) {
 }
 
 async function openPrepared(project, { changed = false, enable = false } = {}) {
-  const managed = enable || await hasBundledStudio(project, resources)
-  const needsInstall = managed || changed || !await exists(path.join(project.root, 'node_modules/@slidev/cli/bin/slidev.mjs'))
+  const preparation = await dependencyPreparation(project, resources)
+  const needsInstall = enable || changed || preparation.needsInstall
   const otherLock = !await exists(path.join(project.root, 'pnpm-lock.yaml'))
     && (await exists(path.join(project.root, 'package-lock.json')) || await exists(path.join(project.root, 'yarn.lock')))
   if (needsInstall && otherLock) {
@@ -93,7 +93,7 @@ async function openPrepared(project, { changed = false, enable = false } = {}) {
   await runtime.stop()
   current = null
   await showWelcome('正在准备工程。')
-  if (needsInstall) await runtime.install(project, { changed: changed || managed, importLock: otherLock })
+  if (needsInstall) await runtime.install(project, { changed: changed || await hasBundledStudio(project, resources), importLock: otherLock, offlineStore: preparation.offlineStore })
   if (quitting) return false
   const origin = await runtime.start(project)
   current = { ...project, origin }

@@ -1,7 +1,7 @@
 {
   "name": "slidev-studio-desktop",
   "productName": "Slidev Studio",
-  "version": "0.2.0",
+  "version": "0.2.1-offline.1",
   "description": "Local Slidev project editor",
   "private": true,
   "license": "MIT",
@@ -10,7 +10,8 @@
   "packageManager": "pnpm@11.20.0",
   "scripts": {
     "start": "node scripts/prepare.cjs && electron-forge start",
-    "make": "node scripts/prepare.cjs && electron-forge make --platform=win32 --arch=x64"
+    "make": "node scripts/prepare.cjs && electron-forge make --platform=win32 --arch=x64",
+    "make:offline": "node scripts/prepare.cjs --offline && electron-forge make --platform=win32 --arch=x64"
   },
   "config": {
     "forge": "./forge.config.cjs"

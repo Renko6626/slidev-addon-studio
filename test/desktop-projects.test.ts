@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path'
 import JSZip from 'jszip'
 import { afterEach, expect, it } from 'vitest'
 
-const { createProject, enableStudio, hasBundledStudio, inspectProject, saveProjectCopy } = createRequire(import.meta.url)('../desktop/projects.cjs')
+const { createProject, enableStudio, hasBundledStudio, inspectProject, saveProjectCopy, dependencyPreparation } = createRequire(import.meta.url)('../desktop/projects.cjs')
 const roots: string[] = []
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))) })
 
@@ -84,4 +84,33 @@ it('rejects archive paths that escape the chosen copy directory before writing a
   const target = join(root, 'copy')
   await expect(saveProjectCopy(await zip.generateAsync({ type: 'nodebuffer' }), target, join(root, 'source'))).rejects.toThrow('路径')
   await expect(readFile(join(root, 'outside.md'))).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+it('creates a Windows standard project from the bundled lock and skips installation only after it is prepared', async () => {
+  const root = await temporary(), assets = await resources(root)
+  const seed = await createProject(join(root, 'seed'), assets)
+  const bundle = join(assets, 'offline', 'win32-x64')
+  await mkdir(join(bundle, 'store'), { recursive: true })
+  await writeFile(join(bundle, 'package.json'), JSON.stringify(seed.manifest))
+  const lock = 'lockfileVersion: 9\nimporters: {}\n'
+  const workspace = 'packages:\n  - .\n'
+  await writeFile(join(bundle, 'pnpm-lock.yaml'), lock)
+  await writeFile(join(bundle, 'pnpm-workspace.yaml'), workspace)
+  const project = await createProject(join(root, '活动'), assets, { platform: 'win32', arch: 'x64' })
+  expect(await readFile(join(project.root, 'pnpm-lock.yaml'), 'utf8')).toBe(lock)
+  expect(await dependencyPreparation(project, assets, { platform: 'win32', arch: 'x64' })).toEqual({ needsInstall: true, offlineStore: join(bundle, 'store') })
+  await mkdir(join(project.root, 'node_modules/.pnpm'), { recursive: true })
+  await mkdir(join(project.root, 'node_modules/@slidev/cli/bin'), { recursive: true })
+  await mkdir(join(project.root, 'node_modules/slidev-addon-studio/runtime'), { recursive: true })
+  await writeFile(join(project.root, 'node_modules/@slidev/cli/bin/slidev.mjs'), '')
+  await writeFile(join(project.root, 'node_modules/slidev-addon-studio/runtime/index.ts'), '')
+  await writeFile(join(project.root, 'node_modules/.pnpm/lock.yaml'), lock)
+  await writeFile(project.entry, '# 用户改过的标题')
+  expect(await dependencyPreparation(project, assets, { platform: 'win32', arch: 'x64' })).toEqual({ needsInstall: false, offlineStore: join(bundle, 'store') })
+  await writeFile(join(project.root, 'node_modules/.pnpm/lock.yaml'), 'old installed lock')
+  expect((await dependencyPreparation(project, assets, { platform: 'win32', arch: 'x64' })).needsInstall).toBe(true)
+  project.manifest.devDependencies.extra = '1.0.0'
+  expect((await dependencyPreparation(project, assets, { platform: 'win32', arch: 'x64' })).offlineStore).toBeUndefined()
+  expect(await readFile(project.entry, 'utf8')).toBe('# 用户改过的标题')
+  expect(await readFile(join(project.root, 'pnpm-lock.yaml'), 'utf8')).toBe(lock)
 })
