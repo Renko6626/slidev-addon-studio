@@ -49,7 +49,7 @@ Pinia HMR 可用于自定义 store，使用官方 acceptHMRUpdate；开发时修
 
 ## 公共接口边界
 
-活动工程通过包别名 `slidev-addon-studio/runtime` 导入。桌面工程使用此别名安装归档；手动安装当前 scoped 包时可用 `pnpm add -D slidev-addon-studio@npm:@renko_1055/slidev-addon-studio`（待本源码发布后），或 `pnpm add -D slidev-addon-studio@link:../slidev-addon-studio` 链接 checkout（将 `../slidev-addon-studio` 替换为实际含 `package.json` 的源码目录）。仓库 playground 自己用相对路径 `../../runtime` 读取同一公共入口，无需给源码工程另装一个自引用别名。该入口只导出受支持的类型、宿主访问、上下文、useQuiz 和动作入口。禁止通过 client/state.ts、runtime/stores/quiz.ts 或 Slidev 私有路径获取能力。
+活动工程通过包别名 `slidev-addon-studio/runtime` 导入。桌面工程使用此别名安装归档；手动安装当前 scoped 包时可用 `pnpm add -D slidev-addon-studio@npm:@renko_1055/slidev-addon-studio`（先核对需要的接口与已发布版本），或 `pnpm add -D slidev-addon-studio@link:../slidev-addon-studio` 链接 checkout（将 `../slidev-addon-studio` 替换为实际含 `package.json` 的源码目录）。仓库 playground 自己用相对路径 `../../runtime` 读取同一公共入口，无需给源码工程另装一个自引用别名。该入口只导出受支持的类型、宿主访问、上下文、useQuiz 和动作入口。禁止通过 client/state.ts、runtime/stores/quiz.ts 或 Slidev 私有路径获取能力。
 
 Addon 自己的 Slidev 适配集中管理；发现公共接口缺失，先说明实际需求，再决定扩展。不要在每个自定义组件复制适配逻辑。
 

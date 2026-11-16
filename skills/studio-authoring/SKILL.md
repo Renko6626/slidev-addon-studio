@@ -5,9 +5,11 @@ description: Use when creating or modifying a Slidev Studio presentation, activi
 
 # Studio 人机协同制作
 
-agent 完成复杂效果、业务逻辑和第一版排版；人用 Studio 完成最后的位置、文案和素材微调。交付物既要能播放，也要保留这些编辑入口。
+人和 coding agent 在同一份工程中多轮协同创作：人用 Studio 编辑内容、排版和试播，agent 完成受托的内容、组件、效果或逻辑修改。人的创作入口应持续保留。交付物既要能播放，也要能接续编辑。整体约束在源码仓库 `docs/overall.md` 维护；安装包中的操作约定见本技能及接入指南。
 
 ## 先确认工程与接口
+
+接手前请人应用并保存当前编辑，读取最新文件；修改期间暂停在 Studio 编辑同一内容，完成后查看刷新结果。不依赖并发写入的自动合并。
 
 阅读工程 AGENTS.md、package.json 和已有页面。沿用已有 Slidev、Vue 和 addon 环境，不因使用本技能自动升级依赖。新依赖、重要接口、后台和部署变更先说明取舍并等待用户确认。
 

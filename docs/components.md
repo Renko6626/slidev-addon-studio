@@ -139,8 +139,11 @@ in `shared/shapes.ts`, independently of editor state.
 ## Question interactions
 
 Use Insert's question-page and button commands for ordinary authoring. The
-single-/multiple-choice templates keep four options; the first-version form
-edits the correct option IDs without adding/removing options or switching types.
+single-/multiple-choice templates start with four options. The question inspector
+can add or remove options together with their built-in option buttons, preserving
+the remaining IDs, content and positions. It edits correct option IDs but does not
+switch question types. Custom option components and dynamic rule expressions
+remain source-authored; see the [option contract](custom-code/components.md#题目选项维护).
 Visual content is edited on its own page objects.
 The question components are hidden from the generic palette to avoid unbound copies.
 [playground/interactions.md](../playground/interactions.md) is a complete example.

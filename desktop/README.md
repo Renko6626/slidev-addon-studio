@@ -16,7 +16,7 @@ Windows x64，使用 Electron 自带 Node。分发 ZIP 不包含第二份 `node.
 
 窗口原生按钮叠加在 Studio 标题栏，空白区域可以拖动窗口，不再显示独立标题栏和原生菜单行。欢迎页和非全屏预览保留窗口拖动区域。工程操作统一在编辑器“文件”页；Ctrl+N 新建，Ctrl+O 打开，Ctrl+Shift+S 另存，Ctrl+Shift+I 打开开发者工具；Ctrl+S 保留 Studio 的保存行为。
 
-“文件”页的项目路径可点击打开文件夹，也提供 coding agent 工作目录提示和项目内相对 skill 路径 `node_modules/slidev-addon-studio/skills/studio-authoring/SKILL.md`。让 agent 从项目根目录读取该技能后修改，保留人的布局和内容调整。
+“文件”页的项目路径可点击打开文件夹，也提供 coding agent 工作目录提示和项目内相对 skill 路径 `node_modules/slidev-addon-studio/skills/studio-authoring/SKILL.md`。人和 agent 在同一工程中多轮接续创作，整体约束见 [overall](../docs/overall.md)。先应用并保存当前编辑，再让 agent 从项目根目录读取技能并修改；期间暂停编辑同一内容，完成后查看刷新结果。agent 应保留人的布局、内容和素材调整。
 
 标准工程核对工程选定的 Studio、依赖配置、已安装版本和锁文件；环境一致就直接启动，不要求 Studio 版号等于桌面版号。自定义依赖或尚未准备好的工程执行 pnpm install 并优先复用缓存；匹配完整基线时按下文离线安装。普通打开不查新、不自动升级，锁文件继续约束依赖。已有 npm/Yarn 工程需要安装时，会先询问是否导入锁文件并生成 pnpm 锁，原锁保留。也可以取消，在外部准备依赖后打开。
 

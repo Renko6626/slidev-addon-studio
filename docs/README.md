@@ -1,23 +1,21 @@
 # Studio 文档
 
-当前源码提供完整编辑工作区、文本框与图片工具，以及同一文稿内的对象复制粘贴。Studio 独立于协作工作台，内容继续保存为 Markdown 和本地素材。
+Slidev Studio 面向一个人与 coding agent 多轮协同创作演示文稿。人通过 Studio 编辑，agent 通过代码扩展，双方接续修改同一份普通 Slidev 工程。
 
-| 文档 | 内容 |
+| 文档 | 用途 |
 | --- | --- |
-| [项目首页](../README.md) | 安装、源码与 npm 版本区别、功能概览和快捷键 |
-| [中文使用指南](usage.zh-CN.md) | 进入编辑、文本图片、复制粘贴、备注与放映 |
-| [编辑参考](editor-reference.md) | 原有元素、组件、动画和布局的详细操作 |
-| [组件与布局元数据](components.md) | Props、`<studio>` 配置、主题色及布局文字标记 |
-| [开发与配置](development.md) | 模块职责、验证、子路径适配和发布边界 |
-| [已知限制](limitations.md) | 源码映射、页面操作、剪贴板及暂缓功能 |
-| [阶段状态](status.md) | 本阶段成果、验证证据和历史计划入口 |
-| [自定义代码约定](custom-code/conventions.md) | Pinia、公共 runtime、service 启停和代码组织 |
-| [自定义组件规范](custom-code/components.md) | 组件定位、配置、预览和运行接口要求 |
-| [素材格式与播放](custom-code/media.md) | 图片兼容、音视频控制与实际播放边界 |
-| [Coding agent 接入指南](custom-code/agent-guide.md) | 任务入口、边界与交付证据 |
+| [整体定位与约束](overall.md) | 创作模式、人与 agent 的分工、工程与模块边界、改动决策 |
+| [项目首页](../README.md) | 安装、启动与文档入口 |
+| [中文使用指南](usage.zh-CN.md) | 画布、文字、素材、页面、题目与放映操作 |
+| [组件与布局元数据](components.md) | Props、`<studio>`、布局文字及题目 API |
+| [开发与配置](development.md) | 源码职责、配置、验证和发布方式 |
+| [已知限制](limitations.md) | 源码映射、对象编辑、runtime 和素材边界 |
+| [当前状态](status.md) | 当前源码、已有交付记录与验收缺口 |
+| [Windows 桌面指南](../desktop/README.md) | 本地工程、日志、更新、离线范围与打包 |
+| [Coding agent 接入指南](custom-code/agent-guide.md) | 读取工程、保留人的修改与交付要求 |
+| [自定义组件规范](custom-code/components.md) | 定位、可编辑字段、预览和运行契约 |
+| [自定义代码约定](custom-code/conventions.md) | Pinia、公共 runtime 与服务生命周期 |
 
-`superpowers/specs/` 与 `superpowers/plans/` 保存当时的设计和执行记录。判断当前能力时，以首页、使用指南和阶段状态为准；历史文档中的“后续”不一定仍未完成。
+随包提供 [studio-authoring 技能](../skills/studio-authoring/SKILL.md)与完整的 [human-agent 工程](../examples/human-agent/README.md)。素材格式见[素材与播放](custom-code/media.md)。源码中的 `playground/` 用于开发验证；需要复制制作起点时使用随包工程。
 
-当前源码的题目正确次数、独立预览和自定义组件已接入公共 runtime。可运行源码示例：`pnpm exec slidev playground/interactions.md` 和 `pnpm exec slidev playground/custom-code.md`。新版发布与验证范围见 [0.4.0-renko.1](releases/0.4.0-renko.1.md)。安装包包含 `docs/custom-code/`，桌面工程可从 `node_modules/slidev-addon-studio/docs/custom-code/agent-guide.md` 阅读。
-
-随包提供 `skills/studio-authoring/SKILL.md` 和完整的 `examples/human-agent/` 工程。样例可以复制到可写目录运行，避免只在源码 checkout 中才能找到参考。
+版本差异保留在 `releases/`。已完成的历史设计、执行计划和阶段流水已清理，过程可通过 Git 历史查看；当前约束在对应主题文档中维护。

@@ -1,6 +1,8 @@
 # 人机协同制作这份演示
 
-agent 负责复杂效果、逻辑和初稿排版，人用 Studio 完成最后的拖动、改字和换素材。先读 `node_modules/slidev-addon-studio/skills/studio-authoring/SKILL.md`，再按需查接口。
+人和 coding agent 在同一份工程中多轮接续创作。人用 Studio 编辑内容、排版和试播，agent 根据任务补充内容、效果与逻辑。先读 `node_modules/slidev-addon-studio/skills/studio-authoring/SKILL.md`，再按需查接口。
+
+接手前请人应用并保存，读取最新文件；agent 修改期间暂停在 Studio 编辑同一内容，完成后查看刷新结果。
 
 普通标题和说明保留为独立文本框；需要分别移动的对象不要封装进整页组件。组件内部常改文字和图片要通过 props、studio 元数据和字段标记暴露。后续修改逻辑时保留用户已经调整的 v-drag、文字和素材。交付时列明可编辑入口及仍需代码修改的部分。
 
