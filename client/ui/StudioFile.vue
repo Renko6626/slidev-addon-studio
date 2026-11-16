@@ -119,6 +119,7 @@ async function studioUpdate() {
         </section>
         <section v-if="host" class="studio-file-section">
           <h2>{{ t('projectAgentTitle') }}</h2>
+          <p v-if="host.nativeProjectManagement" class="studio-file-note">{{ t('desktopManagementHint') }}</p>
           <p>{{ t('projectAgentHint') }}</p>
           <p><code>{{ project.root }}</code></p>
           <p class="studio-file-note">{{ t('projectAgentSkillHint') }}</p>

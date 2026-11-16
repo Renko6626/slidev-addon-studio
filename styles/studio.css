@@ -139,6 +139,11 @@
 .studio-file-section h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
 .studio-file-section p { line-height: 1.7; }
 .studio-file-error { color: #f28c8c; overflow-wrap: anywhere; }
+.studio-source-path { display: block; overflow-wrap: anywhere; margin: 8px 0; font-size: 11px; }
+.slidev-studio .studio-source-code { width: 100%; height: 260px; resize: vertical; font: 12px/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; margin: 8px 0; }
+.studio-source-diagnostic { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 11px; }
+.studio-source-scripts { padding-left: 16px; max-height: 220px; overflow: auto; font-size: 11px; overflow-wrap: anywhere; }
+.studio-source-panel details + details { margin-top: 16px; }
 .studio-project-tree { list-style: none; margin: 0; padding: 0 0 0 19px; }
 .studio-file-section > .studio-project-tree { padding: 8px 12px; max-height: 360px; overflow: auto; border: 1px solid var(--studio-border); border-radius: 5px; background: var(--studio-bg-soft); }
 .studio-project-tree summary { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0; list-style: none; }

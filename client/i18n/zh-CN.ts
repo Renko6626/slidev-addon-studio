@@ -1,6 +1,23 @@
 import type en from './en'
 
 export default {
+  "sourceAndAgent": "源码与 agent",
+  "sourceAgentHint": "代码修改交给外部 coding agent。这里查看已保存的源码和文件位置。",
+  "sourceCopyContext": "复制给 agent 的上下文",
+  "sourceCopied": "已复制到剪贴板。",
+  "sourceCopyFailed": "无法访问剪贴板，请在下方选中源码或上下文手动复制。",
+  "sourceCurrentPage": "当前页 Markdown",
+  "sourceUnknownLocation": "暂未取得源码位置。",
+  "sourceCopyMarkdown": "复制本页 Markdown",
+  "sourceComponentDefinition": "{name} 组件定义",
+  "sourceProjectComponent": "工程内组件，可在 coding agent 中打开此文件修改。",
+  "sourceDependencyComponent": "依赖中的组件，请先查看来源并选择修改位置，避免直接改动已安装的包。",
+  "sourceCopyPath": "复制文件路径",
+  "sourceRecentError": "最近错误",
+  "sourceProjectScripts": "工程脚本（{count}）",
+  "sourceScriptsHint": "供 agent 查找引用的文件列表，不自动判断当前页使用了哪些脚本。",
+  "sourceContextPreview": "查看 agent 上下文",
+  "desktopManagementHint": "页面无法加载时，可按 Ctrl/Cmd+Shift+M，或按 Alt 打开原生工程菜单，打开目录、查看日志、复制诊断、重新加载或返回主页。",
   "exportPresentation": "导出演示",
   "openPresentationExporter": "打开 PDF / PNG / PPTX 导出页",
   "presentationExportHint": "保存当前修改后打开 Slidev 导出页，选择格式、页码范围和是否包含点击步骤。",

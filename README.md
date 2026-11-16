@@ -352,6 +352,24 @@ interaction are not claimed as browser-automated acceptance tests.
 
 ## Human–agent authoring and media
 
+**View → Source and agent** shows the current page's original Markdown, including
+frontmatter and notes, with its file and starting line. Selecting a component also
+shows the definition's Vue file and whether it belongs to the project or a
+dependency. Project scripts are listed as paths for an external coding agent to
+inspect; the list does not infer page dependencies. Copy the page, a component
+path, or the agent context. The read-only context preview also allows manual
+copying when clipboard access is unavailable. Finish any active text edit first.
+There is no new Vue/TS editor or arbitrary-file write endpoint.
+
+The desktop **Project management** native menu (Alt), also available with
+**Ctrl/Cmd+Shift+M**, works independently of the project's Vue application. It opens
+the current or most recently attempted project folder, opens logs, copies diagnostic
+context, reloads from disk, or returns home. Reload and Return home ask explicitly
+before discarding unapplied changes and do not call a broken page's save hook.
+They preserve files already written to disk. Ordinary save/close still checks saving.
+This retains a route to repair compilation errors; it does not keep the full
+visual editor running after a shared application or configuration failure.
+
 Let the agent build the effects, interaction rules and first layout. Keep titles,
 copy and replaceable pictures editable so a person can finish in Studio. The
 bundled `skills/studio-authoring/SKILL.md` describes this handoff; read it directly

@@ -8,6 +8,7 @@ import PanelInspect from './panels/PanelInspect.vue'
 import PanelLayout from './panels/PanelLayout.vue'
 import PanelLayers from './panels/PanelLayers.vue'
 import PanelTransition from './panels/PanelTransition.vue'
+import PanelSource from './panels/PanelSource.vue'
 import StudioIcon from './parts/StudioIcon.vue'
 
 const panels = {
@@ -16,6 +17,7 @@ const panels = {
   layout: { title: 'pageSettings', component: PanelLayout },
   transition: { title: 'slideTransition', component: PanelTransition },
   layers: { title: 'layers', component: PanelLayers },
+  source: { title: 'sourceAndAgent', component: PanelSource },
 } as const
 const currentId = computed(() => activePanel.value === 'inspect' && !selection.value && !missed.value ? 'layout' : activePanel.value)
 const current = computed(() => panels[currentId.value])

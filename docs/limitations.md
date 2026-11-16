@@ -67,6 +67,21 @@
 
 ## Current editor boundaries
 
+- Source and agent is read-only. Page text comes from Slidev's original source,
+  including frontmatter and notes; selected components expose their catalog paths.
+  The project script inventory is not a dependency graph. Clipboard can require a
+  secure browser context; the read-only text can also be selected manually.
+- The desktop native project menu and Ctrl/Cmd+Shift+M do not depend on project
+  compilation. Explicit reload/home commands require confirmation and bypass the
+  renderer save hook, preserving disk files and potentially discarding unapplied
+  edits. The last attempted project remains available for diagnostics after failed
+  startup. This does not isolate the full Studio app, arbitrary script hangs or
+  every renderer failure. Browser-only users repair shared startup errors externally.
+- Component palette previews catch descendant runtime failures and fall back to
+  the component name; thumbnail handling remains independent. Compilation failures
+  still use Vite/Slidev diagnostics. Recent client errors are available only if the
+  client loaded; native diagnostics use the existing process log.
+
 - Standalone File manages the current project only. The optional Windows desktop
   host supplies creating, opening, saving a copy and closing projects. No generic
   file editor or file rename/delete operations are added. Windows native behavior

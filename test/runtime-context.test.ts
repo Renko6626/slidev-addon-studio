@@ -170,3 +170,15 @@ it('overrides the real thumbnail SlideWrapper and releases component resources o
   expect(clean).toHaveBeenCalledOnce()
   expect(disposed).toHaveLength(1)
 })
+
+it('contains a broken palette component and keeps neighboring content usable', async () => {
+  const errors: unknown[] = []
+  const Broken = defineComponent({ setup() { throw new Error('Broken custom component') }, render: () => h('span') })
+  const component = { name: 'Broken', preview: '<Broken />', previewable: true, load: async () => ({ default: Broken }) }
+  const { app, container } = mount(() => [h('p', { id: 'neighbor' }, 'Still available'), h(ComponentPreview, { component })])
+  app.config.errorHandler = error => { errors.push(error) }
+  await nextTick(); await nextTick(); await nextTick()
+  expect(container.querySelector('#neighbor')?.textContent).toBe('Still available')
+  expect(container.querySelector('.studio-card__placeholder')?.textContent).toContain('Broken')
+  expect(errors).toEqual([])
+})
