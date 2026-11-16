@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { readComponentString, writeComponentString } from '../../md/component-fields'
+import { componentFieldElement } from '../../component-fields'
+import { useImageInsertion } from '../../composables/useImageInsertion'
 import { action, t, targetLabel } from '../../i18n'
 import { catalogDescription } from '../../i18n/catalog'
 import { computed, ref, watch } from 'vue'
@@ -7,11 +10,12 @@ import { useCatalog } from '../../composables/useCatalog'
 import { useStudio } from '../../context'
 import { readProp, writeProp } from '../../md/props'
 import { readDrag, writeDrag } from '../../md/drag'
+import { sourceEditLabel } from '../../source-label'
 import { readElement, resizeElement } from '../../md/elements'
-import { getBlock, replaceBlock } from '../../md/lines'
+import { getBlock } from '../../md/lines'
 import { canStyle, readClasses, writeClasses } from '../../md/classes'
-import { canReorder, deleteBlock, duplicateBlock, freePosition } from '../../actions'
-import { busy, editing, missed, selection, selectedTargets } from '../../state'
+import { canReorder, editSource, deleteBlock, duplicateBlock, freePosition } from '../../actions'
+import { busy, editing, editComponentField, selectedComponentField, missed, selection, selectedTargets } from '../../state'
 import PropField from '../parts/PropField.vue'
 import StudioField from '../parts/StudioField.vue'
 import StudioIcon from '../parts/StudioIcon.vue'
@@ -19,7 +23,7 @@ import ShapeFields from '../parts/ShapeFields.vue'
 import ImageElementFields from '../parts/ImageElementFields.vue'
 import ArrangeSelection from '../parts/ArrangeSelection.vue'
 import InteractionFields from '../parts/InteractionFields.vue'
-import { isInteractionTag } from '../../md/interactions'
+import { readInteraction } from '../../md/interactions'
 
 /**
  * The properties panel: where the selected block lives, how it is styled, and
@@ -28,10 +32,11 @@ import { isInteractionTag } from '../../md/interactions'
  */
 const studio = useStudio()
 const { components } = useCatalog()
+const images = useImageInsertion()
 
 const element = computed(() => selection.value?.range ? readElement(studio.content(), selection.value.range) : null)
 const range = computed(() => selection.value?.range ?? null)
-const interaction = computed(() => isInteractionTag(selection.value?.tag))
+const interaction = computed(() => !!range.value && !!readInteraction(studio.content(), range.value))
 
 /** Whether this block can carry a class at all, in Markdown or as an attribute. */
 const styleable = computed(() => !!range.value && canStyle(studio.content(), range.value, !!configs.mdc))
@@ -48,7 +53,25 @@ const component = computed(() => {
 
 const editableProps = computed(() => component.value?.props.filter(p => !p.hidden) ?? [])
 
+function stringField(prop: (typeof editableProps.value)[number]) {
+  return prop.control === 'richtext' || prop.control === 'image' || component.value?.propsMode === 'declared' && (prop.type === 'string' || prop.control === 'text')
+}
+function fieldValue(prop: (typeof editableProps.value)[number]) {
+  return stringField(prop) && range.value ? readComponentString(studio.content(), range.value, prop) : undefined
+}
+function openField(prop: (typeof editableProps.value)[number]) {
+  const owner = selection.value
+  if (!owner?.range || busy.value || editing.value) return
+  editComponentField.value = { owner, prop, element: componentFieldElement(owner, prop.name) }
+  editing.value = true
+}
+function fieldImage(prop: (typeof editableProps.value)[number], file: boolean) {
+  if (selection.value) images.forField(selection.value, prop, file)
+}
+
 function valueOf(prop: (typeof editableProps.value)[number]) {
+  const field = fieldValue(prop)
+  if (field) return field.editable ? field.value : null
   return range.value ? readProp(studio.content(), range.value, prop) : null
 }
 
@@ -64,11 +87,11 @@ function valueOf(prop: (typeof editableProps.value)[number]) {
 const revision = ref(0)
 
 async function setProp(prop: (typeof editableProps.value)[number], value: string | boolean | null) {
-  if (!range.value)
+  if (!range.value || busy.value || editing.value)
     return
 
   const before = studio.content()
-  const next = writeProp(before, range.value, prop, value)
+  const next = stringField(prop) ? typeof value === 'string' ? writeComponentString(before, range.value, prop, value) : before : writeProp(before, range.value, prop, value)
   await studio.commit(next, action('actionSet', { name: prop.name }))
   if (next === before)
     revision.value += 1
@@ -76,10 +99,6 @@ async function setProp(prop: (typeof editableProps.value)[number], value: string
 const block = computed(() => (range.value ? getBlock(studio.content(), range.value) : ''))
 const drag = computed(() => (range.value ? readDrag(studio.content(), range.value) : null))
 const pos = computed(() => drag.value?.pos ?? null)
-
-const draft = ref('')
-watch(block, value => (draft.value = value), { immediate: true })
-const dirty = computed(() => draft.value !== block.value)
 
 const classes = ref('')
 watch([block, range], () => {
@@ -109,12 +128,6 @@ async function applyClasses() {
   if (!range.value)
     return
   await studio.commit(writeClasses(studio.content(), range.value, classes.value), action('actionSetClasses'))
-}
-
-async function applyDraft() {
-  if (!range.value || !dirty.value)
-    return
-  await studio.commit(replaceBlock(studio.content(), range.value, draft.value), action('actionEditBlock'))
 }
 
 async function duplicate() {
@@ -208,7 +221,7 @@ async function remove() {
       </template>
     </section>
 
-    <section v-if="component && !interaction" class="studio-section">
+    <section v-if="component && (!interaction || component.propsMode === 'declared')" class="studio-section">
       <h3 class="studio-section__title">
         {{ t('componentProps', { name: component.name }) }}
       </h3>
@@ -221,6 +234,12 @@ async function remove() {
         :prop="prop"
         :component="component"
         :value="valueOf(prop)"
+        :field-value="fieldValue(prop)"
+        :class="{ 'studio-field--active': selectedComponentField?.owner === selection.el && selectedComponentField?.name === prop.name }"
+        @edit="openField(prop)"
+        @image-file="fieldImage(prop, true)"
+        @image-library="fieldImage(prop, false)"
+        @source="editSource"
         @change="setProp(prop, $event)"
       />
       <p v-if="component.description" class="studio-hint">
@@ -245,6 +264,10 @@ async function remove() {
       </p>
     </section>
 
+    <section class="studio-section">
+      <button class="studio-button" :disabled="busy || editing" @click="editSource"><StudioIcon name="code" :size="14" />{{ t(sourceEditLabel(selection)) }}</button>
+    </section>
+
     <details class="studio-advanced">
       <summary>{{ t('advanced') }}</summary>
       <p class="studio-hint studio-source-location">{{ t('inspectLines', { start: range[0] + 1, end: range[1] }) }}</p>
@@ -263,20 +286,11 @@ async function remove() {
       </p>
     </section>
 
-    <section class="studio-section">
-      <h3 class="studio-section__title">
-        Markdown
-      </h3>
-      <textarea v-model="draft" rows="6" spellcheck="false" />
-      <div class="studio-button-row" style="margin-top: 6px">
-        <button class="studio-button" :disabled="!dirty" @click="applyDraft">
-          {{ t('apply') }}
-        </button>
-        <button class="studio-button" :disabled="!dirty" @click="draft = block">
-          {{ t('revert') }}
-        </button>
-      </div>
-    </section>
+
     </details>
   </template>
 </template>
+
+<style scoped>
+.studio-field--active { outline: 1px solid var(--studio-accent); outline-offset: 4px; border-radius: 4px; }
+</style>

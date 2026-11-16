@@ -1,4 +1,15 @@
 export default {
+  "componentFieldSource": "This field has no unique editable region or contains unsupported markup. Edit its original value here.",
+  "componentFieldEdit": "Edit content",
+  "componentFieldClear": "Clear image",
+  "componentFieldCode": "Controlled by code. Edit the component tag to change this value.",
+  "componentFieldDefault": "No static string value is available. Set this field in the component tag first.",
+  "componentFieldChanged": "The component changed while editing. Reopen the field to continue.",
+
+  "editSource": "Edit source",
+  "editHtml": "Edit HTML",
+  "editComponentTag": "Edit component tag",
+
   "pageName": "Page name",
   "pageNameHint": "Names this slide in the list. Edit text-box titles on the canvas.",
   "currentPageOptions": "Current page options",
@@ -482,7 +493,7 @@ export default {
   "quizQuestion": "Question",
   "quizControlName": "Question name",
   "quizShowInPresentation": "Show question name when presenting",
-  "quizControlHint": "This control owns the question configuration. Select it to see connections. Its prompt, buttons and feedback can be placed independently.",
+  "quizControlHint": "This control owns the answer rules. Edit the prompt, options and feedback on their own objects.",
   "quizGoToControl": "Go to question control",
   "quizTitleHint": "Removing this prompt keeps the question and its answers. Configure the whole question through its control.",
   "quizDeleteControl": "Delete the selected question control? Its prompt, buttons and feedback will remain, but can no longer answer. You can undo this deletion.",
@@ -516,7 +527,7 @@ export default {
   "quizOptionText": "Option {option} text",
   "quizAnswerHint": "Mark the correct answer or answers beside each option. This version keeps the four template options.",
   "quizButtonAction": "Button action",
-  "quizActionTextHint": "Changing the action uses its default text. Option buttons follow the option text.",
+  "quizActionTextHint": "Changing the action keeps this button’s content. Edit its text in Content.",
   "quizButtonOption": "Option",
   "quizButtonText": "Button text",
   "quizNormalFill": "Normal fill",

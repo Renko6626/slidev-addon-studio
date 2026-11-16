@@ -1,7 +1,7 @@
 /** Source configuration and transient answer state for Studio's two question types. */
 export type QuizMode = 'single' | 'multiple'
 export type QuestionPresentation = 'hidden' | 'summary'
-export interface QuizOption { id: string, label: string, correct: boolean }
+export interface QuizOption { id: string, correct: boolean }
 export type QuizSignal =
   | { question: string, action: 'choose', option: string }
   | { question: string, action: 'set-option', option: string, selected: boolean }
@@ -15,12 +15,8 @@ export interface QuizState {
   attempts: number
 }
 export interface QuizConfiguration {
-  title?: string
   mode: QuizMode
   options: QuizOption[]
-  correctText: string
-  incorrectText: string
-  idleText: string
 }
 
 export function createQuizState(): QuizState {

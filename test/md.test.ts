@@ -680,3 +680,33 @@ describe('positioned blocks', () => {
     expect(next.slice(4, 9)).toEqual(['<v-drag pos="490,20,352,118">', '', '![shot](/a.png)', '', '</v-drag>'])
   })
 })
+
+// Component fields carry strings, including HTML, without evaluating expressions.
+import { readComponentString, writeComponentString } from '../client/md/component-fields'
+
+describe('component string fields', () => {
+  const prop = { name: 'contentHtml', control: 'richtext' as const }
+  it('writes HTML as a string and preserves the component slot and neighboring source', () => {
+    const source = '<Card content-html="Old" v-drag="[1,2,300,100]">\n<Badge />\n</Card>\n\nNeighbor'
+    const value = '<p title="引号">A &amp; B\n中文 {{literal}}</p>'
+    const next = writeComponentString(source, [0, 3], prop, value)
+    expect(next).toBe('<Card :content-html="&quot;&lt;p title=\\&quot;引号\\&quot;&gt;A &amp;amp; B\\n中文 {{literal}}&lt;/p&gt;&quot;" v-drag="[1,2,300,100]">\n<Badge />\n</Card>\n\nNeighbor')
+    expect(readComponentString(next, [0, 3], prop)).toEqual({ editable: true, explicit: true, value })
+  })
+  it('distinguishes an empty value from a missing static default', () => {
+    const declared = { ...prop, defaultLiteral: "'<p>Default</p>'" }
+    expect(readComponentString('<Card />', [0, 1], declared)).toEqual({ editable: true, explicit: false, value: '<p>Default</p>' })
+    expect(readComponentString('<Card content-html="" />', [0, 1], declared)).toEqual({ editable: true, explicit: true, value: '' })
+    expect(readComponentString('<Card />', [0, 1], prop)).toEqual({ editable: false, reason: 'unknown-default' })
+    expect(readComponentString('<Card />', [0, 1], { ...prop, defaultLiteral: 'getTitle()' }).editable).toBe(false)
+  })
+  it('decodes ordinary attributes once and reads simple quoted bindings', () => {
+    expect(readComponentString('<Card content-html="A &amp; B &#10; &amp;lt;" />', [0, 1], prop)).toMatchObject({ value: 'A & B \n &lt;' })
+    expect(readComponentString(`<Card :content-html="'It\\'s ready'" />`, [0, 1], prop)).toMatchObject({ value: "It's ready" })
+  })
+  it.each([':content-html="current.title"', 'v-bind="settings"', ':[key]="value"', 'contentHtml="a" content-html="b"'])('does not overwrite code-controlled or ambiguous bindings: %s', attrs => {
+    const source = `<Card ${attrs} />`
+    expect(readComponentString(source, [0, 1], { ...prop, defaultLiteral: "''" }).editable).toBe(false)
+    expect(writeComponentString(source, [0, 1], prop, 'Changed')).toBe(source)
+  })
+})

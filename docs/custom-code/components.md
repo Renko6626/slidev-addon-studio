@@ -74,6 +74,56 @@ props:
 
 以纯默认值渲染时计数为 0。增强的演示 props 只在确实需要展示某个状态时添加。同一组件不要同时提供多套不一致的默认值。
 
+## 显式字段与画布编辑
+
+需要控制属性面板暴露范围时，设置 `propsMode: declared`。只展示 `props` 中声明的非隐藏字段；省略该设置的旧组件继续自动推断。`hidden: true` 隐藏库入口，仍保留页面实例的字段元数据。
+
+```vue
+<script setup lang="ts">
+withDefaults(defineProps<{
+  contentHtml?: string
+  imageSrc?: string
+  imageAlt?: string
+  internalCode?: string
+}>(), { contentHtml: '<p>内容</p>', imageSrc: '', imageAlt: '', internalCode: '' })
+</script>
+
+<template>
+  <div data-studio-component="MyCard">
+    <div data-studio-field="contentHtml" v-html="contentHtml" />
+    <img data-studio-field="imageSrc" :src="imageSrc || undefined" :alt="imageAlt">
+  </div>
+</template>
+
+<studio lang="yaml">
+propsMode: declared
+props:
+  contentHtml:
+    label: 内容
+    control: richtext
+  imageSrc:
+    label: 图片
+    control: image
+  imageAlt:
+    label: 图片说明
+    control: text
+</studio>
+```
+
+上例文件名须为 MyCard.vue；根标记必须与组件名一致。一个字段仅标记一个区域，富文本使用专用 div、图片使用 img。嵌套组件必须声明自己的根边界；Studio 不跨边界寻找字段。富文本区域不承载其他字段或 Vue 子组件。
+
+单击、拖动始终操作整个组件；双击文字区域进入现有富文本编辑，图片区域对应属性面板的替换操作。F2 在只有一个富文本字段时直接编辑；有多个字段且未指定目标时打开属性面板。面板也有“编辑内容”、文件选择、素材库和清除图片入口。图片为空时应保留区域或占位，避免无法从画布发现它。
+
+字段值来自页面组件标签。未写值时仅使用可解析的静态字符串默认值；未知默认值、变量表达式、对象 v-bind 和动态键提示通过组件标签源码修改。清除图片写空字符串，不会删除属性而重新启用默认图片。富文本切源码编辑仍只写该字段；整组件源码按钮编辑完整标签。无法唯一定位区域、或内容超出支持的富文本标记时，提供原始字段值的源码编辑。
+
+写回使用 JSON 字符串绑定并编码属性实体，保留其他属性、插槽、定位和相邻源码。直接书写普通字符串属性也支持读取。未修改不写回，取消恢复编辑前的 DOM；不能通过组件内部当前显示的文字反推源值。
+
+本地图片字段保存 public 根相对路径（如 `/samples/landscape.svg`）。组件在有 Vite base 前缀时负责显示路径：对以单个 `/` 开头的本地路径添加 `import.meta.env.BASE_URL`，绝对 URL 原样使用。见图文选项示例的 `imageUrl`。替换图片只改字段，组件外框与内部排版由原模板/CSS 决定。
+
+完整示例：[EditableOptionCard.vue](../../playground/components/EditableOptionCard.vue)、[单选与多选页面](../../playground/component-fields.md)。该组件的图文内容属于自身 props，question/option 通过源码绑定现有题目，业务代码调用公共 useQuiz。它整体移动、内部文字可编辑，但不提供任意内部对象组合或独立图层。
+
+标准 StudioButton 已采用相同字段约定。题目控件只保存规则，题干为普通文本框，反馈文案由 StudioFeedback 保存。自定义组件约定使用 question 作为题目绑定属性；整题复制时它与普通 HTML 的 data-studio-question-ref 一同重映射。只复制子对象时保留绑定。
+
 ## 完成标准
 
 组件可从库插入、配置内容及外观；可作为一个明确源码对象定位；缩略图不污染运行状态；编辑时不会提交答案；预览/播放能正常业务交互且不能排版拖动；静态构建可用；离开作用域不遗留自己启动的资源。

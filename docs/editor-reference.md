@@ -44,18 +44,21 @@ because that one changes the Markdown's shape rather than four numbers in it.
 
 ### Editing text
 
-Double-click a supported text block to edit it in place. Ordinary text uses the
-existing visual editor where its formatting can be preserved. New text boxes
-retain their complete HTML root and supported inline formatting. Complex blocks,
-such as tables or fenced code, remain editable through their Markdown source.
-The floating toolbar offers inline marks; Markdown mode also offers headings,
-lists and quotes. Pictures are selected as objects rather than text editors.
+Double-click or press F2 to edit supported text boxes, headings, paragraphs and
+lists with the rich-text controls. Question labels and frontmatter-backed text
+use plain-text editing. Quotes, mixed containers, complex HTML and other content
+open their authored source directly.
 
-![A paragraph being edited in place, with a formatting toolbar above it](framed/inline.png)
+Select an object and use **Edit HTML**, **Edit Markdown**, or **Edit component tag**
+in its properties or context menu to open source explicitly. Component-tag editing
+changes the page's usage and slot content; the component's Vue implementation stays
+in its project file. The source editor shows its line range and has Apply and Cancel
+buttons. It does not offer visual formatting controls or rewrite rendered DOM.
 
-<kbd>Ctrl/Cmd</kbd> + <kbd>Enter</kbd> or <kbd>Esc</kbd> applies. Use the floating
-toolbar's Cancel button to discard the current text edit.
-<kbd>Ctrl/Cmd</kbd> + <kbd>B</kbd> and <kbd>Ctrl/Cmd</kbd> + <kbd>I</kbd> apply the usual text marks.
+Rich text can switch to source while retaining the whole draft and original write
+range. Cross-block visual container editing is no longer provided. **Ctrl/Cmd+Enter**,
+**Esc**, or **F2** applies; Cancel discards the session. Rich-text formatting uses
+Home and its normal keyboard shortcuts.
 
 ### Editing props
 

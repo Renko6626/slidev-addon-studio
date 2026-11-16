@@ -98,8 +98,9 @@
   Heading levels, document flow and existing root attributes are retained; font,
   size and colour changes use standard HTML when Markdown cannot express them.
   Editing is scoped to one block; new paragraphs become siblings. Setext headings,
-  other Markdown structures, frontmatter and component internals retain their
-  previous editors. Unsupported custom source markup opens as source rather than
+  other Markdown structures and complex HTML use source editing. Frontmatter
+  text and question labels use plain-text editing; mixed containers are not
+  edited visually across existing blocks. Unsupported custom source markup opens as source rather than
   being silently normalised by the text schema.
   Editing-session history and the existing whole-deck history are separate: after
   applying, the text session is one deck action; reopening starts a new text history.

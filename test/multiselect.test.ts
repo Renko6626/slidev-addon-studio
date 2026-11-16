@@ -87,7 +87,7 @@ it('keeps a single copied container containing positioned children intact', () =
 })
 
 it('warns before deleting a question control and leaves its independent children when confirmed', async () => {
-  const title = '<StudioQuestionTitle question="q" v-drag="[10,60,400,80]" />'
+  const title = '<div data-studio-element="text" data-studio-question-ref="q" v-drag="[10,60,400,80]">Question</div>'
   const button = '<StudioButton question="q" action="choose" option="A" />'
   const original = `<StudioQuestion question="q" presentation="hidden" v-drag="[10,10,220,32]" />\n\n${title}\n\n${button}`
   let source = original

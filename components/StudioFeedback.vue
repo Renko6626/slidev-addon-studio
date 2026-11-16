@@ -1,20 +1,19 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useStudioContext } from '../runtime'
 import { useInteractionPage } from '../runtime/composables/useInteractionPage'
 
-const props = withDefaults(defineProps<{ question: string, effect?: 'none' | 'fade' | 'pop' }>(), { effect: 'fade' })
+const props = withDefaults(defineProps<{ question: string, effect?: 'none' | 'fade' | 'pop', correctText?: string, incorrectText?: string, idleText?: string }>(), { effect: 'fade', correctText: 'Correct!', incorrectText: 'Try again.', idleText: '' })
+const context = useStudioContext()
 const page = useInteractionPage()
 const question = computed(() => page.question(props.question))
-const result = computed(() => question.value?.state.result ?? 'idle')
-const text = computed(() => {
-  const configuration = question.value?.configuration
-  return result.value === 'correct' ? configuration?.correctText : result.value === 'incorrect' ? configuration?.incorrectText : configuration?.idleText
-})
+const result = computed(() => context.runtime.mode.value === 'edit' ? 'idle' : question.value?.state.result ?? 'idle')
+const text = computed(() => result.value === 'correct' ? props.correctText : result.value === 'incorrect' ? props.incorrectText : props.idleText)
 </script>
 
 <template>
-  <div class="studio-feedback" :data-studio-question-ref="props.question" :data-quiz-result="result" role="status" aria-live="polite">
-    <span data-studio-interaction-text :key="`${result}-${question?.state.attempts ?? 0}`" class="studio-feedback__content" :class="[`studio-feedback__content--${result}`, result !== 'idle' && `studio-feedback__content--${effect}`]">{{ text }}</span>
+  <div class="studio-feedback" data-studio-component="StudioFeedback" :data-studio-question-ref="props.question" :data-quiz-result="result" role="status" aria-live="polite">
+    <span :data-studio-field="result === 'idle' ? 'idleText' : undefined" :key="`${result}-${question?.state.attempts ?? 0}`" class="studio-feedback__content" :class="[`studio-feedback__content--${result}`, result !== 'idle' && `studio-feedback__content--${effect}`]">{{ text }}</span>
   </div>
 </template>
 
@@ -32,4 +31,15 @@ const text = computed(() => {
 
 <studio lang="yaml">
 hidden: true
+propsMode: declared
+props:
+  idleText:
+    label: 等待作答
+    control: text
+  correctText:
+    label: 回答正确
+    control: text
+  incorrectText:
+    label: 回答错误
+    control: text
 </studio>

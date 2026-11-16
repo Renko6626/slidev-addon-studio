@@ -118,6 +118,7 @@ addon source merge.
 | Canvas and transforms | `client/composables/useSlideCanvas.ts`, `useTransformGizmo.ts` |
 | Shared catalog types and HTML scanning | `shared/catalog.ts`, `shared/html-scan.ts`; client catalog types add browser-only loaders |
 | Text boxes and pictures | `client/md/elements.ts`, `useElementProperties.ts`, `useImageInsertion.ts`, element field components |
+| Component field declarations and writes | `shared/catalog.ts`, `node/metadata.ts`, `client/md/component-fields.ts`, `client/component-fields.ts` |
 | Object clipboard | `client/md/clipboard.ts`, `client/composables/useObjectClipboard.ts` |
 | Source writes and history | `client/composables/useSlideSource.ts`, `client/actions.ts` |
 | Catalog, pages and assets | `node/`, `client/composables/useDeckApi.ts` |

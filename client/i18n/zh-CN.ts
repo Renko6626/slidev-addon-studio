@@ -1,6 +1,17 @@
 import type en from './en'
 
 export default {
+  "componentFieldSource": "此字段没有唯一可编辑区域，或包含未支持的标记。可在这里编辑原始值。",
+  "componentFieldEdit": "编辑内容",
+  "componentFieldClear": "清除图片",
+  "componentFieldCode": "此字段由代码控制，请编辑组件标签。",
+  "componentFieldDefault": "无法读取静态字符串，请先在组件标签中设置此字段。",
+  "componentFieldChanged": "编辑期间组件已变化，请重新打开字段。",
+
+  "editSource": "编辑源码",
+  "editHtml": "编辑 HTML",
+  "editComponentTag": "编辑组件标签",
+
   "pageName": "页面名称",
   "pageNameHint": "用于左侧页面列表；文本框中的标题请在画布上编辑。",
   "currentPageOptions": "当前页面选项",
@@ -484,7 +495,7 @@ export default {
   "quizQuestion": "题目",
   "quizControlName": "题目名称",
   "quizShowInPresentation": "播放时显示题目名称",
-  "quizControlHint": "这里管理整道题的配置。选中时显示关联线，题干、按钮和反馈可分别摆放。",
+  "quizControlHint": "此控件管理答案规则；题干、选项内容和反馈分别在各自对象上编辑。",
   "quizGoToControl": "定位到题目控件",
   "quizTitleHint": "删除这个题干不会删除题目和答案。整题配置请在题目控件中修改。",
   "quizDeleteControl": "删除所选题目控件？题干、按钮和反馈会保留，但无法继续答题。可以通过撤销恢复。",
@@ -518,7 +529,7 @@ export default {
   "quizOptionText": "选项 {option} 文字",
   "quizAnswerHint": "在选项旁标记正确答案。首版保留模板的四个选项。",
   "quizButtonAction": "按钮用途",
-  "quizActionTextHint": "切换用途会使用默认文字，选项按钮跟随对应选项文字。",
+  "quizActionTextHint": "修改用途会保留按钮内容；文字通过“编辑内容”调整。",
   "quizButtonOption": "对应选项",
   "quizButtonText": "按钮文字",
   "quizNormalFill": "普通填色",

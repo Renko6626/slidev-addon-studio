@@ -8,15 +8,15 @@ title: 共享题目状态
 
 <h1 v-drag="[60,30,840,64]">同一道题，两种计数显示</h1>
 
-<StudioQuestion question="shared-example" mode="single" title="哪种状态只属于本次浏览器试播？" :options="[{ id: 'A', label: '已选答案与正确次数', correct: true }, { id: 'B', label: '保存到文稿中的题干', correct: false }]" idle-text="请选择一项。" correct-text="回答正确。两处计数都读取同一份状态。" incorrect-text="题干是配置；答案和次数保存在内存中。" v-drag="[60,100,220,36]" />
+<StudioQuestion question="shared-example" mode="single" :options="[{ id: 'A', correct: true }, { id: 'B', correct: false }]" v-drag="[60,100,220,36]" />
 
-<StudioQuestionTitle question="shared-example" v-drag="[60,140,840,56]" />
+<div data-studio-element="text" data-studio-question-ref="shared-example" v-drag="[60,140,840,56]" style="font-size:32px">哪种状态只属于本次浏览器试播？</div>
 
-<StudioButton question="shared-example" action="choose" option="A" v-drag="[60,220,405,76]" />
+<StudioButton question="shared-example" action="choose" option="A" content-html="&lt;p&gt;已选答案与正确次数&lt;/p&gt;" v-drag="[60,220,405,76]" />
 
-<StudioButton question="shared-example" action="choose" option="B" v-drag="[495,220,405,76]" />
+<StudioButton question="shared-example" action="choose" option="B" content-html="&lt;p&gt;保存到文稿中的题干&lt;/p&gt;" v-drag="[495,220,405,76]" />
 
-<StudioFeedback question="shared-example" v-drag="[60,320,840,54]" />
+<StudioFeedback question="shared-example" idle-text="请选择一项。" correct-text="回答正确。两处计数都读取同一份状态。" incorrect-text="题干是配置；答案和次数保存在内存中。" v-drag="[60,320,840,54]" />
 
 <StudioCorrectCount label="内置显示" :font-size="22" color="#2563EB" v-drag="[60,420,260,48]" />
 

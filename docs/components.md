@@ -47,6 +47,7 @@ props:
 
 | Key | Meaning |
 | --- | --- |
+| `propsMode` | `declared` exposes only the listed props; omission retains inference |
 | `description` | One line shown under the name; defaults to the first line of the doc comment |
 | `category` | Groups the component in the palette; defaults to its package |
 | `snippet` | Markup inserted when the component is picked |
@@ -55,8 +56,15 @@ props:
 | `props.<name>.label` | Human label for the inspector |
 | `props.<name>.hidden` | Keep the prop out of the inspector |
 | `props.<name>.options` | A list of values, or `{ files, exclude }` globs |
-| `props.<name>.control` | Force a control: `text`, `number`, `boolean`, `select`, `list`, `color`, `color[]` |
+| `props.<name>.control` | Force a control: `text`, `number`, `boolean`, `select`, `list`, `color`, `color[]`, `richtext`, `image` |
 | `props.<name>.fields` | For a list of records, the fields each row gets; inferred from the declared element type when omitted |
+
+Explicit `snippet` and `preview` markup is preserved, including a preview that
+inherits an explicit snippet. `hidden: true` only removes a component from the
+palette; it can still be referenced by authored markup. Unknown placeholder tags
+are replaced with readable text only in automatically inferred examples.
+
+Rich-text and image string fields use explicit DOM markers and retain their authored prop values. See [the field authoring contract](custom-code/components.md#显式字段与画布编辑). Hidden components keep their editing metadata even when absent from the palette.
 
 Controls are otherwise inferred. A string union gets a dropdown, a number is
 written bound as `:size="140"`, and an array gets an editor matched to what it
@@ -132,29 +140,30 @@ in `shared/shapes.ts`, independently of editor state.
 
 Use Insert's question-page and button commands for ordinary authoring. The
 single-/multiple-choice templates keep four options; the first-version form
-edits their text and answers without adding/removing options or switching types.
+edits the correct option IDs without adding/removing options or switching types.
+Visual content is edited on its own page objects.
 The question components are hidden from the generic palette to avoid unbound copies.
 [playground/interactions.md](../playground/interactions.md) is a complete example.
 
 | Component | Static props and role |
 | --- | --- |
-| `StudioQuestion` | `question`, `mode` (`single` / `multiple`), `title`, `options` (`{ id, label, correct }[]`), `correctText`, `incorrectText`, `idleText`; owns and registers the question. `name` labels the control. `presentation` defaults to `hidden`; `summary` shows the name when presenting. The prompt is always rendered by `StudioQuestionTitle` |
-| `StudioQuestionTitle` | `question`; displays the bound question's `title`. Removing it does not unregister the question |
-| `StudioButton` | `question`, `action`, optional `option` and `label`; without `label`, option buttons use the question's option text. Appearance: `fill`, `color`, `selectedFill`, `correctFill`, `incorrectFill`, numeric `radius` |
+| `StudioQuestion` | `question`, `mode` (`single` / `multiple`), `options` (`{ id, correct }[]`); registers answer rules. `name` labels the control. `presentation` defaults to `hidden`; `summary` shows its name |
+| Prompt text box | Ordinary `div data-studio-element="text"`, linked with `data-studio-question-ref`; supports rich text and independent positioning |
+| `StudioButton` | `question`, `action`, optional `option`; owns `contentHtml` (rich text), `imageSrc` and `imageAlt`. Appearance: `fill`, `color`, `selectedFill`, `correctFill`, `incorrectFill`, numeric `radius` |
 | `StudioCorrectCount` | `label` (default `已答对`), numeric `fontSize` (default `24`), `color` (default `inherit`); displays the first-correct question count across the current trial |
-| `StudioFeedback` | `question`, optional `effect` (`none` / `fade` / `pop`, default `fade`); renders the question's idle or result text |
+| `StudioFeedback` | `question`, optional `effect` (`none` / `fade` / `pop`, default `fade`); owns `idleText`, `correctText`, `incorrectText` and selects one using the answer state |
 
 They are independent single-root objects positioned with `v-drag`; presentation
-state stays in memory. Double-click/F2 edits plain prompt/button/option text and
-the feedback's idle text. Correct/incorrect messages are configured in properties.
+state stays in memory. Double-click/F2 edits prompt/button rich text and the
+feedback object's own plain idle text. Correct/incorrect messages are configured in properties.
 Button appearance previews do not dispatch answers.
 
 In Studio, standalone controls are visible even with `presentation="hidden"`.
 Selecting one shows dashed connections to its prompt, buttons and feedback;
 selecting a child shows just that connection. These editor-only lines are derived
 from question IDs, not stored as objects. The control's display setting never
-unmounts its registration. Its inspector configures the whole question, while a
-child's inspector can jump to its control. Deleting a control warns and retains
+unmounts its registration. Its inspector configures rules; each child owns its content and can jump to
+its control. Deleting a control warns and retains
 the independently positioned children.
 
 Advanced code can import the same signal entry used by the buttons. With the
@@ -236,3 +245,11 @@ runtime instances (`view='preview'`, `page=null`, `active=false`). Mounting a
 component is not permission to start business effects. Use `context.active` for
 page effects and `runtime.canRunServices` plus explicit author configuration for
 whole-trial services. No network transport is included.
+
+
+Question configuration no longer stores prompt text, option labels, or feedback
+messages. This early-stage source update does not include a legacy deck converter.
+When copying a set containing a controller, Studio remaps component `question`
+props and ordinary HTML `data-studio-question-ref` attributes that refer to that
+controller, including custom option components. Copying a child alone keeps its
+binding. Treat `question` as the question-binding prop in custom components.

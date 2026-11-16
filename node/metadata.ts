@@ -19,6 +19,7 @@ import YAML from 'yaml'
 export type { PropControl, PropField, PropMeta, PropOption } from '../shared/catalog'
 
 export interface StudioMeta {
+  propsMode?: 'declared'
   description?: string
   category?: string
   snippet?: string

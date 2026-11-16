@@ -62,6 +62,12 @@ const BUILTIN_SNIPPETS: Record<string, string> = {
 /** Components that reach for the network or a heavy runtime in a 200px box. */
 const NO_PREVIEW = new Set(['Monaco', 'Mermaid', 'PlantUml', 'Tweet', 'Youtube', 'BlueSky', 'SlidevVideo', 'Toc'])
 
+interface ComponentCandidate {
+  entry: ComponentEntry
+  preserveSnippet: boolean
+  preservePreview: boolean
+}
+
 export async function buildCatalog(options: ResolvedSlidevOptions): Promise<Catalog> {
   const { clientRoot, userRoot, themeRoots, addonRoots, utils } = options
   const hidden = new Set<string>(((options.data.config as any).studio?.hideComponents ?? []) as string[])
@@ -73,7 +79,7 @@ export async function buildCatalog(options: ResolvedSlidevOptions): Promise<Cata
     { dir: join(userRoot, 'components'), source: 'project', origin: 'Project' },
   ]
 
-  const components: ComponentEntry[] = []
+  const candidates: ComponentCandidate[] = []
   const seen = new Set<string>()
 
   for (const { dir, source, origin } of dirs) {
@@ -85,22 +91,20 @@ export async function buildCatalog(options: ResolvedSlidevOptions): Promise<Cata
       const name = basename(file, ext)
       if (name.startsWith('_') || name.startsWith('.') || name.endsWith('.test'))
         continue
-      if (source === 'builtin' && HIDDEN_BUILTINS.has(name))
-        continue
-      if (hidden.has(name))
-        continue
 
       // Later roots win, matching how unplugin-vue-components resolves names.
       if (seen.has(name)) {
-        const previous = components.findIndex(c => c.name === name)
+        const previous = candidates.findIndex(c => c.entry.name === name)
         if (previous >= 0)
-          components.splice(previous, 1)
+          candidates.splice(previous, 1)
       }
       seen.add(name)
 
       const entry = await readComponent(file, name, source, origin)
-      if (entry)
-        components.push(entry)
+      if (entry) {
+        entry.entry.hidden ||= hidden.has(name) || source === 'builtin' && HIDDEN_BUILTINS.has(name)
+        candidates.push(entry)
+      }
     }
   }
 
@@ -122,14 +126,17 @@ export async function buildCatalog(options: ResolvedSlidevOptions): Promise<Cata
     layouts.push({ name, file, source, origin, description, props })
   }
 
-  // Documentation examples reference stand-ins that are not real components,
-  // such as Transform's `<YourElements />`. Inserting one warns at runtime and
-  // renders nothing, so it becomes plain text the author can replace.
-  const known = new Set(components.map(c => c.name))
-  for (const component of components) {
-    component.snippet = replaceUnknownTags(component.snippet, known, component.name)
-    component.preview = replaceUnknownTags(component.preview, known, component.name)
-  }
+  // Inferred examples can contain documentation stand-ins such as YourElements.
+  // Explicit markup may reference valid components outside the palette; keep it
+  // intact, including previews inherited from an explicitly declared snippet.
+  const known = new Set(candidates.map(c => c.entry.name))
+  const components = candidates.map(({ entry, preserveSnippet, preservePreview }) => {
+    if (!preserveSnippet)
+      entry.snippet = replaceUnknownTags(entry.snippet, known, entry.name)
+    if (!preservePreview)
+      entry.preview = replaceUnknownTags(entry.preview, known, entry.name)
+    return entry
+  })
 
   components.sort((a, b) => a.name.localeCompare(b.name))
   layouts.sort((a, b) => a.name.localeCompare(b.name))
@@ -199,7 +206,7 @@ async function listFiles(dir: string): Promise<string[]> {
   }
 }
 
-async function readComponent(file: string, name: string, source: ComponentSource, origin: string): Promise<ComponentEntry | null> {
+async function readComponent(file: string, name: string, source: ComponentSource, origin: string): Promise<ComponentCandidate | null> {
   let code = ''
   try {
     code = await readFile(file, 'utf-8')
@@ -216,8 +223,6 @@ async function readComponent(file: string, name: string, source: ComponentSource
   const declared = parseStudioBlock(code)
   const meta = { ...builtin, ...declared }
   meta.props = { ...builtin?.props, ...declared.props }
-  if (meta.hidden)
-    return null
 
   // Vue drops fallthrough attributes on a component with several root nodes, so
   // such a component never receives its source annotation and is invisible to
@@ -242,16 +247,22 @@ async function readComponent(file: string, name: string, source: ComponentSource
         : snippet
 
   return {
-    name,
-    file,
-    source,
-    origin,
-    description: meta.description ?? describeFromDoc(code),
-    category: meta.category,
-    snippet,
-    preview,
-    props,
-    previewable: extname(file) === '.vue' && !NO_PREVIEW.has(name) && !!preview,
+    entry: {
+      name,
+      file,
+      source,
+      origin,
+      description: meta.description ?? describeFromDoc(code),
+      category: meta.category,
+      snippet,
+      preview,
+      props: meta.propsMode === 'declared' ? props.filter(prop => Object.hasOwn(meta.props ?? {}, prop.name)) : props,
+      propsMode: meta.propsMode,
+      hidden: !!meta.hidden,
+      previewable: extname(file) === '.vue' && !NO_PREVIEW.has(name) && !!preview,
+    },
+    preserveSnippet: typeof meta.snippet === 'string',
+    preservePreview: typeof meta.preview === 'string' || typeof meta.snippet === 'string',
   }
 }
 
@@ -433,7 +444,8 @@ function parseTypeProps(body: string, defaults: Record<string, string>, code = '
       name,
       type,
       required: !optional,
-      default: defaults[name],
+      default: defaults[name]?.replace(/^['"]|['"]$/g, ''),
+      defaultLiteral: defaults[name],
       options: parseStringUnion(type) ?? parseStringUnion(resolveAlias(type, code)),
     })
   }
@@ -480,7 +492,7 @@ function parseDefaults(code: string): Record<string, string> {
   for (const entry of splitTopLevel(last.slice(1, -1))) {
     const kv = entry.match(/^\s*(\w+)\s*:\s*([\s\S]+?)\s*$/)
     if (kv)
-      defaults[kv[1]] = kv[2].replace(/^['"]|['"]$/g, '')
+      defaults[kv[1]] = kv[2]
   }
   return defaults
 }
@@ -581,6 +593,7 @@ function parseObjectProps(body: string): PropMeta[] {
       type: declared ?? inferType(fallback),
       required: /required\s*:\s*true/.test(block),
       default: fallback?.replace(/^['"]|['"]$/g, ''),
+      defaultLiteral: fallback,
     })
   }
   return props

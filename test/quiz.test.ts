@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { applyQuizSignal, createQuizState } from '../shared/quiz'
 
 const options = [
-  { id: 'a', label: 'A', correct: true },
-  { id: 'b', label: 'B', correct: false },
-  { id: 'c', label: 'C', correct: true },
+  { id: 'a', correct: true },
+  { id: 'b', correct: false },
+  { id: 'c', correct: true },
 ]
 
 describe('question answer rules', () => {

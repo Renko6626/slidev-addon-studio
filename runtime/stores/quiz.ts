@@ -16,9 +16,8 @@ export const useQuizStore = defineStore('studio/quiz', {
       const previous = records[id]
       // Stable field order and copied options keep equivalent props and in-place edits comparable.
       const snapshot: QuizConfiguration = {
-        title: configuration.title, mode: configuration.mode,
-        options: configuration.options.map(({ id, label, correct }) => ({ id, label, correct })),
-        correctText: configuration.correctText, incorrectText: configuration.incorrectText, idleText: configuration.idleText,
+        mode: configuration.mode,
+        options: configuration.options.map(({ id, correct }) => ({ id, correct })),
       }
       if (!previous || JSON.stringify(previous.configuration) !== JSON.stringify(snapshot)) {
         records[id] = { configuration: snapshot, state: createQuizState(), credited: false }

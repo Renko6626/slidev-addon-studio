@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { t } from '../../i18n'
+import type { ComponentString } from '../../md/component-fields'
 import type { CatalogComponent, PropControl, PropMeta } from '../../types'
 import { catalogOptionLabel, catalogPropLabel } from '../../i18n/catalog'
 import { computed } from 'vue'
@@ -22,11 +23,13 @@ const props = defineProps<{
   prop: PropMeta
   value: string | boolean | null
   component?: Pick<CatalogComponent, 'name' | 'source'>
+  fieldValue?: ComponentString
 }>()
-const emit = defineEmits<{ change: [value: string | boolean | null] }>()
+const emit = defineEmits<{ change: [value: string | boolean | null], edit: [], imageFile: [], imageLibrary: [], source: [] }>()
 
 const label = computed(() => props.component ? catalogPropLabel(props.component, props.prop) : props.prop.label ?? props.prop.name)
 const current = computed(() => (props.value === null ? '' : String(props.value)))
+const imagePreview = computed(() => current.value.startsWith('/') && !current.value.startsWith('//') ? import.meta.env.BASE_URL.replace(/\/$/, '') + current.value : current.value)
 const optionValues = computed(() => props.prop.options?.map(o => o.value) ?? [])
 
 const items = computed(() => parseStringArray(current.value) ?? defaultItems.value)
@@ -120,8 +123,25 @@ function setRows(next: Record<string, string | number | boolean>[]) {
 </script>
 
 <template>
+  <StudioField v-if="fieldValue && !fieldValue.editable" :label="label">
+    <span class="studio-hint">{{ t(fieldValue.reason === 'unknown-default' ? 'componentFieldDefault' : 'componentFieldCode') }}</span>
+    <button class="studio-button" @click="emit('source')">{{ t('editComponentTag') }}</button>
+  </StudioField>
+  <StudioField v-else-if="control === 'richtext'" :label="label">
+    <button class="studio-button" @click="emit('edit')">{{ t('componentFieldEdit') }}</button>
+  </StudioField>
+  <StudioField v-else-if="control === 'image'" :label="label">
+    <div>
+      <img v-if="current" :src="imagePreview" :alt="label" style="max-width:100%;max-height:100px;object-fit:contain">
+      <div class="studio-button-row">
+        <button class="studio-button" @click="emit('imageFile')">{{ t('imageFromFile') }}</button>
+        <button class="studio-button" @click="emit('imageLibrary')">{{ t('imageFromLibrary') }}</button>
+        <button class="studio-button" :disabled="!current" @click="emit('change', '')">{{ t('componentFieldClear') }}</button>
+      </div>
+    </div>
+  </StudioField>
   <ObjectListField
-    v-if="control === 'object[]'"
+    v-else-if="control === 'object[]'"
     :label="label"
     :rows="rows ?? []"
     :fields="prop.fields"

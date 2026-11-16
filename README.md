@@ -168,8 +168,11 @@ and standalone HTML headings/paragraphs share the same rich-text controls.
 Simple marks keep Markdown; fonts, sizes and colours save standard HTML while
 preserving the heading level, document flow and existing root attributes.
 Enter adds sibling paragraphs; list controls can convert the selected block
-to a standard HTML list, which remains editable. Other Markdown structures,
-frontmatter text and component internals keep their existing editors.
+to a standard HTML list, which remains editable. Other Markdown structures and complex HTML open as source. Frontmatter text and
+question labels use plain-text editing. Properties and the context menu offer
+Edit HTML, Edit Markdown and Edit component tag; source editing preserves the
+authored markup and provides Apply and Cancel. Mixed containers are no longer
+edited visually across existing blocks.
 
 Press and drag a movable object directly, without selecting it first. A light
 click only selects it. Clicking another canvas object while editing text applies
@@ -249,18 +252,20 @@ list and stay below the page objects.
 
 **Insert → Single-choice page / Multiple-choice page** creates a page with a
 question control, a separate prompt, four independent option buttons and feedback.
-Select the control to configure its name, prompt, options, correct answers and
-feedback. Dashed lines show its connections; selecting a child shows only that
+Select the control to configure its name and correct option IDs. Edit the prompt
+as an ordinary text box, option text/images on each button, and messages on the
+feedback object. Dashed lines show its connections; selecting a child shows only that
 child's connection. Objects remain independently positioned. The control is
 hidden when presenting by default; **Show question name when presenting** displays
 its name while the question keeps running in either mode. Removing a prompt keeps
 the question; removing the control warns and leaves the display objects in place.
-Question configuration and prompt rendering always use separate components.
+The prompt is an ordinary Studio text box linked by `data-studio-question-ref`.
 
 Multiple-choice pages also have Confirm answer and Clear selection buttons. This version keeps
 four options and does not offer changing the question type. Double-click or F2
-opens simple text editing for prompts, option/button labels and the feedback's
-idle prompt. Correct/incorrect feedback stays in the inspector.
+opens rich-text editing for the prompt and button content. Each button also
+offers an image field. Feedback messages belong to the feedback object; its idle
+message supports plain-text editing and all three messages appear in properties.
 
 **Insert → Button** adds a button bound to a question on the current page. Its
 properties set the question, purpose, option and appearance. Normal, Selected,

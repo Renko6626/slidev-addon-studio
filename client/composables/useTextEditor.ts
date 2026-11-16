@@ -2,21 +2,34 @@ import { computed, onScopeDispose, ref, shallowRef } from 'vue'
 import type { Editor } from '@tiptap/core'
 import type { Node as TextNode } from '@tiptap/pm/model'
 import type { StudioContext } from '../context'
+import type { ComponentFieldTarget } from '../component-fields'
+import { readComponentString, writeComponentString } from '../md/component-fields'
+import { t } from '../i18n'
 import type { StudioTarget } from '../types'
 import { action } from '../i18n'
 import { busy, editing, selection } from '../state'
+import { getBlock } from '../md/lines'
 import { readEditableText, writeEditableText, editableTextTarget } from '../text/source'
 import type { EditableTextSource } from '../text/source'
 import { applyTextCommand, createTextEditor, prepareTextHTML, readTextFormat, selectTextWord, pasteText } from '../text/editor'
 import type { TextCommand, TextDefaults } from '../text/editor'
 
+interface ComponentTextSource {
+  kind: 'component'
+  html: string
+  field: ComponentFieldTarget
+  block: string
+  no: number
+}
+type TextSource = EditableTextSource | ComponentTextSource
+
 /** Text boxes and native prose share commands, selection and editing history. */
-export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> & Partial<Pick<StudioContext, 'selectInserted'>>) {
+export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> & Partial<Pick<StudioContext, 'selectInserted' | 'no'>>) {
   const editor = shallowRef<Editor | null>(null)
   const revision = ref(0)
   const pasteMode = ref<'source' | 'match' | 'plain'>('source')
   const activeDefaults = shallowRef<TextDefaults | null>(null)
-  const activeSource = shallowRef<EditableTextSource | null>(null)
+  const activeSource = shallowRef<TextSource | null>(null)
   let originalDoc: TextNode | null = null
   let stopKeys: (() => void) | null = null
 
@@ -28,7 +41,7 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
   const supported = computed(() => textSource.value !== null)
   const defaults = computed<TextDefaults>(() => {
     if (activeDefaults.value) return activeDefaults.value
-    const el = selection.value?.el
+    const el = activeSource.value?.kind === 'component' ? activeSource.value.field.element : selection.value?.el
     if (!el) return {}
     const style = getComputedStyle(el)
     const fontSize = Number.parseFloat(style.fontSize) || 28
@@ -69,17 +82,20 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
     activeSource.value = null
   }
 
-  function start(target: StudioTarget, html: string, selectAll: boolean, finish: () => void, point?: { x: number, y: number } | null): boolean {
-    target = editableTextTarget(target)
-    const source = readEditableText(studio.content(), target)
+  function start(target: StudioTarget, html: string, selectAll: boolean, finish: () => void, point?: { x: number, y: number } | null, field?: ComponentFieldTarget): boolean {
+    target = field ? target : editableTextTarget(target)
+    const source: TextSource | null = field?.element && field.owner.range
+      ? { kind: 'component', html, field, block: getBlock(studio.content(), field.owner.range), no: field.owner.no }
+      : readEditableText(studio.content(), target)
     if (!source || prepareTextHTML(html) === null) return false
-    const inherited = defaults.value
     stop()
-    activeDefaults.value = inherited
     activeSource.value = source
-    target.el.replaceChildren()
+    const inherited = defaults.value
+    activeDefaults.value = inherited
+    const element = field?.element ?? target.el
+    element.replaceChildren()
     const instance = createTextEditor(html, {
-      element: target.el,
+      element,
       editorProps: {
         attributes: { class: `studio-rich-editor${source.kind === 'native' ? ' studio-rich-editor--native' : ''}`, style: 'outline:none;white-space:pre-wrap;min-height:1em;font:inherit;color:inherit;' },
         handlePaste: (_view, event) => {
@@ -130,6 +146,16 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
       if (!editor.value || !originalDoc || originalDoc.eq(editor.value.state.doc)) return
       html = editor.value.getHTML()
     }
+    if (source.kind === 'component') {
+      const { field, block, no } = source
+      const range = field.owner.range!
+      if (studio.no && studio.no() !== no || getBlock(studio.content(), range) !== block)
+        throw new Error(t('componentFieldChanged'))
+      const readable = readComponentString(studio.content(), range, field.prop)
+      if (!readable.editable) throw new Error(t('componentFieldCode'))
+      await studio.commit(writeComponentString(studio.content(), range, field.prop, html), label)
+      return
+    }
     const result = writeEditableText(studio.content(), source, html)
     if (result.content === studio.content()) return
     const selected = selection.value
@@ -165,7 +191,15 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
   onScopeDispose(stop)
   return {
     pasteMode, editor, supported, format, scope, canUndo, canRedo, start, stop, run, apply, undo, redo,
-    draft: () => editor.value && textSource.value ? writeEditableText(studio.content(), textSource.value, editor.value.getHTML()).block : null,
+    draft: () => {
+      if (!editor.value || !textSource.value) return null
+      const content = studio.content()
+      const source = textSource.value
+      if (source.kind === 'component') return editor.value.getHTML()
+      const result = writeEditableText(content, source, editor.value.getHTML())
+      const addedLines = result.content.split('\n').length - content.split('\n').length
+      return getBlock(result.content, [source.range[0], source.range[1] + addedLines])
+    },
     html: () => editor.value?.getHTML() ?? '',
     changed: () => !!editor.value && !!originalDoc && !originalDoc.eq(editor.value.state.doc),
   }

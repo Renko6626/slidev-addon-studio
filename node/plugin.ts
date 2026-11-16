@@ -190,7 +190,7 @@ async function renderCatalogModule(options: ResolvedSlidevOptions) {
   const config = studioConfig(options)
 
   const componentLoaders = catalog.components
-    .filter(c => c.previewable)
+    .filter(c => !c.hidden && c.previewable)
     .map(c => `  ${JSON.stringify(c.name)}: () => import(${JSON.stringify(toFsUrl(c.file))}),`)
     .join('\n')
 

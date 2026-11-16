@@ -6,8 +6,7 @@ import { quizStore } from '../runtime/stores/quiz'
 
 const configuration = {
   mode: 'single' as const,
-  options: [{ id: 'a', label: 'A', correct: true }, { id: 'b', label: 'B', correct: false }],
-  correctText: 'Correct', incorrectText: 'Try again', idleText: 'Choose',
+  options: [{ id: 'a', correct: true }, { id: 'b', correct: false }],
 }
 const disposals: (() => void)[] = []
 afterEach(() => disposals.splice(0).forEach(dispose => dispose()))
@@ -71,7 +70,7 @@ it('counts first correct answers per page, retains credit on retry/unmount, and 
   current.value = 2
   dispatch({ question: 'q', action: 'choose', option: 'a' })
   expect(store.correctCount).toBe(2)
-  remounted.registerQuestion('q', { ...configuration, correctText: 'Changed' })
+  remounted.registerQuestion('q', { ...configuration, options: configuration.options.map(option => ({ ...option, correct: !option.correct })) })
   expect(store.correctCount).toBe(1)
   expect(remounted.question('q')?.state.attempts).toBe(0)
   runtime.resetTrial()

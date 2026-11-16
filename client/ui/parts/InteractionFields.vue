@@ -5,7 +5,7 @@ import type { ButtonAction } from '../../md/interactions'
 import type { MessageKey } from '../../i18n'
 import { useStudio } from '../../context'
 import { action, t } from '../../i18n'
-import { listQuestions, patchInteraction, readInteraction, readInteractionText, setButtonAction, writeInteractionText } from '../../md/interactions'
+import { listQuestions, patchInteraction, readInteraction, setButtonAction } from '../../md/interactions'
 import { activePanel, busy, editing, inspectorVisible, selection } from '../../state'
 import { imagePending } from '../../composables/useImageInsertion'
 import StudioField from './StudioField.vue'
@@ -19,7 +19,6 @@ const questions = computed(() => listQuestions(studio.content()).filter((item, _
   && all.filter(other => other.value.question === item.value.question).length === 1))
 const controller = computed(() => form.value?.kind === 'question' && range.value ? { range: range.value, value: form.value }
   : questions.value.find(item => item.value.question === form.value?.question))
-const buttonText = computed(() => range.value ? readInteractionText(studio.content(), range.value) : null)
 const actions = computed<{ value: ButtonAction, label: MessageKey }[]>(() => [
   { value: controller.value?.value.mode === 'multiple' ? 'set-option' : 'choose', label: 'quizChooseOption' },
   ...(controller.value?.value.mode === 'multiple' ? [{ value: 'submit' as const, label: 'quizSubmit' as const }] : []),
@@ -30,7 +29,6 @@ const colors = [
   { name: 'selectedFill', label: 'quizSelectedFill' }, { name: 'correctFill', label: 'quizCorrectFill' },
   { name: 'incorrectFill', label: 'quizIncorrectFill' },
 ] as const
-const feedback = [{ name: 'correctText', label: 'quizCorrectText' }, { name: 'incorrectText', label: 'quizIncorrectText' }, { name: 'idleText', label: 'quizIdleText' }] as const
 const previewModes = [{ value: 'normal', label: 'quizPreviewNormal' }, { value: 'selected', label: 'quizPreviewSelected' }, { value: 'correct', label: 'quizPreviewCorrect' }, { value: 'incorrect', label: 'quizPreviewIncorrect' }] as const
 const previewMode = ref('normal')
 function preview(value: string) {
@@ -51,17 +49,9 @@ async function setController(values: Record<string, string | QuizOption[]>) {
   if (locked.value || !controller.value) return
   await studio.commit(patchInteraction(studio.content(), controller.value.range, values), action('actionQuizEdit'))
 }
-function optionLabel(id: string, value: string) {
-  const options = controller.value?.value.options
-  if (options) return setController({ options: options.map(option => option.id === id ? { ...option, label: value } : option) })
-}
 function correct(id: string, checked: boolean) {
   const question = controller.value?.value
   if (question?.options) return setController({ options: question.options.map(option => ({ ...option, correct: question.mode === 'single' ? option.id === id : option.id === id ? checked : option.correct })) })
-}
-async function setText(value: string) {
-  if (locked.value || !buttonText.value) return
-  await studio.commit(writeInteractionText(studio.content(), buttonText.value, value), action('actionQuizEdit'))
 }
 function changeQuestion(id: string) {
   const target = questions.value.find(item => item.value.question === id)?.value
@@ -74,7 +64,7 @@ function changeQuestion(id: string) {
 }
 async function changeAction(value: string) {
   if (locked.value || !range.value) return
-  const next = setButtonAction(studio.content(), range.value, value as ButtonAction, { submit: t('quizSubmit'), clear: t('quizClear') })
+  const next = setButtonAction(studio.content(), range.value, value as ButtonAction)
   await studio.commit(next, action('actionQuizEdit'))
 }
 function radius(value: string) {
@@ -97,7 +87,7 @@ async function goToControl() {
       <StudioField v-if="form.kind !== 'question'" :label="t('quizBelongsTo')">
         <select :value="form.question ?? ''" :disabled="form.question === null" @change="changeQuestion(($event.target as HTMLSelectElement).value)">
           <option value="" disabled>{{ t('quizChooseQuestion') }}</option>
-          <option v-for="question in questions" :key="question.value.question!" :value="question.value.question!">{{ question.value.name || question.value.title || t('quizUntitled') }}</option>
+          <option v-for="question in questions" :key="question.value.question!" :value="question.value.question!">{{ question.value.name || question.value.question || t('quizUntitled') }}</option>
         </select>
       </StudioField>
       <p v-if="form.kind !== 'question' && !controller" class="studio-hint">{{ t('quizMissingQuestion') }}</p>
@@ -108,29 +98,21 @@ async function goToControl() {
         <StudioField :label="t('quizControlName')"><input type="text" :value="form.name ?? ''" :disabled="form.name === null" @change="patch({ name: ($event.target as HTMLInputElement).value })"></StudioField>
         <StudioField :label="t('quizShowInPresentation')"><input type="checkbox" :checked="form.presentation === 'summary'" :disabled="form.presentation === null" @change="patch({ presentation: ($event.target as HTMLInputElement).checked ? 'summary' : 'hidden' })"></StudioField>
         <StudioField :label="t('quizType')"><span>{{ t(form.mode === null ? 'quizAdvancedValue' : form.mode === 'multiple' ? 'quizMultiple' : 'quizSingle') }}</span></StudioField>
-        <StudioField :label="t('quizTitle')"><textarea :value="form.title ?? ''" rows="3" :disabled="form.title === null" @change="setController({ title: ($event.target as HTMLTextAreaElement).value })" /></StudioField>
         <div v-if="form.options && form.mode" class="studio-quiz-options">
           <strong>{{ t('quizOptionsAndAnswers') }}</strong>
           <label v-for="option in form.options" :key="option.id" class="studio-quiz-option">
             <input :type="form.mode === 'single' ? 'radio' : 'checkbox'" :checked="option.correct" name="studio-quiz-answer" :aria-label="t('quizCorrectOption', { option: option.id })" @change="correct(option.id, ($event.target as HTMLInputElement).checked)">
             <span>{{ option.id }}</span>
-            <input type="text" :value="option.label" :aria-label="t('quizOptionText', { option: option.id })" @change="optionLabel(option.id, ($event.target as HTMLInputElement).value)">
           </label>
           <p class="studio-hint">{{ t('quizAnswerHint') }}</p>
         </div>
         <p v-else class="studio-hint">{{ t('quizAdvancedHint') }}</p>
       </template>
 
-      <template v-if="form.kind === 'title'">
-        <StudioField :label="t('quizTitle')"><textarea :value="controller?.value.title ?? ''" :disabled="!controller || controller.value.title === null" rows="3" @change="setController({ title: ($event.target as HTMLTextAreaElement).value })" /></StudioField>
-        <p class="studio-hint">{{ t('quizTitleHint') }}</p>
-      </template>
-
       <template v-if="form.kind === 'button'">
         <StudioField :label="t('quizButtonAction')"><select :value="form.action ?? ''" :disabled="form.action === null || !controller?.value.mode" @change="changeAction(($event.target as HTMLSelectElement).value)"><option v-for="item in actions" :key="item.value" :value="item.value">{{ t(item.label) }}</option></select></StudioField>
         <p class="studio-hint">{{ t('quizActionTextHint') }}</p>
-        <StudioField v-if="form.action === 'choose' || form.action === 'set-option'" :label="t('quizButtonOption')"><select :value="form.option ?? ''" :disabled="form.option === null || !controller?.value.options" @change="patch({ option: ($event.target as HTMLSelectElement).value })"><option v-for="option in controller?.value.options ?? []" :key="option.id" :value="option.id">{{ option.id }} {{ option.label }}</option></select></StudioField>
-        <StudioField :label="t('quizButtonText')"><input type="text" :value="buttonText?.text ?? ''" :disabled="!buttonText" @change="setText(($event.target as HTMLInputElement).value)"></StudioField>
+        <StudioField v-if="form.action === 'choose' || form.action === 'set-option'" :label="t('quizButtonOption')"><select :value="form.option ?? ''" :disabled="form.option === null || !controller?.value.options" @change="patch({ option: ($event.target as HTMLSelectElement).value })"><option v-for="option in controller?.value.options ?? []" :key="option.id" :value="option.id">{{ option.id }}</option></select></StudioField>
         <StudioField v-for="field in colors" :key="field.name" :label="t(field.label)"><ColorSwatch v-if="form[field.name] !== null" :value="form[field.name]!" @change="patch({ [field.name]: $event })" /><span v-else>{{ t('quizAdvancedValue') }}</span></StudioField>
         <StudioField :label="t('quizRadius')"><input type="number" min="0" :value="form.radius ?? ''" :disabled="form.radius === null" @change="radius(($event.target as HTMLInputElement).value)"></StudioField>
         <p class="studio-hint">{{ t('quizAppearancePreview') }}</p>
@@ -140,9 +122,7 @@ async function goToControl() {
       <template v-if="form.kind === 'feedback'">
         <StudioField :label="t('quizFeedbackEffect')"><select :value="form.effect ?? ''" :disabled="form.effect === null" @change="patch({ effect: ($event.target as HTMLSelectElement).value })"><option value="none">{{ t('quizEffectNone') }}</option><option value="fade">{{ t('quizEffectFade') }}</option><option value="pop">{{ t('quizEffectPop') }}</option></select></StudioField>
       </template>
-      <template v-if="form.kind === 'question' || form.kind === 'feedback'">
-        <StudioField v-for="field in feedback" :key="field.name" :label="t(field.label)"><textarea :value="controller?.value[field.name] ?? ''" :disabled="!controller || controller.value[field.name] === null" rows="2" @change="setController({ [field.name]: ($event.target as HTMLTextAreaElement).value })" /></StudioField>
-      </template>
+
     </template>
   </fieldset>
 </template>

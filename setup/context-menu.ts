@@ -1,3 +1,4 @@
+import { sourceEditLabel } from '../client/source-label'
 import { t, targetLabel } from '../client/i18n'
 import type { ContextMenuItem } from '@slidev/types'
 import type { ComputedRef } from 'vue'
@@ -7,6 +8,7 @@ import {
   deleteBlock,
   duplicateBlock,
   editText,
+  editSource,
   freePosition,
   isPositioned,
 } from '../client/actions'
@@ -77,6 +79,7 @@ export default (items: ComputedRef<ContextMenuItem[]>): ComputedRef<ContextMenuI
         action: () => editText(),
       })
     }
+    mine.push({ icon: 'i-carbon:code', label: t(sourceEditLabel(target)), action: editSource })
     if (!positioned) {
       mine.push({
         icon: 'i-carbon:move',

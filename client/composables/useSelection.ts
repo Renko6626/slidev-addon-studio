@@ -1,3 +1,4 @@
+import { fieldAt } from '../component-fields'
 import { action, targetName } from '../i18n'
 import type { ActionLabel } from '../i18n'
 import type { StudioTarget } from '../types'
@@ -11,7 +12,7 @@ import { onDomEvent } from './useDomEvent'
 import { useSelectionRebind } from './useSelectionRebind'
 import { confirmQuestionRemoval } from '../actions'
 import { createTargetResolver, describeTarget as describe, isMultiSelectable, isStudioChrome, isVisible, sameRange } from '../selection-target'
-import { activePanel, busy, editing, editPointer, hovered, inspectorVisible, missed, selection, selectedTargets, setSelectedTargets, marquee, studioOpen } from '../state'
+import { activePanel, busy, editing, editPointer, hovered, inspectorVisible, missed, selection, selectedTargets, setSelectedTargets, selectedComponentField, marquee, studioOpen } from '../state'
 
 export function useSelection(
   no: () => number,
@@ -20,6 +21,11 @@ export function useSelection(
   startMove?: (event: PointerEvent) => void,
 ) {
   const { targetFrom, targetFromPoint, throughChrome } = createTargetResolver(no, content)
+  function rememberField(target: StudioTarget, node: EventTarget | null) {
+    const field = fieldAt(target, node)
+    selectedComponentField.value = field ? { owner: target.el, name: field.dataset.studioField! } : null
+    if (field?.tagName === 'IMG') { activePanel.value = 'inspect'; inspectorVisible.value = true }
+  }
 
   function select(node: EventTarget | null) {
     const target = targetFrom(node)
@@ -147,6 +153,7 @@ export function useSelection(
       return
     }
     if (!selectedTargets.value.some(item => item.el === target.el)) selection.value = target
+    rememberField(target, event.target)
     if (startDrag && !busy.value)
       startMove?.(event)
   }
@@ -189,6 +196,8 @@ export function useSelection(
         return
       event.preventDefault()
       selection.value = beneath
+      const node = document.elementsFromPoint(event.clientX, event.clientY).find(el => !isStudioChrome(el) && beneath.el.contains(el))
+      rememberField(beneath, node ?? beneath.el)
       if (beneath.el.dataset.studioQuestionControl !== undefined) {
         activePanel.value = 'inspect'
         inspectorVisible.value = true
@@ -208,6 +217,7 @@ export function useSelection(
       return
     event.preventDefault()
     selection.value = target
+    rememberField(target, event.target)
     if (target.el.dataset.studioQuestionControl !== undefined) {
       activePanel.value = 'inspect'
       inspectorVisible.value = true
@@ -279,8 +289,11 @@ export function useSelection(
    */
   function selectThrough(x: number, y: number) {
     const target = throughChrome(x, y)
-    if (target && !selectedTargets.value.some(item => item.el === target.el))
-      selection.value = target
+    if (target) {
+      if (!selectedTargets.value.some(item => item.el === target.el)) selection.value = target
+      const node = document.elementsFromPoint(x, y).find(el => !isStudioChrome(el) && target.el.contains(el))
+      rememberField(target, node ?? target.el)
+    }
   }
 
   return { select, targetFrom, reselect, reselectTargets, selectInserted, selectInsertedMany, selectThrough, selectOnPointer, editOnPointer }

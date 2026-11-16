@@ -1,5 +1,12 @@
 # Studio 阶段状态
 
+## 当前源码：字段化题目模板，2026-11-16
+
+`codex/studio-component-fields` 已将标准题目页改为规则控件、普通富文本题干、字段化 StudioButton 和拥有自身文案的 StudioFeedback。题目配置只保留 mode 与 `{ id, correct }` 选项；移除 StudioQuestionTitle 与旧的跨对象文字回写。普通文本框、自定义组件及标准交互对象的题目绑定在整题复制时统一更新。按用户要求不提供历史文稿迁移或兼容分支。
+
+源码及验证记录见 [模板实施记录](superpowers/plans/2026-11-16-question-field-templates.md)。下文旧阶段的组件/API 描述仅代表当时状态。
+
+
 ## 当前源码：Pinia 自定义交互基础，2026-11-16
 
 `codex/studio-custom-runtime` 提供应用级 Pinia、公共运行上下文、独立预览状态、题目首次答对计数、普通可定位计数组件和自定义示例。排版拖拽由 Studio 制作工具负责，播放时关闭 Slidev 原生拖拽入口。新桌面工程声明 Pinia，并附 agent 接入指南。本阶段源码已从 `codex/studio-custom-runtime` 快进合并到 main；未发布 npm 或打包桌面版本。

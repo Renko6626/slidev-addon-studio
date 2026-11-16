@@ -89,3 +89,41 @@ describe('page backgrounds', () => {
     expect(writes).toBe(0)
   })
 })
+
+it('replaces an image field on its component without creating a separate image object', async () => {
+  const before = '<Card image-src="/old.svg" content-html="Keep" v-drag="[10,20,300,120]" />\n\nNeighbor'
+  let content = before
+  let writes = 0
+  const target = { el: document.createElement('div'), no: 1, range: [0, 1], kind: 'component', tag: 'Card', positioned: true, nested: false, label: 'Card' } as StudioTarget
+  selection.value = target
+  host.studio = { no: () => 1, content: () => content, commit: async (next: string) => { content = next; writes++ }, selectInserted: async () => true } as unknown as StudioContext
+  const NativeImage = globalThis.Image
+  vi.stubGlobal('Image', class {
+    naturalWidth = 400; naturalHeight = 200
+    onload: (() => void) | null = null
+    set src(_value: string) { queueMicrotask(() => this.onload?.()) }
+  })
+  try {
+    const images = useImageInsertion()
+    images.forField(target, { name: 'imageSrc', control: 'image' }, false)
+    await images.chooseAsset({ name: 'new.svg', url: '/new.svg', size: 100, kind: 'image' })
+    expect(content).toBe('<Card :image-src="&quot;/new.svg&quot;" content-html="Keep" v-drag="[10,20,300,120]" />\n\nNeighbor')
+    expect(writes).toBe(1)
+    expect(imageLibraryRequest.value).toBeNull()
+    expect(imagePending.value).toBe(false)
+  }
+  finally { vi.stubGlobal('Image', NativeImage) }
+})
+
+it('cancels a component image file picker without altering its field', () => {
+  const content = '<Card image-src="/old.svg" />'
+  const target = { el: document.createElement('div'), no: 1, range: [0, 1], kind: 'component', tag: 'Card', positioned: false, nested: false, label: 'Card' } as StudioTarget
+  let writes = 0
+  host.studio = { no: () => 1, content: () => content, commit: async () => { writes++ } } as unknown as StudioContext
+  useImageInsertion().forField(target, { name: 'imageSrc', control: 'image' }, true)
+  const picker = document.querySelector('input[type="file"]')!
+  expect(picker).not.toBeNull()
+  picker.dispatchEvent(new Event('cancel'))
+  expect(document.querySelector('input[type="file"]')).toBeNull()
+  expect(writes).toBe(0)
+})

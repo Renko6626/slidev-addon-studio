@@ -4,7 +4,7 @@ import type { SourceRange, StudioTarget } from './types'
 import { positionedUnit, readDrag, removeDrag, writeDrag } from './md/drag'
 import { duplicateListItem, listItemUnit, moveBlock, moveListItem, removeBlock } from './md/lines'
 import { captureBlock, insertCopiedBlock } from './md/clipboard'
-import { activePanel, busy, editing, reportError, selection, selectedTargets } from './state'
+import { activePanel, busy, editing, editSourceRequested, reportError, selection, selectedTargets } from './state'
 import { captureBlocks, insertCopiedBlocks, movePositions, removePositions, writePositions } from './md/batch'
 import { alignDeltas, distributeDeltas } from './selection-geometry'
 import type { Align } from './selection-geometry'
@@ -35,8 +35,14 @@ export function isPositioned(content: string, range: SourceRange): boolean {
 
 export function editText() {
   if (selection.value?.el.hasAttribute('data-studio-question-control')) return
-  if (selectedTargets.value.length === 1 && selection.value?.range && selection.value.element !== 'image' && selection.value.element !== 'shape')
+  if (selectedTargets.value.length === 1 && (selection.value?.range || selection.value?.prop) && selection.value.element !== 'image' && selection.value.element !== 'shape')
     editing.value = true
+}
+
+export function editSource() {
+  if (busy.value || editing.value || selectedTargets.value.length !== 1 || !selection.value?.range) return
+  editSourceRequested.value = true
+  editing.value = true
 }
 
 /** Removing a control intentionally leaves independently authored display objects. */

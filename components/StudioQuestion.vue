@@ -7,21 +7,17 @@ import { useInteractionPage } from '../runtime/composables/useInteractionPage'
 const props = withDefaults(defineProps<{
   question: string
   mode?: QuizMode
-  title?: string
   name?: string
   presentation?: QuestionPresentation
   options?: QuizOption[]
-  correctText?: string
-  incorrectText?: string
-  idleText?: string
-}>(), { mode: 'single', title: '', name: '', presentation: 'hidden', options: () => [], correctText: 'Correct!', incorrectText: 'Try again.', idleText: '' })
+}>(), { mode: 'single', name: '', presentation: 'hidden', options: () => [] })
 const context = useStudioContext()
 const interactionEditing = computed(() => context.runtime.mode.value === 'edit')
 const page = useInteractionPage(context)
 let unregister = () => {}
 // Slidev can pass equal new arrays when its page rerenders; those are the same question.
 function configuration() {
-  return { title: props.title, mode: props.mode, options: props.options, correctText: props.correctText, incorrectText: props.incorrectText, idleText: props.idleText }
+  return { mode: props.mode, options: props.options }
 }
 watch(() => JSON.stringify({ question: props.question, ...configuration() }), () => {
   unregister()

@@ -1,3 +1,4 @@
+import type { ComponentFieldTarget } from './component-fields'
 import type { StudioTarget } from './types'
 import { useLocalStorage } from '@vueuse/core'
 import { computed, ref, shallowRef, watch } from 'vue'
@@ -48,6 +49,11 @@ export const missed = shallowRef(false)
 
 /** The selection's text is being edited in place. */
 export const editing = ref(false)
+/** One-shot request from the explicit source-edit command. */
+export const editSourceRequested = ref(false)
+export const editComponentField = shallowRef<ComponentFieldTarget | null>(null)
+export const selectedComponentField = shallowRef<{ owner: HTMLElement, name: string } | null>(null)
+watch(selection, () => { selectedComponentField.value = null }, { flush: 'sync' })
 export const selectAllOnEdit = ref(false)
 /** Consumed once on entry, so a mouse edit starts near the clicked text. */
 export const editPointer = shallowRef<{ x: number, y: number } | null>(null)

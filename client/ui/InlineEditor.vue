@@ -1,495 +1,229 @@
 <script setup lang="ts">
 import { action, t } from '../i18n'
-import type { BlockShape } from '../md/inline'
+import type { ComponentFieldTarget } from '../component-fields'
+import { componentFieldElement, resolveComponentField } from '../component-fields'
+import { readComponentString, writeComponentString } from '../md/component-fields'
+import { useCatalog } from '../composables/useCatalog'
 import type { SourceRange } from '../types'
-import { computed, nextTick, onScopeDispose, ref, watch } from 'vue'
-import { blockShape, canEditContainer, canEditVisually, serialiseBlock, serialiseContainer } from '../md/inline'
-import { toggleBullet, toggleHeading, toggleQuote, toggleTagWrap, toggleWrap, toLink } from '../md/format'
-import { replaceInnerHtml, stripStudioAttrs } from '../md/html'
+import { nextTick, onScopeDispose, ref, watch } from 'vue'
 import { getBlock, replaceBlock } from '../md/lines'
-import { editing, editPointer, reportError, selectAllOnEdit, selection } from '../state'
-import { replaceTextContent } from '../md/elements'
+import { editing, editPointer, editSourceRequested, editComponentField, selectedComponentField, activePanel, inspectorVisible, reportError, selectAllOnEdit, selection } from '../state'
 import { readEditableText, editableTextTarget } from '../text/source'
+import { sourceEditLabel } from '../source-label'
 import { useStudio } from '../context'
 import { onDomEvent } from '../composables/useDomEvent'
 import StudioIcon from './parts/StudioIcon.vue'
-import { projectWriteError } from '../project-save'
-import { readInteractionText, writeInteractionText } from '../md/interactions'
-import type { InteractionTextSource } from '../md/interactions'
 
-/**
- * Editing a block's text where it sits, in two ways.
- *
- * The first is the block itself: it is made editable in place, so what you type
- * is set in the deck's own font, at its own size, in its own colour, wrapping
- * where it will really wrap. Nothing is simulated, because it is the slide.
- *
- * What comes back has to be Markdown again, and that is the risk in every
- * visual editor: round-tripping rendered HTML is where components, directives
- * and formatting go missing. So the block is only offered visually when its
- * markup can be written back exactly, which `md/inline.ts` decides by refusing
- * everything it does not recognise. A table, a fenced code block, a component,
- * a styled span: those open the second way, the block's Markdown as text, which
- * can express anything and never loses what it did not understand.
- */
 const studio = useStudio()
-
-type Mode = 'visual' | 'markdown' | 'rich'
-
-const mode = ref<Mode>('markdown')
+const { components } = useCatalog()
+const mode = ref<'plain' | 'rich' | 'source'>('source')
 const draft = ref('')
 const box = ref<HTMLTextAreaElement | null>(null)
 const rect = ref<{ left: number, top: number, width: number } | null>(null)
-const shape = ref<BlockShape | null>(null)
-const richUnsupported = ref(false)
-
-/** The rendered block being edited, and its markup as it was found. */
+const sourceLabel = ref<ReturnType<typeof sourceEditLabel>>('editMarkdown')
+const held = ref<SourceRange | null>(null)
+const fieldNotice = ref(false)
+let source = ''
+let field: ComponentFieldTarget | null = null
+let fieldBlock = ''
+let propKey: string | null = null
+let originalText = ''
 let editable: HTMLElement | null = null
 let original = ''
-let source = ''
+let originalEditable: string | null = null
+let originalSpellcheck = true
+let originalClass: string | null = null
 
-/*
- * The lines the open editor owns.
- *
- * Usually the selection's own range, but not when a list item hands over the
- * whole list: what is written back then covers every item, so writing it over
- * the one item's range would leave the rest of the list standing underneath.
- */
-let held: SourceRange | null = null
-
-/*
- * Whether what was handed over is one block or a run of them.
- *
- * A text box is the second: the browser owns the whole slot, so Enter starts a
- * paragraph, a second Enter on an empty bullet leaves the list, and a selection
- * can run across two paragraphs, all without the editor closing and reopening
- * around a different element. Which one is in play decides which serialiser
- * writes the result back.
- */
-let heldKind: 'block' | 'container' | 'prop' | 'html' | 'text' | 'interaction' = 'block'
-let interactionText: InteractionTextSource | null = null
-let originalInteractionText = ''
-
-/** For an edit inside raw HTML: the element's tag, and the words it held. */
-let htmlTag = ''
-let htmlWas = ''
-
-
-
-const range = computed(() => selection.value?.range ?? null)
-
-/** Values held by props have plain text; their appearance uses dedicated fields. */
-const editingProp = computed(() => !!selection.value?.prop || !!(range.value && readInteractionText(studio.content(), range.value)))
-
-watch(editing, async (open) => {
-  if (!open) {
-    release()
-    return
-  }
-  richUnsupported.value = false
-  const point = editPointer.value
-  editPointer.value = null
-
-  const interaction = range.value ? readInteractionText(studio.content(), range.value) : null
-  const interactionEl = selection.value?.el.querySelector<HTMLElement>('[data-studio-interaction-text]')
-  if (interaction && interactionEl) {
-    heldKind = 'interaction'
-    interactionText = interaction
-    held = interaction.range
-    shape.value = null
-    source = interaction.text
-    originalInteractionText = interactionEl.textContent ?? ''
-    mode.value = 'visual'
-    const at = interactionEl.getBoundingClientRect()
-    rect.value = { left: at.left, top: at.top, width: Math.max(at.width, 260) }
-    await nextTick()
-    hold(interactionEl)
-    return
-  }
-
-  /*
-   * Text a layout was handed, rather than text the slide holds.
-   *
-   * `eyebrow`, `title`, a speaker's name: the words are in the slide's
-   * frontmatter and the layout renders them, so there is no line of Markdown to
-   * select and nothing in the block editor applies. It is a plain string, so it
-   * is edited as one and written straight back to the key it came from.
-   */
-  const propKey = selection.value?.prop
-  const propEl = selection.value?.el
-  if (propKey && propEl) {
-    heldKind = 'prop'
-    held = null
-    shape.value = null
-    source = String(studio.frontmatter()[propKey] ?? '')
-    draft.value = source
-    mode.value = 'visual'
-    const at = propEl.getBoundingClientRect()
-    rect.value = { left: at.left, top: at.top, width: Math.max(at.width, 260) }
-    await nextTick()
-    hold(propEl)
-
-    // The whole value comes up selected. It is one string standing for one key,
-    // the way a title placeholder behaves, so the first thing typed replaces it
-    // rather than landing against whatever is already there.
-    const chosen = window.getSelection()
-    if (chosen) {
-      const all = document.createRange()
-      all.selectNodeContents(propEl)
-      chosen.removeAllRanges()
-      chosen.addRange(all)
-    }
-    return
-  }
-
-  const textTarget = selection.value ? editableTextTarget(selection.value) : null
-  if (textTarget && textTarget !== selection.value) selection.value = textTarget
-  const richSource = textTarget ? readEditableText(studio.content(), textTarget) : null
-  if (textTarget?.range && (textTarget.element === 'text' || richSource)) {
-    heldKind = 'text'
-    held = textTarget.range
-    shape.value = null
-    source = getBlock(studio.content(), held)
-    const at = textTarget.el.getBoundingClientRect()
-    rect.value = { left: at.left, top: at.top, width: Math.max(at.width, 260) }
-    const selectAll = selectAllOnEdit.value
-    selectAllOnEdit.value = false
-    const html = richSource?.html ?? null
-    original = textTarget.el.innerHTML
-    if (html !== null && studio.text.start(textTarget, html, selectAll, () => { void apply() }, point)) {
-      mode.value = 'rich'
-      editable = textTarget.el
-      editable.classList.add('studio-editing')
-    }
-    else {
-      richUnsupported.value = true
-      mode.value = 'markdown'
-      draft.value = source
-      await nextTick()
-      box.value?.focus()
-    }
-    return
-  }
-
-  // Editing an item of a list hands over the whole list.
-  //
-  // A list is written the way anyone writes one: type an item, press Enter,
-  // type the next. The browser does that for nothing, but only when the thing
-  // it is editing is the list rather than one item of it. Studio maps each item
-  // to its own line so it can be moved and deleted on its own, and holding one
-  // item made the most ordinary act on a list impossible.
-  //
-  // Both are mapped, so the list's own range is already known and everything
-  // typed is written back through the same serialiser, one line per item.
-  const picked = selection.value?.el
-  const list = picked?.dataset.studioKind === 'list-item'
-    ? picked.closest<HTMLElement>('[data-studio-kind="list"]')
-    : null
-  const listRange = list ? parseRange(list.dataset.studioSrc) : null
-
-  let target = listRange ?? range.value
-  let element = (listRange && list) || picked
-  if (!target || !element)
-    return
-
-  // Prefer the whole run of blocks around it, so the slot behaves like one text
-  // box. Only when that cannot be written back unchanged does this fall back to
-  // the single block, and then to editing the Markdown.
-  heldKind = 'block'
-  // Not named `box`: that is the Markdown textarea's ref, and shadowing it here
-  // made the fallback path dereference this instead of the field it meant.
-  const run = containerOf(element)
-  if (run) {
-    const runSource = getBlock(studio.content(), run.range)
-    if (canEditContainer(runSource, run.el as any, verbatim)) {
-      heldKind = 'container'
-      target = run.range
-      element = run.el
-    }
-  }
-
-  held = target
-  source = getBlock(studio.content(), target)
-  draft.value = source
-  shape.value = blockShape(source)
-
-  const found = element.getBoundingClientRect()
-  rect.value = { left: found.left, top: found.top, width: Math.max(found.width, 260) }
-
-  // Visual editing only where the rendered block can be written back as the
-  // Markdown that is already there. Testing the real markup against the real
-  // source, rather than trusting the block's kind, is what keeps a component,
-  // a styled span or a shape the serialiser would flatten out of this path.
-  /*
-   * Text inside raw HTML, once neither the block nor the container fits.
-   *
-   * A deck written by hand carries a lot of markup Markdown cannot express: a
-   * paragraph with utility classes, a grid of divs, a span around one word. The
-   * Markdown serialiser would give the text back and drop the tag with it, so
-   * such a block was only ever editable as source. The words can be replaced
-   * where they sit instead, and the markup around them left untouched, which is
-   * what makes most of a hand written deck clickable.
-   */
-  const blockFits = !!shape.value && canEditVisually(source, element, shape.value)
-
-  if (heldKind === 'block' && !blockFits) {
-    const tag = element.tagName.toLowerCase()
-    const was = element.textContent ?? ''
-    if (replaceInnerHtml(source, tag, was, '') !== null) {
-      heldKind = 'html'
-      htmlTag = tag
-      htmlWas = was
-    }
-  }
-
-  mode.value = heldKind === 'container' || heldKind === 'html' || blockFits ? 'visual' : 'markdown'
-
-  await nextTick()
-  if (mode.value === 'visual')
-    hold(element, element === picked ? undefined : picked)
-  else
-    box.value?.focus()
-})
-
-/**
- * The Markdown a non-text child of a container stands for.
- *
- * Looked up by the hint the renderer left on it, so a component inside a slot
- * survives an edit to the paragraphs around it.
- */
-function verbatim(child: any): string | null {
-  const at = parseRange((child as HTMLElement).dataset?.studioSrc)
-  return at ? getBlock(studio.content(), at) : null
+function place(element: HTMLElement) {
+  const at = element.getBoundingClientRect()
+  rect.value = { left: at.left, top: at.top, width: Math.max(at.width, 320) }
 }
 
-/**
- * The run of blocks a block belongs to, when its parent holds nothing else.
- *
- * Every child has to be a mapped block and the ranges have to follow one
- * another, which is what makes the parent a container of text rather than a
- * piece of layout that happens to have text in it.
- */
-function containerOf(block: HTMLElement): { el: HTMLElement, range: SourceRange } | null {
-  const parent = block.parentElement
-  if (!parent)
-    return null
-
-  const children = [...parent.children] as HTMLElement[]
-  // One block is enough. Holding the container rather than the block is what
-  // lets Enter make a second block that did not exist before: a slot holding
-  // only a list has to become a slot holding a list and a paragraph, and the
-  // browser can only do that if it owns the box rather than the list.
-  if (!children.length)
-    return null
-
-  const ranges: SourceRange[] = []
-  for (const child of children) {
-    const at = parseRange(child.dataset.studioSrc)
-    if (!at)
-      return null
-    if (ranges.length && at[0] < ranges[ranges.length - 1][1])
-      return null
-    ranges.push(at)
-  }
-
-  return { el: parent, range: [ranges[0][0], ranges[ranges.length - 1][1]] }
-}
-
-/**
- * Whether the caret is in a list item of the box being edited.
- *
- * Asked of the DOM rather than of the block's shape, because a text box holding
- * a paragraph and a list has the shape of neither: what matters is where the
- * caret is now.
- */
-function inListItem(): boolean {
-  const chosen = window.getSelection()
-  if (!editable || !chosen || chosen.rangeCount === 0)
-    return false
-  const node = chosen.getRangeAt(0).startContainer
-  const host = (node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement) as HTMLElement | null
-  const item = host?.closest('li')
-  return !!item && editable.contains(item)
-}
-
-/** Reads the `line,line` hint an annotated element carries. */
-function parseRange(raw: string | undefined): SourceRange | null {
-  const parts = raw?.split(',').map(Number)
-  return parts?.length === 2 && parts.every(Number.isFinite) ? [parts[0], parts[1]] : null
-}
-
-/**
- * Paste arrives as text, whatever it was copied from.
- *
- * A browser pastes the markup it was given: styled spans, classes, font tags,
- * whole tables. None of that is Markdown, so the serialiser refuses the block
- * and the edit is thrown away, which is what pasting into a box did before this
- * existed: the words vanished and nothing said why. Markdown can carry bold,
- * italic, underline, strike, code and links, and those the toolbar applies. The
- * rest is not worth losing the paragraph over.
- */
-function onPaste(event: ClipboardEvent) {
-  const text = event.clipboardData?.getData('text/plain')
-  if (text == null)
-    return
-  event.preventDefault()
-  // Line breaks in a pasted block would each start a new element; the text is
-  // taken as one run and the author can break it where they want it.
-  document.execCommand('insertText', false, heldKind === 'text' ? text : text.replace(/\r?\n/g, ' '))
-}
-
-/** Hands the block over to the browser to edit, and remembers how it was. */
-function hold(element: HTMLElement, caretIn?: HTMLElement | null) {
-  editable = element
-  original = element.innerHTML
-  element.setAttribute('contenteditable', 'true')
-  element.classList.add('studio-editing')
-  element.addEventListener('paste', onPaste)
-  element.spellcheck = false
-
-  // Marks as tags rather than inline styles, which is what can be written back
-  // as `**` and `*` rather than as a span nobody asked for.
-  document.execCommand('styleWithCSS', false, 'false')
-
-  // Enter should start a paragraph, not the `div` browsers reach for by
-  // default, because a paragraph is a block the serialiser recognises.
-  document.execCommand('defaultParagraphSeparator', false, heldKind === 'text' ? 'div' : 'p')
-
-  // Anything in the box that is not text is atomic: it can be selected and
-  // deleted whole, which writes it out of the Markdown, but not typed into.
-  if (heldKind === 'container') {
-    for (const child of [...element.children] as HTMLElement[]) {
-      if (!/^(h[1-6]|p|ul|ol|blockquote)$/i.test(child.tagName))
-        child.setAttribute('contenteditable', 'false')
-    }
-  }
-
-  // A double click already chose a word; anything else starts at the end.
-  const chosen = window.getSelection()
-  if (!chosen || !element.contains(chosen.anchorNode))
-    element.focus()
-
-  // When the list was handed over on behalf of one of its items, the caret
-  // belongs in that item rather than wherever the list happens to start.
-  if (caretIn && element.contains(caretIn) && chosen) {
-    const at = document.createRange()
-    at.selectNodeContents(caretIn)
-    at.collapse(false)
-    chosen.removeAllRanges()
-    chosen.addRange(at)
-  }
-}
-
-/** Gives the block back to the renderer, exactly as it was found. */
-function release() {
+// Detach the editing surface without dropping the session's source range.
+function releaseSurface() {
   studio.text.stop()
-  held = null
-  interactionText = null
-  if (!editable)
-    return
+  if (!editable) return
   editable.removeEventListener('paste', onPaste)
-  editable.removeAttribute('contenteditable')
-  editable.classList.remove('studio-editing')
+  if (originalEditable === null) editable.removeAttribute('contenteditable')
+  else editable.setAttribute('contenteditable', originalEditable)
+  editable.spellcheck = originalSpellcheck
+  if (originalClass === null) editable.removeAttribute('class')
+  else editable.setAttribute('class', originalClass)
   editable.innerHTML = original
   editable = null
 }
 
-async function apply() {
-  if (!editing.value)
+function release() {
+  releaseSurface()
+  held.value = null
+  propKey = null
+  field = null
+  fieldNotice.value = false
+  rect.value = null
+}
+
+function capture(element: HTMLElement) {
+  editable = element
+  original = element.innerHTML
+  originalEditable = element.getAttribute('contenteditable')
+  originalSpellcheck = element.spellcheck
+  originalClass = element.getAttribute('class')
+}
+
+function holdPlain(element: HTMLElement, selectAll = false) {
+  capture(element)
+  originalText = element.textContent ?? ''
+  element.setAttribute('contenteditable', 'true')
+  element.classList.add('studio-editing')
+  element.addEventListener('paste', onPaste)
+  element.spellcheck = false
+  const chosen = window.getSelection()
+  if (!chosen || !element.contains(chosen.anchorNode)) element.focus()
+  if (selectAll && chosen) {
+    const all = document.createRange()
+    all.selectNodeContents(element)
+    chosen.removeAllRanges()
+    chosen.addRange(all)
+  }
+}
+
+watch(editing, async open => {
+  if (!open) { release(); return }
+  const requestedField = editComponentField.value
+  editComponentField.value = null
+  const forceSource = editSourceRequested.value
+  editSourceRequested.value = false
+  const point = editPointer.value
+  editPointer.value = null
+  const selectAll = selectAllOnEdit.value
+  selectAllOnEdit.value = false
+  let target = selection.value
+  if (!target) { editing.value = false; return }
+
+  const component = components.find(component => component.name === target?.tag)
+  if (!forceSource && component && (requestedField || component.propsMode === 'declared' || component.props.some(prop => prop.control === 'richtext' || prop.control === 'image'))) {
+    const name = requestedField?.owner.el === target.el ? requestedField.prop.name
+      : selectedComponentField.value?.owner === target.el ? selectedComponentField.value.name : null
+    const owner = target
+    const richFields = component.props.filter(prop => (prop.control === 'richtext' || prop.control === 'text') && componentFieldElement(owner, prop.name))
+    const prop = name ? component.props.find(prop => prop.name === name) : richFields.length === 1 ? richFields[0] : null
+    if (!prop || prop.control === 'image') {
+      activePanel.value = 'inspect'; inspectorVisible.value = true
+      editing.value = false
+      return
+    }
+    const node = componentFieldElement(target, prop.name)
+    field = node ? resolveComponentField(target, node, component) : null
+    field ??= { owner: target, prop, element: null }
+    if (!target.range) { editing.value = false; return }
+    const value = readComponentString(studio.content(), target.range, prop)
+    if (!value.editable) {
+      reportError(new Error(t(value.reason === 'unknown-default' ? 'componentFieldDefault' : 'componentFieldCode')))
+      activePanel.value = 'inspect'; inspectorVisible.value = true
+      editing.value = false
+      return
+    }
+    held.value = [...target.range]
+    fieldBlock = getBlock(studio.content(), held.value)
+    source = value.value
+    sourceLabel.value = 'editHtml'
+    place(field.element ?? target.el)
+    if (field.element && prop.control === 'text') {
+      mode.value = 'plain'
+      holdPlain(field.element)
+      return
+    }
+    if (field.element && prop.control === 'richtext') {
+      capture(field.element)
+      if (studio.text.start(target, source, selectAll, () => { void apply() }, point, field)) {
+        mode.value = 'rich'
+        field.element.classList.add('studio-editing')
+        return
+      }
+      releaseSurface()
+    }
+    fieldNotice.value = true
+    mode.value = 'source'
+    draft.value = source
+    await nextTick()
+    if (editing.value) box.value?.focus()
     return
-  if (heldKind === 'interaction' && interactionText) {
-    const descriptor = interactionText
+  }
+
+  if (!forceSource && target.prop) {
+    propKey = target.prop
+    source = String(studio.frontmatter()[propKey] ?? '')
+    mode.value = 'plain'
+    place(target.el)
+    holdPlain(target.el, true)
+    return
+  }
+
+  if (!forceSource) target = editableTextTarget(target)
+  if (!target.range) { editing.value = false; return }
+  selection.value = target
+  held.value = [...target.range]
+  source = getBlock(studio.content(), held.value)
+  sourceLabel.value = sourceEditLabel(target)
+  place(target.el)
+  const richSource = forceSource ? null : readEditableText(studio.content(), target)
+  if (richSource) {
+    capture(target.el)
+    if (studio.text.start(target, richSource.html, selectAll, () => { void apply() }, point)) {
+      mode.value = 'rich'
+      target.el.classList.add('studio-editing')
+      return
+    }
+    releaseSurface()
+  }
+  mode.value = 'source'
+  draft.value = source
+  await nextTick()
+  if (editing.value && mode.value === 'source') box.value?.focus()
+})
+
+async function apply() {
+  if (!editing.value) return
+  if (mode.value === 'plain') {
     const raw = editable?.textContent ?? ''
-    const changed = raw !== originalInteractionText
+    const changed = raw !== originalText
     const written = raw.replace(/\s+/g, ' ').trim()
+    const ownedField = field
+    const range = held.value
+    const key = propKey
+    const previous = source
     release()
     editing.value = false
-    if (changed && written !== source) {
-      const next = writeInteractionText(studio.content(), descriptor, written)
-      if (next !== studio.content()) await studio.commit(next, action('actionEditText'))
+    if (!changed) return
+    if (ownedField && range && raw !== previous) {
+      if (studio.no() !== ownedField.owner.no || getBlock(studio.content(), range) !== fieldBlock) throw new Error(t('componentFieldChanged'))
+      await studio.commit(writeComponentString(studio.content(), range, ownedField.prop, raw), action('actionEditText'))
+    }
+    else if (key && written !== previous.trim()) {
+      await studio.setFrontmatter({ [key]: written }, action('actionSet', { name: key }))
     }
     return
   }
-  if (heldKind === 'prop') {
-    const key = selection.value?.prop
-    const written = (editable?.textContent ?? '').replace(/\s+/g, ' ').trim()
-    release()
-    editing.value = false
-    if (key && written !== source.trim())
-      await studio.setFrontmatter({ [key]: written }, action('actionSet', { name: key }))
-    return
-  }
-
-  const target = held ?? range.value
-  if (!target || !editing.value)
-    return
-
   if (mode.value === 'rich') {
-    // Start the write while the editor still holds its original source. release
-    // destroys that editor; the pending commit already owns the generated text.
     const pending = studio.text.changed() ? studio.text.apply() : null
     release()
     editing.value = false
     await pending
     return
   }
-
-  if (mode.value === 'markdown') {
-    editing.value = false
-    if (draft.value !== source)
-      await studio.commit(replaceBlock(studio.content(), target, draft.value), action('actionEditText'))
-    return
+  const range = held.value
+  const ownedField = field
+  if (ownedField && range && (studio.no() !== ownedField.owner.no || getBlock(studio.content(), range) !== fieldBlock)) {
+    const error = new Error(t('componentFieldChanged'))
+    reportError(error)
+    throw error
   }
-
-  const element = editable
-
-  if (heldKind === 'text' && element) {
-    const html = stripStudioAttrs(element.innerHTML)
-    release()
-    editing.value = false
-    const next = replaceTextContent(studio.content(), target, html)
-    if (next !== studio.content())
-      await studio.commit(next, action('actionEditText'))
-    return
-  }
-
-  if (heldKind === 'html' && element) {
-    // What goes back is what the browser will render: Markdown written inside
-    // an HTML block is passed through untouched, so `**bold**` would stay four
-    // asterisks on the slide.
-    const next = stripStudioAttrs(element.innerHTML).replace(/\s+/g, ' ').trim()
-    release()
-    editing.value = false
-    const block = getBlock(studio.content(), target)
-    const patched = replaceInnerHtml(block, htmlTag, htmlWas, next, import.meta.env.BASE_URL)
-    if (patched === null) {
-      projectWriteError.value = t('errorHtmlMissing')
-      reportError(new Error(projectWriteError.value))
-      throw new Error(projectWriteError.value)
-    }
-    if (patched !== block)
-      await studio.commit(replaceBlock(studio.content(), target, patched), action('actionEditText'))
-    return
-  }
-
-  const written = element
-    ? (heldKind === 'container'
-        ? serialiseContainer(element as any, verbatim)
-        : (shape.value ? serialiseBlock(element, shape.value) : null))
-    : null
-
-  // Read before releasing: `release` puts the markup back as it was found.
+  const written = draft.value
+  const previous = source
   release()
   editing.value = false
-
-  if (written === null) {
-    projectWriteError.value = t('errorSerialize')
-    reportError(new Error(projectWriteError.value))
-    throw new Error(projectWriteError.value)
-  }
-
-  if (written !== source)
-    await studio.commit(replaceBlock(studio.content(), target, written), action('actionEditText'))
+  if (range && written !== previous)
+    await studio.commit(ownedField ? writeComponentString(studio.content(), range, ownedField.prop, written) : replaceBlock(studio.content(), range, written), action('actionEditText'))
 }
 
 function cancel() {
@@ -499,304 +233,77 @@ function cancel() {
 
 defineExpose({ apply })
 
-/** Switches to editing the Markdown, keeping whatever has been typed. */
-function toMarkdown() {
-  if (mode.value === 'markdown' || editingProp.value)
-    return
-  const written = mode.value === 'rich'
-    ? (studio.text.changed() ? studio.text.draft() : source)
-    : editable
-    ? (heldKind === 'text'
-        ? replaceTextContent(source, [0, source.split('\n').length], stripStudioAttrs(editable.innerHTML))
-        : heldKind === 'container'
-        ? serialiseContainer(editable as any, verbatim)
-        : (shape.value ? serialiseBlock(editable, shape.value) : null))
-    : null
-  release()
-  draft.value = written ?? source
-  mode.value = 'markdown'
+function toSource() {
+  if (mode.value !== 'rich') return
+  // Read before destroying Tiptap; keep the original write range for apply.
+  draft.value = studio.text.changed() ? studio.text.draft() ?? source : source
+  releaseSurface()
+  mode.value = 'source'
   nextTick(() => box.value?.focus())
 }
 
-/** Applies a formatting action to whatever is selected in the textarea. */
-function format(action: (sel: { text: string, start: number, end: number }) => { text: string, start: number, end: number }) {
-  const element = box.value
-  if (!element)
-    return
-  const result = action({ text: draft.value, start: element.selectionStart, end: element.selectionEnd })
-  draft.value = result.text
-  nextTick(() => {
-    element.focus()
-    element.setSelectionRange(result.start, result.end)
-  })
-}
-
-/**
- * Wraps the selection in a tag the browser has no command for.
- *
- * `execCommand` covers bold, italic, strikethrough and links; inline code has
- * no command of its own, so it is done by hand.
- */
-function wrapSelection(tag: string) {
-  const chosen = window.getSelection()
-  if (!chosen || chosen.rangeCount === 0 || chosen.isCollapsed)
-    return
-  const at = chosen.getRangeAt(0)
-  const wrapper = document.createElement(tag)
-  wrapper.appendChild(at.extractContents())
-  at.insertNode(wrapper)
-  chosen.removeAllRanges()
-  const after = document.createRange()
-  after.selectNodeContents(wrapper)
-  chosen.addRange(after)
-}
-
-/**
- * A mark, on or off, the way a word processor does it.
- *
- * `execCommand` is a toggle in principle, but it decides which way to go by
- * asking the browser whether the selection is already bold, and after the first
- * application the selection still refers to the text node the command replaced.
- * Chromium answers no, bolds what is already bold, and the button appears dead:
- * the only way back was to leave the block, come in again and reselect. Owning
- * both directions removes the guesswork, and every tag written here is one the
- * serialiser already knows how to put back as Markdown.
- */
-function toggleMark(tag: string, aliases: string[]) {
-  const chosen = window.getSelection()
-  if (!editable || !chosen || chosen.rangeCount === 0 || chosen.isCollapsed)
-    return
-
-  const start = chosen.getRangeAt(0).startContainer
-  const host = (start.nodeType === Node.ELEMENT_NODE ? start : start.parentElement) as HTMLElement | null
-  const existing = host?.closest<HTMLElement>(aliases.join(','))
-
-  if (!existing || !editable.contains(existing)) {
-    wrapSelection(tag)
-    return
-  }
-
-  // Lift the children out rather than replacing the text, so a mark nested
-  // inside this one survives being unwrapped. The nodes are not normalised
-  // afterwards, because the range below is expressed in terms of them.
-  const parent = existing.parentNode
-  if (!parent)
-    return
-  const moved = [...existing.childNodes]
-  for (const node of moved)
-    parent.insertBefore(node, existing)
-  parent.removeChild(existing)
-
-  if (!moved.length)
-    return
-  const after = document.createRange()
-  after.setStartBefore(moved[0])
-  after.setEndAfter(moved[moved.length - 1])
-  chosen.removeAllRanges()
-  chosen.addRange(after)
-}
-
-const marks = [
-  { icon: 'bold', title: 'bold', markdown: () => format(sel => toggleWrap(sel, '**')), visual: () => toggleMark('b', ['b', 'strong']) },
-  { icon: 'italic', title: 'italic', markdown: () => format(sel => toggleWrap(sel, '*')), visual: () => toggleMark('i', ['i', 'em']) },
-  { icon: 'underline', title: 'underline', markdown: () => format(sel => toggleTagWrap(sel, '<u>', '</u>')), visual: () => toggleMark('u', ['u']) },
-  { icon: 'code', title: 'inlineCode', markdown: () => format(sel => toggleWrap(sel, '`')), visual: () => toggleMark('code', ['code']) },
-  { icon: 'strike', title: 'strikethrough', markdown: () => format(sel => toggleWrap(sel, '~~')), visual: () => toggleMark('s', ['s', 'del', 'strike']) },
-  { icon: 'link', title: 'link', markdown: () => format(sel => toLink(sel)), visual: () => wrapSelection('a') },
-]
-
-/** Block level changes, which rewrite the Markdown's markers rather than its text. */
-const blocks = [
-  { icon: 'h1', title: 'heading1', run: () => format(sel => toggleHeading(sel, 1)) },
-  { icon: 'h2', title: 'heading2', run: () => format(sel => toggleHeading(sel, 2)) },
-  { icon: 'list', title: 'bulletList', run: () => format(sel => toggleBullet(sel)) },
-  { icon: 'quote', title: 'quote', run: () => format(sel => toggleQuote(sel)) },
-]
-
-function runMark(mark: typeof marks[number]) {
-  if (mode.value === 'visual')
-    mark.visual()
-  else
-    mark.markdown()
+function onPaste(event: ClipboardEvent) {
+  const text = event.clipboardData?.getData('text/plain')
+  if (text == null) return
+  event.preventDefault()
+  document.execCommand('insertText', false, text.replace(/\r?\n/g, ' '))
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.isComposing)
-    return
+  event.stopPropagation()
+  if (event.isComposing) return
   const modifier = event.metaKey || event.ctrlKey
-  if (event.key === 'Escape' || event.key === 'F2') {
-    event.preventDefault()
-    // Committed, not thrown away. Escape in a word processor means "I am done
-    // with this box", and undo is how you take an edit back. Discarding a whole
-    // typing session on one keystroke, with no warning and nothing on the undo
-    // stack, is the one way this editor could lose work outright.
-    apply()
-    return
-  }
-  if (modifier && event.key === 'Enter') {
-    event.preventDefault()
-    apply()
-    return
-  }
-  if (heldKind === 'interaction' && event.key === 'Enter') {
+  if (event.key === 'Escape' || event.key === 'F2' || (event.key === 'Enter' && (modifier || mode.value === 'plain'))) {
     event.preventDefault()
     void apply()
-    return
   }
-  if (editingProp.value && modifier && ['b', 'i', 'u'].includes(event.key.toLowerCase())) {
+  else if (mode.value === 'plain' && modifier && ['b', 'i', 'u'].includes(event.key.toLowerCase())) {
     event.preventDefault()
-    return
-  }
-  /*
-   * Tab moves a list item in and out a level.
-   *
-   * It is the one key a list is expected to answer to beyond Enter, and it went
-   * to the browser instead: focus left the box entirely and landed on Slidev's
-   * navbar. `indent` and `outdent` are the two commands browsers still
-   * implement well for lists in a contenteditable, and what they build is a
-   * nested list, which the serialiser now writes back as indentation.
-   */
-  if (!modifier && event.key === 'Tab' && inListItem()) {
-    event.preventDefault()
-    document.execCommand(event.shiftKey ? 'outdent' : 'indent')
-    return
-  }
-
-  if (!modifier)
-    return
-  if (event.key === 'b') {
-    event.preventDefault()
-    runMark(marks[0])
-  }
-  if (event.key === 'i') {
-    event.preventDefault()
-    runMark(marks[1])
-  }
-  if (event.key === 'u') {
-    event.preventDefault()
-    runMark(marks[2])
   }
 }
 
-/**
- * While the block is being typed into, the keys belong to it.
- *
- * Slidev's own shortcuts live on the document, so without this a space would
- * advance the slide out from under the sentence being written.
- */
-onDomEvent<KeyboardEvent>(document, 'keydown', (event) => {
-  if (mode.value !== 'visual' || !editing.value || !editable)
-    return
-  if (!(event.target instanceof Node) || !editable.contains(event.target))
-    return
-  event.stopPropagation()
-  onKeydown(event)
+onDomEvent<KeyboardEvent>(document, 'keydown', event => {
+  if (mode.value !== 'plain' || !editing.value || !editable) return
+  if (event.target instanceof Node && editable.contains(event.target)) onKeydown(event)
 }, { capture: true })
 
-/** A click anywhere else finishes the edit, the way a canvas tool does. */
-onDomEvent<PointerEvent>(document, 'pointerdown', (event) => {
-  // A synthetic double click can open editing earlier in this same event.
-  // Until Vue mounts/holds the editor, there is no draft to finish yet.
-  if (!editing.value || (mode.value !== 'markdown' ? !editable : !box.value))
-    return
+onDomEvent<PointerEvent>(document, 'pointerdown', event => {
+  if (!editing.value || (mode.value === 'source' ? !box.value : !editable)) return
   const target = event.target
-  if (!(target instanceof Node))
-    return
-  if (editable?.contains(target) || (target instanceof Element && target.closest('.studio-inline')))
-    return
-  if (mode.value === 'rich' && target instanceof Element && target.closest('[data-studio-text-controls]'))
-    return
-  // Commit a font/size field's native change event before reading the draft.
+  if (!(target instanceof Node)) return
+  if (editable?.contains(target) || (target instanceof Element && target.closest('.studio-inline'))) return
+  if (mode.value === 'rich' && target instanceof Element && target.closest('[data-studio-text-controls]')) return
   if (mode.value === 'rich' && document.activeElement instanceof HTMLElement
-    && document.activeElement.closest('[data-studio-text-controls]'))
-    document.activeElement.blur()
-  // apply reads the old selection and draft synchronously before its first
-  // await. Selection's earlier document listener skipped this press while we
-  // were editing, so hand it the same press once the draft has been captured.
+    && document.activeElement.closest('[data-studio-text-controls]')) document.activeElement.blur()
   void apply()
   studio.selectOnPointer(event, false)
 }, { capture: true })
 
-// Keep the toolbar over its block while the deck scrolls or the window resizes.
 onDomEvent(window, 'resize', () => {
-  const element = selection.value?.el
-  if (editing.value && element) {
-    const found = element.getBoundingClientRect()
-    rect.value = { left: found.left, top: found.top, width: Math.max(found.width, 260) }
-  }
+  if (editing.value && selection.value) place(selection.value.el)
 })
 onScopeDispose(release)
 </script>
 
 <template>
-  <div
-    v-if="editing && rect"
-    class="studio-inline"
-    :class="{ 'studio-inline--floating': mode !== 'markdown' }"
-    :style="mode !== 'markdown'
+  <div v-if="editing && rect" class="studio-inline"
+    :class="{ 'studio-inline--floating': mode !== 'source' }"
+    :style="mode !== 'source'
       ? { left: `${rect.left}px`, top: `${Math.max(4, rect.top - 42)}px` }
-      : { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px` }"
-  >
-    <div v-if="!editingProp" class="studio-inline__bar">
-      <button
-        v-for="mark in mode === 'rich' ? [] : marks"
-        :key="mark.icon"
-        class="studio-icon-button"
-        :title="t(mark.title)"
-        @mousedown.prevent
-        @click="runMark(mark)"
-      >
-        <StudioIcon :name="mark.icon" :size="14" />
-      </button>
-
-      <template v-if="mode === 'markdown'">
-        <button
-          v-for="action in blocks"
-          :key="action.icon"
-          class="studio-icon-button"
-          :title="t(action.title)"
-          @mousedown.prevent
-          @click="action.run()"
-        >
-          <StudioIcon :name="action.icon" :size="14" />
-        </button>
-      </template>
-
+      : { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px` }">
+    <div class="studio-inline__bar">
+      <span v-if="mode === 'source'">{{ t(sourceLabel) }}</span>
       <select v-if="mode === 'rich'" v-model="studio.text.pasteMode.value" :title="t('textPasteMode')" :aria-label="t('textPasteMode')" @change="studio.text.editor.value?.commands.focus(undefined, { scrollIntoView: false })">
         <option value="source">{{ t('pasteSource') }}</option>
         <option value="match">{{ t('pasteMatch') }}</option>
         <option value="plain">{{ t('pastePlain') }}</option>
       </select>
-
-      <span v-if="mode !== 'rich'" class="studio-toolbar__divider" />
-
-      <button
-        v-if="mode !== 'markdown' && !editingProp"
-        class="studio-icon-button"
-        :title="t('editMarkdown')"
-        @mousedown.prevent
-        @click="toMarkdown"
-      >
-        <StudioIcon name="code" :size="14" />
-      </button>
-      <button class="studio-icon-button" :title="t('applyShortcut')" @mousedown.prevent @click="apply">
-        <StudioIcon name="check" :size="14" />
-      </button>
-      <button class="studio-icon-button" :title="t('cancelEdit')" @mousedown.prevent @click="cancel">
-        <StudioIcon name="close" :size="14" />
-      </button>
+      <button v-if="mode === 'rich'" data-studio-edit-source class="studio-icon-button" :title="t('editSource')" @mousedown.prevent @click="toSource"><StudioIcon name="code" :size="14" /></button>
+      <button class="studio-icon-button" :title="t('applyShortcut')" @mousedown.prevent @click="apply"><StudioIcon name="check" :size="14" /></button>
+      <button class="studio-icon-button" :title="t('cancelEdit')" @mousedown.prevent @click="cancel"><StudioIcon name="close" :size="14" /></button>
     </div>
-
-    <p v-if="richUnsupported" class="studio-hint">{{ t('textSourceFallback') }}</p>
-
-    <textarea
-      v-if="mode === 'markdown'"
-      ref="box"
-      v-model="draft"
-      spellcheck="false"
-      rows="3"
-      @keydown="onKeydown"
-      @blur="apply"
-    />
+    <p v-if="fieldNotice" class="studio-hint">{{ t('componentFieldSource') }}</p>
+    <p v-if="mode === 'source' && held" class="studio-hint">{{ t('inspectLines', { start: held[0] + 1, end: held[1] }) }}</p>
+    <textarea v-if="mode === 'source'" ref="box" v-model="draft" :aria-label="t(sourceLabel)" spellcheck="false" rows="8" @keydown="onKeydown" />
   </div>
 </template>

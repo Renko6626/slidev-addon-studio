@@ -23,7 +23,7 @@ function component(name: string): Component {
   })
 }
 const Question = component('StudioQuestion'), Button = component('StudioButton'), Feedback = component('StudioFeedback')
-const options = [{ id: 'a', label: 'Option A', correct: true }, { id: 'b', label: 'Option B', correct: false }]
+const options = [{ id: 'a', correct: true }, { id: 'b', correct: false }]
 const apps: App[] = []
 afterEach(() => {
   apps.splice(0).forEach(app => app.unmount())
@@ -59,7 +59,7 @@ function setup() {
 
 it('preserves answers when the real question rerenders with equal configuration arrays', async () => {
   const { page, runtime, mount } = setup()
-  const current = ref({ question: 'q', mode: 'single', title: 'Question', options })
+  const current = ref({ question: 'q', mode: 'single', options })
   await mount(() => h(Question, current.value))
   interactions.dispatchInteraction(runtime, { question: 'q', action: 'choose', option: 'a' })
   current.value = { ...current.value, options: options.map(option => ({ ...option })) }
@@ -70,13 +70,12 @@ it('preserves answers when the real question rerenders with equal configuration 
   expect(page.question('q')?.state).toEqual({ selected: [], result: null, attempts: 0 })
 })
 
-it('keeps hidden controls running, renders their bound prompt, and preserves answers when only visibility changes', async () => {
-  const Title = component('StudioQuestionTitle')
+it('keeps hidden controls running when independent prompt objects are removed', async () => {
   const { page, runtime, mount } = setup()
   const presentation = ref('hidden'), titleVisible = ref(true)
-  const control = await mount(() => h(Question, { question: 'q', name: 'Question 1', presentation: presentation.value, title: 'Which answer?', options }))
-  const prompt = await mount(() => titleVisible.value ? h(Title, { question: 'q' }) : null)
-  const button = (await mount(() => h(Button, { question: 'q', action: 'choose', option: 'a' }))).querySelector('button')!
+  const control = await mount(() => h(Question, { question: 'q', name: 'Question 1', presentation: presentation.value, options }))
+  const prompt = await mount(() => titleVisible.value ? h('div', { 'data-studio-element': 'text', 'data-studio-question-ref': 'q' }, 'Which answer?') : null)
+  const button = (await mount(() => h(Button, { question: 'q', action: 'choose', option: 'a', contentHtml: '<p>Option A</p>' }))).querySelector<HTMLElement>('.studio-quiz-button')!
   expect((control.firstElementChild as HTMLElement).style.display).toBe('none')
   expect(prompt.textContent).toBe('Which answer?')
   titleVisible.value = false
@@ -98,11 +97,13 @@ it('keeps hidden controls running, renders their bound prompt, and preserves ans
 
 it('binds real button labels, dispatches once without a deck click, and limits appearance previews to editing', async () => {
   const { page, runtime, mount } = setup()
-  await mount(() => h(Question, { question: 'q', options, correctText: 'Yes', idleText: 'Choose' }))
-  const container = await mount(() => h(Button, { question: 'q', action: 'choose', option: 'a' }))
-  const feedback = await mount(() => h(Feedback, { question: 'q', effect: 'pop' }))
-  const button = container.querySelector('button')!
-  expect(button.textContent).toBe('Option A')
+  await mount(() => h(Question, { question: 'q', options }))
+  const contentHtml = ref('<p>Option A</p>'), correctText = ref('Yes')
+  const container = await mount(() => h(Button, { question: 'q', action: 'choose', option: 'a', contentHtml: contentHtml.value }))
+  const feedback = await mount(() => h(Feedback, { question: 'q', effect: 'pop', correctText: correctText.value, idleText: 'Choose' }))
+  const button = container.querySelector<HTMLElement>('.studio-quiz-button')!
+  expect(button.querySelector('[data-studio-field="contentHtml"]')?.textContent).toBe('Option A')
+  expect(button.querySelector('.studio-quiz-button__option')?.textContent).toBe('a')
   expect(button.dataset.studioQuestionRef).toBe('q')
   expect((feedback.firstElementChild as HTMLElement).dataset.studioQuestionRef).toBe('q')
   const deckClick = vi.fn(), deckKey = vi.fn()
@@ -112,10 +113,16 @@ it('binds real button labels, dispatches once without a deck click, and limits a
   expect(page.question('q')?.state.attempts).toBe(1)
   expect(deckClick).not.toHaveBeenCalled()
   expect(feedback.textContent).toBe('Yes')
+  contentHtml.value = '<p>Reworded answer</p>'
+  correctText.value = 'Well done'
+  await nextTick()
+  expect(button.querySelector('[data-studio-field="contentHtml"]')?.textContent).toBe('Reworded answer')
+  expect(feedback.textContent).toBe('Well done')
+  expect(page.question('q')?.state).toMatchObject({ selected: ['a'], result: 'correct', attempts: 1 })
   for (const key of ['Enter', ' ']) {
     const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
     button.dispatchEvent(event)
-    expect(event.defaultPrevented).toBe(false)
+    expect(event.defaultPrevented).toBe(true)
   }
   expect(deckKey).not.toHaveBeenCalled()
   setRuntimeEditing(runtime, true)
@@ -162,7 +169,8 @@ it('updates two count views including a global layer, renders props on the posit
 })
 
 it('shares question bindings inside each preview and keeps preview counts and actions independent of the main trial', async () => {
-  const Count = component('StudioCorrectCount'), Title = component('StudioQuestionTitle')
+  const Card = loadVueComponent(resolve(process.cwd(), 'playground/components/EditableOptionCard.vue'), { '../../runtime': runtimeApi })
+  const Count = component('StudioCorrectCount')
   const { runtime, mount } = setup()
   await mount(() => h(Question, { question: 'q', options }))
   const mainCount = await mount(() => h(Count))
@@ -173,16 +181,17 @@ it('shares question bindings inside each preview and keeps preview counts and ac
     previews.push(runtime)
     previewRuntime.providePreviewRuntime(runtime)
     onScopeDispose(() => previewRuntime.disposePreviewRuntime(runtime))
-    return () => [h(Question, { question: 'q', title: 'Preview question', options }), h(Title, { question: 'q' }), h(Button, { question: 'q', action: 'choose', option: 'a' }), h(Count)]
+    return () => [h(Question, { question: 'q', options }), h('div', { 'data-studio-element': 'text', 'data-studio-question-ref': 'q' }, 'Preview question'), h(Button, { question: 'q', action: 'choose', option: 'a', contentHtml: '<p>Option A</p>' }), h(Card, { question: 'q', option: 'a' }), h(Count)]
   } })
   const reads = host.readSlide.mock.calls.length
   const first = await mount(() => h(Preview))
   const second = await mount(() => h(Preview))
   expect(host.readSlide.mock.calls.length).toBe(reads)
-  expect(first.querySelector('.studio-question-title')?.textContent).toBe('Preview question')
-  expect(first.querySelector('button')?.textContent).toBe('Option A')
+  expect(first.querySelector('[data-studio-element="text"]')?.textContent).toBe('Preview question')
+  expect(first.querySelector('[data-studio-field="contentHtml"]')?.textContent).toBe('Option A')
   expect(first.querySelector('.studio-correct-count')?.textContent).toBe('已答对 0')
-  first.querySelector('button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  first.querySelector<HTMLElement>('.studio-quiz-button')!.dispatchEvent(new MouseEvent('click', { bubbles: true }))
+  first.querySelector<HTMLElement>('[data-studio-component="EditableOptionCard"]')!.click()
   expect(quizStore(previews[0]).correctCount).toBe(0)
   expect(interactions.dispatchInteraction(previews[0], { question: 'q', action: 'choose', option: 'a' })).toBe(false)
   // A preview's store remains isolated even when a custom component writes its own trial state.
@@ -200,8 +209,8 @@ it('shares question bindings inside each preview and keeps preview counts and ac
 it('scores multiple-choice selections on submit and retains first-correct credit when clearing', async () => {
   const { page, runtime, mount } = setup()
   await mount(() => h(Question, { question: 'q', mode: 'multiple', options }))
-  const option = (await mount(() => h(Button, { question: 'q', action: 'set-option', option: 'a' }))).querySelector('button')!
-  const submit = (await mount(() => h(Button, { question: 'q', action: 'submit', label: 'Submit' }))).querySelector('button')!
+  const option = (await mount(() => h(Button, { question: 'q', action: 'set-option', option: 'a' }))).querySelector<HTMLElement>('.studio-quiz-button')!
+  const submit = (await mount(() => h(Button, { question: 'q', action: 'submit', contentHtml: '<p>Submit</p>' }))).querySelector<HTMLElement>('.studio-quiz-button')!
   option.click()
   expect(page.question('q')?.state.result).toBeNull()
   expect(quizStore(runtime).correctCount).toBe(0)
@@ -211,4 +220,37 @@ it('scores multiple-choice selections on submit and retains first-correct credit
   interactions.dispatchInteraction(runtime, { question: 'q', action: 'clear-pending' })
   expect(page.question('q')?.state.selected).toEqual([])
   expect(quizStore(runtime).correctCount).toBe(1)
+})
+
+
+it.each(['single', 'multiple'] as const)('runs a field-based option through existing %s actions and keeps editing inert', async mode => {
+  const Card = loadVueComponent(resolve(process.cwd(), 'playground/components/EditableOptionCard.vue'), { '../../runtime': runtimeApi })
+  const { page, runtime, mount } = setup()
+  await mount(() => h(Question, { question: 'q', mode, options }))
+  const container = await mount(() => h(Card, { question: 'q', option: 'a', contentHtml: '<p>My <strong>answer</strong></p>', imageSrc: '/samples/landscape.svg', imageAlt: 'Landscape' }))
+  const card = container.querySelector<HTMLElement>('[data-studio-component]')!
+  expect(card.querySelector('[data-studio-field="contentHtml"] strong')?.textContent).toBe('answer')
+  expect(card.querySelector('img')?.getAttribute('alt')).toBe('Landscape')
+  setRuntimeEditing(runtime, true)
+  card.click()
+  expect(page.question('q')?.state.selected).toEqual([])
+  setRuntimeEditing(runtime, false)
+  card.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+  await nextTick()
+  expect(card.getAttribute('aria-pressed')).toBe('true')
+  expect(page.question('q')?.state.selected).toEqual(['a'])
+  if (mode === 'multiple') {
+    expect(card.dataset.quizAppearance).toBe('selected')
+    interactions.dispatchInteraction(runtime, { question: 'q', action: 'submit' })
+    await nextTick()
+  }
+  expect(card.dataset.quizAppearance).toBe('correct')
+  expect(page.question('q')?.state.result).toBe('correct')
+  interactions.dispatchInteraction(runtime, { question: 'q', action: 'clear-pending' })
+  const other = (await mount(() => h(Card, { question: 'q', option: 'b', contentHtml: '<p>Other</p>' }))).querySelector<HTMLElement>('[data-studio-component]')!
+  other.click()
+  if (mode === 'multiple') interactions.dispatchInteraction(runtime, { question: 'q', action: 'submit' })
+  await nextTick()
+  expect(other.dataset.quizAppearance).toBe('incorrect')
+  expect(page.question('q')?.state.result).toBe('incorrect')
 })

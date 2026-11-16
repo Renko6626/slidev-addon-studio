@@ -12,7 +12,7 @@ export interface PropOption {
  * Most are inferred from the prop's type. `color` and `color[]` are not, since
  * nothing in `string` says the string is a colour, so an author declares those.
  */
-export type PropControl = 'text' | 'number' | 'boolean' | 'select' | 'list' | 'color' | 'color[]' | 'object[]'
+export type PropControl = 'text' | 'number' | 'boolean' | 'select' | 'list' | 'color' | 'color[]' | 'object[]' | 'richtext' | 'image'
 
 export interface PropField {
   name: string
@@ -26,6 +26,8 @@ export interface PropMeta {
   fields?: PropField[]
   required?: boolean
   default?: string
+  /** Original default expression, retained for safe string-field editing. */
+  defaultLiteral?: string
   /** Human label for the inspector; defaults to the prop name. */
   label?: string
   control?: PropControl
@@ -39,6 +41,8 @@ export interface PropMeta {
 export type ComponentSource = 'builtin' | 'theme' | 'addon' | 'project'
 
 export interface ComponentEntry {
+  hidden?: boolean
+  propsMode?: 'declared'
   name: string
   file: string
   source: ComponentSource

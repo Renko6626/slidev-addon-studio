@@ -25,7 +25,7 @@ export function useCatalog() {
   const filtered = computed(() => {
     const needle = query.value.trim().toLowerCase()
     return all.filter((component) => {
-      if (!sources.value.has(component.source))
+      if (component.hidden || !sources.value.has(component.source))
         return false
       if (!needle)
         return true

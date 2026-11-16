@@ -36,7 +36,9 @@ export function createTargetResolver(no: () => number, content: () => string) {
     // Whichever is nearer: a block of Markdown, or a string a layout was handed.
     // Nesting decides, because a labelled string can sit inside a mapped block
     // and the inner one is what was aimed at.
-    const el = node.closest<HTMLElement>('[data-studio-src], [data-studio-prop]')
+    const root = node.closest<HTMLElement>('[data-studio-component]')
+    const el = root?.dataset.studioSrc && root.dataset.studioTag === root.dataset.studioComponent
+      ? root : node.closest<HTMLElement>('[data-studio-src], [data-studio-prop]')
     if (!el || !belongsToSlide(el, no()))
       return null
 
