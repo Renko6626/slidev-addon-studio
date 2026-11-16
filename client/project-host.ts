@@ -4,6 +4,7 @@ export interface ProjectHost {
   perform: (action: ProjectHostAction) => Promise<{ ok: boolean, error?: string }>
   studioUpdate?: () => Promise<{ ok: boolean, error?: string }>
   importProject?: () => Promise<{ ok: boolean, error?: string }>
+  exportWebPlayback?: () => Promise<{ ok: boolean, error?: string }>
 }
 
 declare global {

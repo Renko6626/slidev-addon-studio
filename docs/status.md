@@ -15,6 +15,7 @@
 - 人与 agent 接续制作：只读源码、文件位置与页面信息复制、随包技能、完整样例、组件可编辑字段与公共 runtime。agent 由外部工具运行，复制信息不附带任务指令。
 - 内置交互：单选、多选、规则控件、独立题干/选项/反馈、选项增删及本次试播首次答对计数。动态表达式和自定义选项结构仍按源码维护。
 - 本地工程：源码写回、显式保存、工程 ZIP，以及 PDF/PNG/图片型 PPTX 导出入口；桌面壳提供新建、打开、ZIP 导入、另存、日志、依赖准备和手动 Studio 包更新。原生工程管理不依赖项目编译，允许显式确认后从磁盘重新加载或返回主页。
+- 可选网页交付：支持新接口的桌面壳与 addon 提供 Windows x64 网页播放 ZIP，随附静态站点、本地素材和固定 miniserve；接收者解压后运行 `start.cmd`，不安装 Studio。默认排除演讲备注；外链资源仍可能联网，进一步编辑需保留源工程。
 - 独立交付：普通 Slidev 工程可以继续编辑和构建；addon 不要求账号、Git、数据库或协作工作台。
 
 详细行为以[使用指南](usage.zh-CN.md)与[限制说明](limitations.md)为准。手机答题、远程服务和多人同步没有因提供 Pinia/runtime 而实现。
@@ -39,6 +40,19 @@
 - `node --check` 检查 `desktop/main.cjs`、`desktop/projects.cjs`、`desktop/preload.cjs`、`desktop/project-management.cjs`：通过；`git diff --check` 通过。
 
 合并后的生产代码与测试和原功能分支一致，手工解决的冲突仅在 README 和桌面说明。已完成计划中的有效结论并入现行文档，原始过程保留在分支提交历史。
+
+## 网页播放包接入验证，2026-11-17
+
+实现位于 `codex/studio-web-playback`，以本地 main 的 `9ac844f` 为基线。源码版号不变，没有发布 npm 或制作新的 Windows 桌面包。
+
+- `node_modules/.bin/vitest run`：402 通过，1 项既有可选 HTTP QA 跳过。新增覆盖资源摘要与缓存，以及真实子进程构建/归档、取消/保存失败、构建失败保留旧目标与停止导出。
+- `node_modules/.bin/tsc --noEmit` 和缓存 vue-tsc 3.1.5 的 `--noEmit --project tsconfig.json`：通过；未安装或升级依赖。
+- `node --check` 检查 `desktop/main.cjs`、`desktop/preload.cjs`、`desktop/playback.cjs`、`desktop/web-playback.cjs`、`desktop/scripts/prepare.cjs`、`desktop/scripts/prepare-playback.cjs`；`git diff --check`：通过。
+- 临时真实样例通过生产导出函数构建 ZIP。Linux Node 22.22.1 下，同一真实编辑服务在导出前后均返回 HTTP 200；原文稿、manifest 和已有 `dist` 保持原样。夹具测试另覆盖锁文件保持与外部临时目录清理。样例仅在临时副本设置本机字体，导出实现不改作者字体配置。
+- ZIP 解压后使用同版本 Linux miniserve 验证 `/`、`/1`、`/2`、`/4`、47 个 JS/CSS 的字节和 MIME、SVG/MP4/WAV 字节及音视频 206 Range；唯一备注探针未进入输出脚本。
+- 正式链路样例 `Studio-Web-Playback-integrated-win-x64.zip` 为 2,600,285 字节，SHA-256 为 `ab1eecc9332f4a6840b7f23875d0ec635f91950e143e875eccec49a17afbaddb`，本地产物、校验与验证 JSON 保存在仓库同级的 `release/web-playback/integrated-2026-11-17/`。
+
+此前 miniserve 试包已收到用户 Windows 可用反馈。上述正式链路验证未在 Windows 执行；新桌面入口、原生保存对话框、完整桌面资源分发及新 ZIP 的 Windows 播放仍待实机试用。未执行浏览器自动交互。
 
 ## 尚待实际使用验证
 

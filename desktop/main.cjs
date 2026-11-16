@@ -7,6 +7,7 @@ const { createRuntime } = require('./runtime.cjs')
 const { createStudioPackageSource } = require('./studio-packages.cjs')
 const { runStudioUpdate } = require('./studio-update.cjs')
 const { createProjectManagement } = require('./project-management.cjs')
+const { createWebPlaybackExporter, runWebPlaybackExport } = require('./web-playback.cjs')
 
 let window
 let current = null
@@ -27,6 +28,7 @@ const runtime = createRuntime({
   executable: process.execPath, pnpm, userData: app.getPath('userData'),
   onStatus: reportStatus,
 })
+const webPlayback = createWebPlaybackExporter({ executable: process.execPath, userData: app.getPath('userData') })
 const manageProject = createProjectManagement({
   getWindow: () => window, getProject: () => current ?? lastProject,
   getLogPath: () => runtime.logPath, isWorking: () => working,
@@ -69,7 +71,7 @@ async function ensureSaved() {
   }
   const result = await dialog.showMessageBox(window, {
     type: 'question', message: '当前编辑器没有提供保存接口。',
-    detail: '请先自行保存文件。继续将关闭当前编辑器；启用应用随附的 Studio 后可以自动完成保存。',
+    detail: '请先自行保存文件。继续将执行本次工程操作；启用应用随附的 Studio 后可以自动完成保存。',
     buttons: ['取消', '已自行保存，继续'], defaultId: 0, cancelId: 0,
   })
   return result.response === 1
@@ -261,14 +263,47 @@ async function studioUpdate() {
   }
 }
 
+async function exportWebPlayback() {
+  if (working) return { ok: false, error: '正在处理工程，请等待完成。' }
+  if (!current) return { ok: false, error: '请先打开一个工程。' }
+  working = true
+  const project = current
+  let destination
+  try {
+    const result = await runWebPlaybackExport({
+      chooseDestination: async () => {
+        const selection = await dialog.showSaveDialog(window, {
+          title: '导出网页播放包（Windows x64）',
+          defaultPath: path.join(app.getPath('documents'), `${path.basename(project.root)}-web.zip`),
+          buttonLabel: '导出', filters: [{ name: '网页播放包 ZIP', extensions: ['zip'] }],
+        })
+        destination = selection.canceled ? null : selection.filePath
+        return destination
+      },
+      save: ensureSaved,
+      build: target => {
+        if (quitting) throw new Error('网页播放包导出已停止。')
+        return webPlayback.export(project, target, resources, runtime.logPath)
+      },
+    })
+    if (!quitting && !window.isDestroyed()) {
+      if (result.ok) await dialog.showMessageBox(window, { type: 'info', message: '网页播放包已导出', detail: destination, buttons: ['知道了'] })
+      else if (result.error) await dialog.showMessageBox(window, { type: 'error', message: '网页播放包导出未完成', detail: `${result.error}\n运行日志：${runtime.logPath}`, buttons: ['知道了'] })
+    }
+    return result
+  }
+  finally { working = false }
+}
+
 async function quit() {
   if (quitting) return
   if (working) {
-    const result = await dialog.showMessageBox(window, { type: 'question', message: '正在准备工程，确定停止并退出？', buttons: ['继续等待', '退出'], defaultId: 0, cancelId: 0 })
+    const result = await dialog.showMessageBox(window, { type: 'question', message: '正在处理工程，确定停止并退出？', buttons: ['继续等待', '退出'], defaultId: 0, cancelId: 0 })
     if (result.response !== 1) return
   }
   else if (!await ensureSaved()) return
   quitting = true
+  await webPlayback.stop()
   await runtime.stop()
   allowClose = true
   window.close()
@@ -302,6 +337,11 @@ app.whenReady().then(async () => {
     if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame)
       throw new Error('Studio 更新只允许从主窗口发起。')
     return studioUpdate()
+  })
+  ipcMain.handle('studio:web-playback', event => {
+    if (event.sender !== window.webContents || event.senderFrame !== window.webContents.mainFrame)
+      throw new Error('网页播放包导出只允许从主窗口发起。')
+    return exportWebPlayback()
   })
   const managementMenu = Menu.buildFromTemplate([
     { label: '打开工程目录', click: () => { void manageProject('folder') } },

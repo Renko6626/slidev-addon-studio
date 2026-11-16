@@ -3,6 +3,7 @@ const path = require('node:path')
 const os = require('node:os')
 const { execFileSync } = require('node:child_process')
 const { prepareOffline } = require('./prepare-offline.cjs')
+const { preparePlayback } = require('./prepare-playback.cjs')
 const { STUDIO_PACKAGE, packageIntegrity, compareStudioVersions, createStudioPackageSource } = require('../studio-packages.cjs')
 
 async function writeStudioPackageInfo(resources, { name, version }) {
@@ -12,7 +13,7 @@ async function writeStudioPackageInfo(resources, { name, version }) {
   await fs.writeFile(path.join(resources, 'studio-package.json'), `${JSON.stringify({ name, version, integrity }, null, 2)}\n`)
 }
 
-async function prepare({ source = 'workspace', root = path.resolve(__dirname, '../..'), resources = path.join(root, 'desktop/studio-resources'), registryUrl, fetchImpl, offline = false } = {}) {
+async function prepare({ source = 'workspace', root = path.resolve(__dirname, '../..'), resources = path.join(root, 'desktop/studio-resources'), registryUrl, fetchImpl, playbackAsset, offline = false } = {}) {
   const desktop = path.join(root, 'desktop')
   const pnpm = path.join(desktop, 'node_modules/pnpm/bin/pnpm.cjs')
   const manifest = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'))
@@ -37,6 +38,7 @@ async function prepare({ source = 'workspace', root = path.resolve(__dirname, '.
     await writeStudioPackageInfo(resources, manifest)
     await fs.rm(path.join(resources, 'template'), { recursive: true, force: true })
     await fs.cp(path.join(desktop, 'template'), path.join(resources, 'template'), { recursive: true })
+    await preparePlayback({ resources, asset: playbackAsset, fetchImpl })
     console.log(`已准备 Studio ${manifest.version}（${source === 'published' ? 'npm 发布包' : '开发源码'}）和标准工程模板。`)
     if (offline) await prepareOffline({ resources, pnpm })
     else await fs.rm(path.join(resources, 'offline'), { recursive: true, force: true })

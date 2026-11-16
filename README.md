@@ -90,7 +90,11 @@ first, then opens Slidev's browser exporter for PDF, PNG and image-based PPTX.
 The desktop host adds new/open/save-copy and project ZIP import; it opens the
 presentation exporter in the system browser. Keep the project running until export
 finishes. PNGs download as tar.gz; PPTX pages are pictures rather than editable
-objects. Built-site ZIP export and PowerPoint import are not provided.
+objects. Updated desktop hosts also offer **Export web playback package** for
+Windows x64: unzip, run `start.cmd`, and play in a browser without installing
+Studio. It includes a static site, local media and miniserve; external assets may
+still need a network connection. Keep the source project for further editing.
+PowerPoint import is not provided.
 
 **View → Source** shows the current page's original Markdown, component file
 locations and copyable page information. It is read-only; complex code changes

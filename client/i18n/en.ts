@@ -1,4 +1,8 @@
 export default {
+  "exportWebPlayback": "Export web playback package",
+  "webPlaybackExporting": "Exporting web playback package…",
+  "webPlaybackHint": "Save and build this presentation into a ZIP for Windows x64. Unzip and run start.cmd to play in a browser without installing Studio. Local media is included; external resources may still need a network connection. Speaker notes are excluded.",
+  "webPlaybackBusyHint": "Building and packaging. Keep this page open and avoid changing the project until export finishes.",
   "sourcePanel": "Source",
   "sourceHint": "View the saved source for this page and related file locations.",
   "sourceCopyPageInfo": "Copy page information",

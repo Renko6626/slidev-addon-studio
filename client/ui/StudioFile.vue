@@ -15,9 +15,10 @@ const studio = useStudio()
 const nav = useNav()
 const host = projectHost()
 const hostWorking = ref(false)
+const webPlaybackExporting = ref(false)
 const { project, loading, downloading, exporting, error, refresh, download, exportPresentation } = useProject(studio.save)
 const exporterAvailable = nav.router.hasRoute('export')
-const locked = computed(() => busy.value || projectSaving.value || downloading.value || exporting.value || hostWorking.value)
+const locked = computed(() => busy.value || projectSaving.value || downloading.value || exporting.value || hostWorking.value || webPlaybackExporting.value)
 const savedTime = computed(() => projectSavedAt.value ? new Date(projectSavedAt.value).toLocaleTimeString() : '')
 onMounted(refresh)
 function openExporter() {
@@ -43,6 +44,17 @@ async function importProject() {
   }
   catch (cause) { error.value = cause instanceof Error ? cause.message : String(cause) }
   finally { hostWorking.value = false }
+}
+async function exportWebPlayback() {
+  if (!host?.exportWebPlayback || locked.value) return
+  webPlaybackExporting.value = true
+  error.value = null
+  try {
+    const result = await host.exportWebPlayback()
+    if (result.error) error.value = result.error
+  }
+  catch (cause) { error.value = cause instanceof Error ? cause.message : String(cause) }
+  finally { webPlaybackExporting.value = false }
 }
 async function hostAction(action: ProjectHostAction) {
   if (!host || locked.value) return
@@ -80,6 +92,7 @@ async function studioUpdate() {
       <button :disabled="locked" @click="studio.save"><StudioIcon name="save" /><span>{{ t('saveProject') }}<small>Ctrl / Cmd + S</small></span></button>
       <button v-if="host" :disabled="locked" @click="hostAction('saveAs')"><StudioIcon name="copy" />{{ t('saveProjectAs') }}</button>
       <button :disabled="locked || !exporterAvailable" @click="openExporter"><StudioIcon name="download" /><span>{{ t('exportPresentation') }}<small>PDF / PNG / PPTX</small></span></button>
+      <button v-if="host?.exportWebPlayback" :disabled="locked" @click="exportWebPlayback"><StudioIcon name="download" /><span>{{ t(webPlaybackExporting ? 'webPlaybackExporting' : 'exportWebPlayback') }}<small>Windows x64</small></span></button>
       <button :disabled="locked || loading || !project" @click="download"><StudioIcon name="download" /><span>{{ t(downloading ? 'projectDownloading' : 'downloadProject') }}<small>{{ t('projectZipFormat') }}</small></span></button>
       <button v-if="host" :disabled="locked" @click="hostAction('close')"><StudioIcon name="close" />{{ t('closeProject') }}</button>
       <button v-if="host" :disabled="hostWorking" @click="hostAction('logs')"><StudioIcon name="folder" />{{ t('projectOpenLogs') }}</button>
@@ -110,6 +123,12 @@ async function studioUpdate() {
           <p class="studio-file-note">{{ t('presentationExportImagesHint') }}</p>
           <button class="studio-button studio-file-action" :disabled="locked || !exporterAvailable" @click="openExporter"><StudioIcon name="download" />{{ t('openPresentationExporter') }}</button>
           <p v-if="!exporterAvailable" class="studio-file-note">{{ t('presentationExportDisabled') }}</p>
+        </section>
+        <section v-if="host?.exportWebPlayback" class="studio-file-section">
+          <h2>{{ t('exportWebPlayback') }}</h2>
+          <p>{{ t('webPlaybackHint') }}</p>
+          <p v-if="webPlaybackExporting" class="studio-file-note" role="status">{{ t('webPlaybackBusyHint') }}</p>
+          <button class="studio-button studio-file-action" :disabled="locked" @click="exportWebPlayback"><StudioIcon name="download" />{{ t(webPlaybackExporting ? 'webPlaybackExporting' : 'exportWebPlayback') }}</button>
         </section>
         <section v-if="host?.importProject" class="studio-file-section">
           <h2>{{ t('importProjectZip') }}</h2>

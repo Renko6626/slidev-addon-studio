@@ -1,6 +1,10 @@
 import type en from './en'
 
 export default {
+  "exportWebPlayback": "导出网页播放包",
+  "webPlaybackExporting": "正在导出网页播放包…",
+  "webPlaybackHint": "保存并构建为 Windows x64 播放 ZIP。解压后运行 start.cmd，无需安装 Studio 即可在浏览器播放。本地素材随包提供，外链资源仍可能需要联网；默认不包含演讲备注。",
+  "webPlaybackBusyHint": "正在构建和打包。请保持本页打开，导出完成前不要修改工程。",
   "sourcePanel": "源码",
   "sourceHint": "查看本页已保存的源码及相关文件位置。",
   "sourceCopyPageInfo": "复制页面信息",
