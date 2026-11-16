@@ -1,6 +1,15 @@
 import type en from './en'
 
 export default {
+  "exportPresentation": "导出演示",
+  "openPresentationExporter": "打开 PDF / PNG / PPTX 导出页",
+  "presentationExportHint": "保存当前修改后打开 Slidev 导出页，选择格式、页码范围和是否包含点击步骤。",
+  "presentationExportBrowserHint": "桌面版会在系统浏览器中打开导出页。导出完成前请保持当前工程打开。",
+  "presentationExportPdfHint": "PDF 使用浏览器的打印窗口，请选择“另存为 PDF”并开启背景图形。",
+  "presentationExportImagesHint": "PNG 以 tar.gz 压缩包下载。PPTX 每页是一张图片，文字和对象不能在 PowerPoint 中单独修改。图片采集提示出现时，请选择共享当前标签页。",
+  "presentationExportDisabled": "此工程关闭了浏览器导出。请在文稿配置中启用 browserExporter，或使用 Slidev 命令行导出。",
+  "importProjectZip": "导入工程 ZIP",
+  "projectImportHint": "选择 Studio 工程 ZIP 和一个空文件夹，再打开其中的 Markdown 入口。保留原有内容与依赖配置，缺少的依赖会按现有流程准备。此入口不导入 PowerPoint 文件。",
   "studioCheckUpdates": "检查 Studio 更新",
   "viewZoom": "画布缩放（%）",
   "zoomIn": "放大画布",

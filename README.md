@@ -102,8 +102,22 @@ Linked source files and imported Markdown outside the project must be moved
 inside before export; Studio reports the path rather than silently omitting it.
 New/open/save-copy operations belong to the workspace or desktop application and
 are not supplied by this standalone addon. The companion [Windows desktop preview](desktop/README.md)
-provides these operations through the same File page and native menus. It also supplies manual Studio update checks from the welcome screen and supported File pages. Bundled and downloaded versions use the same local tgz installation; updating one project preserves the others. Light and full desktop packages differ only in the dependency cache they include. This File page exports editable
-projects; PDF, PowerPoint and built presentation exports are not included.
+provides these operations through the same File page. It also supplies manual Studio update checks from the welcome screen and supported File pages. Bundled and downloaded versions use the same local tgz installation; updating one project preserves the others. Light and full desktop packages differ only in the dependency cache they include.
+
+**File → Export presentation** saves first, then opens Slidev's browser exporter
+for PDF, PNG and image-based PPTX. PDF uses the browser print dialog; PNGs download
+as a tar.gz archive. PPTX slides are images, with no individually editable text or
+objects. For image capture, share the current browser tab when prompted. The desktop
+host opens the exporter in the system browser; keep the project open until export
+finishes. Projects disabling `browserExporter` show a disabled entry with guidance.
+Built-site ZIP export and editable PPTX conversion are not included.
+
+Desktop hosts supporting **Import project ZIP** offer it on the welcome screen and
+File page. Choose an archive and an empty destination folder; the host extracts it,
+then follows the ordinary entry-selection and dependency-preparation flow. Nested
+Markdown entries can be selected after extraction. This imports Studio project
+archives, not PowerPoint files. Older hosts and standalone browser sessions can
+unzip the project themselves and open it normally.
 
 ## Workspace
 

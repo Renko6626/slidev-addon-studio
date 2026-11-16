@@ -1,7 +1,8 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
 const path = require('node:path')
 const { pathToFileURL } = require('node:url')
-const { exists, inspectProject, createProject, enableStudio, readProjectStudio, saveProjectCopy, dependencyPreparation } = require('./projects.cjs')
+const { exists, inspectProject, createProject, enableStudio, readProjectStudio, saveProjectCopy, extractProjectArchive, dependencyPreparation } = require('./projects.cjs')
+const fs = require('node:fs/promises')
 const { createRuntime } = require('./runtime.cjs')
 const { createStudioPackageSource } = require('./studio-packages.cjs')
 const { runStudioUpdate } = require('./studio-update.cjs')
@@ -58,9 +59,13 @@ async function chooseDestination(title, defaultPath) {
 async function chooseProject() {
   const result = await dialog.showOpenDialog(window, { title: '打开 Slidev 工程文件夹', properties: ['openDirectory'] })
   if (result.canceled) return null
-  let entry = path.join(result.filePaths[0], 'slides.md')
+  return chooseProjectEntry(result.filePaths[0])
+}
+
+async function chooseProjectEntry(root) {
+  let entry = path.join(root, 'slides.md')
   if (!await exists(entry)) {
-    const file = await dialog.showOpenDialog(window, { title: '选择幻灯片入口', defaultPath: result.filePaths[0], properties: ['openFile'], filters: [{ name: 'Slidev Markdown', extensions: ['md'] }] })
+    const file = await dialog.showOpenDialog(window, { title: '选择幻灯片入口', defaultPath: root, properties: ['openFile'], filters: [{ name: 'Slidev Markdown', extensions: ['md'] }] })
     if (file.canceled) return null
     entry = file.filePaths[0]
   }
@@ -124,7 +129,7 @@ async function perform(action) {
     if (runtime.logPath) await shell.openPath(runtime.logPath)
     return { ok: true }
   }
-  if (!['new', 'open', 'save', 'saveAs', 'close'].includes(action)) return { ok: false, error: '不支持的工程操作。' }
+  if (!['new', 'open', 'import', 'save', 'saveAs', 'close'].includes(action)) return { ok: false, error: '不支持的工程操作。' }
   if (working) return { ok: false, error: '正在准备工程，请等待当前操作完成。' }
   working = true
   try {
@@ -149,6 +154,19 @@ async function perform(action) {
       project = await chooseProject()
       if (!project) return { ok: false }
       if (current?.entry === project.entry) return { ok: true }
+      settings = await prepareExisting(project)
+      if (!settings) return { ok: false }
+    }
+    else if (action === 'import') {
+      const archive = await dialog.showOpenDialog(window, { title: '导入 Studio 工程 ZIP', properties: ['openFile'], filters: [{ name: 'Studio 工程 ZIP', extensions: ['zip'] }] })
+      if (archive.canceled) return { ok: false }
+      const source = archive.filePaths[0]
+      const destination = await chooseDestination('选择空文件夹解包工程', path.join(app.getPath('documents'), path.basename(source, path.extname(source))))
+      if (!destination) return { ok: false }
+      reportStatus({ message: '正在解包工程。', logPath: runtime.logPath })
+      await extractProjectArchive(await fs.readFile(source), destination)
+      project = await chooseProjectEntry(destination)
+      if (!project) return { ok: false }
       settings = await prepareExisting(project)
       if (!settings) return { ok: false }
     }

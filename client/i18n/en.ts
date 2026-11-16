@@ -1,4 +1,13 @@
 export default {
+  "exportPresentation": "Export presentation",
+  "openPresentationExporter": "Open PDF / PNG / PPTX exporter",
+  "presentationExportHint": "Save your changes and open Slidev's export page to choose a format, page range and whether to include click steps.",
+  "presentationExportBrowserHint": "The desktop app opens the export page in your system browser. Keep this project open until export finishes.",
+  "presentationExportPdfHint": "PDF uses the browser's print dialog. Choose Save as PDF and enable background graphics.",
+  "presentationExportImagesHint": "PNGs download as a tar.gz archive. PPTX contains one image per slide; text and objects are not individually editable in PowerPoint. Share the current tab when prompted for image capture.",
+  "presentationExportDisabled": "Browser export is disabled in this project. Enable browserExporter in the deck configuration, or use the Slidev CLI.",
+  "importProjectZip": "Import project ZIP",
+  "projectImportHint": "Choose a Studio project ZIP and an empty destination folder, then open its Markdown entry. Existing content and dependencies are preserved; missing dependencies may need to be installed. PowerPoint files are not imported.",
   "studioCheckUpdates": "Check Studio updates",
   "viewZoom": "Canvas zoom (%)",
   "zoomIn": "Zoom in",

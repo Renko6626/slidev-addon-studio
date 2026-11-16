@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path'
 import JSZip from 'jszip'
 import { afterEach, expect, it } from 'vitest'
 
-const { createProject, enableStudio, hasBundledStudio, inspectProject, saveProjectCopy, dependencyPreparation } = createRequire(import.meta.url)('../desktop/projects.cjs')
+const { createProject, enableStudio, hasBundledStudio, inspectProject, saveProjectCopy, extractProjectArchive, dependencyPreparation } = createRequire(import.meta.url)('../desktop/projects.cjs')
 const studioVersion = '0.5.2'
 const roots: string[] = []
 afterEach(async () => { await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true }))) })
@@ -114,6 +114,23 @@ it('rejects archive paths that escape the chosen copy directory before writing a
   const target = join(root, 'copy')
   await expect(saveProjectCopy(await zip.generateAsync({ type: 'nodebuffer' }), target, join(root, 'source'))).rejects.toThrow('路径')
   await expect(readFile(join(root, 'outside.md'))).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+it('imports a ZIP into an empty directory with its nested entry and local assets intact', async () => {
+  const root = await temporary()
+  const zip = new JSZip()
+  zip.file('package.json', JSON.stringify({ name: 'imported-deck', custom: true }))
+  zip.file('pages/演示.md', '# Imported deck')
+  zip.file('public/图片.png', Buffer.from([0, 255, 1]))
+  const data = await zip.generateAsync({ type: 'nodebuffer' })
+  const target = join(root, 'imported')
+  await extractProjectArchive(data, target)
+  const project = await inspectProject(join(target, 'pages/演示.md'))
+  expect(project.root).toBe(target)
+  expect(project.manifest).toEqual({ name: 'imported-deck', custom: true })
+  expect(await readFile(project.entry, 'utf8')).toBe('# Imported deck')
+  expect(await readFile(join(target, 'public/图片.png'))).toEqual(Buffer.from([0, 255, 1]))
+  await expect(extractProjectArchive(data, target)).rejects.toThrow('非空')
 })
 
 it('creates a Windows standard project from the bundled lock and skips installation only after it is prepared', async () => {

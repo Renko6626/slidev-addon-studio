@@ -162,6 +162,10 @@ async function saveProjectCopy(data, destination, sourceRoot) {
   const fromSource = path.relative(path.resolve(sourceRoot), destination)
   if (fromSource === '' || (!fromSource.startsWith(`..${path.sep}`) && fromSource !== '..' && !path.isAbsolute(fromSource)))
     throw new Error('请另存到当前工程外的文件夹，不能放在工程内部。')
+  await extractProjectArchive(data, destination)
+}
+
+async function extractProjectArchive(data, destination) {
   const zip = await JSZip.loadAsync(data)
   const files = Object.values(zip.files)
   // Validate all entries before making or writing the destination.
@@ -182,4 +186,4 @@ async function saveProjectCopy(data, destination, sourceRoot) {
   }
 }
 
-module.exports = { exists, inspectProject, createProject, enableStudio, hasBundledStudio, readProjectStudio, saveProjectCopy, standardManifest, dependencyPreparation }
+module.exports = { exists, inspectProject, createProject, enableStudio, hasBundledStudio, readProjectStudio, saveProjectCopy, extractProjectArchive, standardManifest, dependencyPreparation }

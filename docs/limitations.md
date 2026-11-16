@@ -83,7 +83,17 @@
   the same project externally while a download is being prepared.
 - The project tree omits the same local files as export: dependencies, Git
   metadata, build output, caches, `.env` values and `.npmrc`/Yarn local config.
-  PDF, PowerPoint and built-site exports are not exposed by this File page.
+  File's presentation export entry opens Slidev's existing browser exporter after
+  saving. PDF uses printing; PNGs are a tar.gz archive and PPTX slides are images.
+  Desktop export opens the system browser, so keep the project running. Image
+  capture requires sharing the current tab. Built-site export, editable PPTX
+  conversion and PowerPoint import are not supplied. Disabling `browserExporter`
+  disables this entry.
+- Hosts with the optional `importProject()` capability can extract project ZIPs
+  into an empty directory and follow the normal opening workflow. The user picks
+  a nested Markdown entry when there is no root `slides.md`; no new entry manifest
+  is added. Old hosts and browser sessions can unzip externally. Native Windows
+  import dialogs and browser export require manual acceptance.
 - Save reports failed writes and stops export; it does not add automatic retry
   or recovery. Check the files and refresh after a failed write. Only applied
   text is automatically written; Ctrl/Cmd+S also applies the active text and notes.

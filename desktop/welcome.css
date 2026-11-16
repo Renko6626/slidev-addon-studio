@@ -10,6 +10,7 @@ main { width: min(580px, calc(100% - 64px)); padding: 48px 0; }
 h1 { font-size: 36px; line-height: 1.15; font-weight: 600; letter-spacing: -.7px; margin: 0 0 14px; }
 .intro { margin: 0 0 36px; font-size: 17px; color: #bac0d0; }
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.actions .import { grid-column: 1 / -1; }
 button { color: inherit; font: inherit; border: 1px solid #444954; border-radius: 6px; background: #2a2d36; cursor: pointer; padding: 18px 22px; text-align: left; }
 button span { display: block; font-size: 12px; color: #aeb6c8; margin-top: 8px; }
 button.primary { border-color: #5b91ef; background: #293b58; }

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, expect, it } from 'vitest'
 import { projectSavedAt, projectSaveStatus, projectWriteError, saveProject, trackProjectWrite } from '../client/project-save'
+import { useProject } from '../client/composables/useProject'
 
 const roots: string[] = []
 afterEach(async () => {
@@ -52,7 +53,23 @@ it('keeps a real write failure visible and refuses to report a later no-op save 
 })
 
 it('records errors from applying the active editor instead of exporting unapplied content', async () => {
-  expect(await saveProject(async () => { throw new Error('Unable to apply text') })).toBe(false)
+  const project = useProject(() => saveProject(async () => { throw new Error('Unable to apply text') }))
+  let opened = false
+  await project.exportPresentation(() => { opened = true })
+  expect(opened).toBe(false)
+  expect(project.exporting.value).toBe(false)
   expect(projectWriteError.value).toBe('Unable to apply text')
   expect(projectSaveStatus()).toBe('projectSaveFailed')
+})
+
+it('opens the presentation exporter only after the active draft is written', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'studio-save-'))
+  roots.push(root)
+  const entry = join(root, 'slides.md')
+  const project = useProject(() => saveProject(() => trackProjectWrite(() => writeFile(entry, '# Latest draft'))))
+  let exported = ''
+  await project.exportPresentation(async () => { exported = await readFile(entry, 'utf8') })
+  expect(exported).toBe('# Latest draft')
+  expect(project.exporting.value).toBe(false)
+  expect(project.error.value).toBeNull()
 })
