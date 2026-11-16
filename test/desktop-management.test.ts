@@ -20,9 +20,13 @@ it('copies real compiler output and project locations while the renderer is unav
     shell: {}, clipboard: { writeText: (value: string) => { copied = value } },
   })
   expect(await manage('diagnostics')).toBe(true)
-  expect(copied).toContain(root)
-  expect(copied).toContain('components/Card.vue:12 Unexpected token')
-  expect(copied).toContain('studio-authoring/SKILL.md')
+  expect(copied).toBe(`Slidev Studio 工程诊断
+工程目录：${root}
+入口文件：${join(root, 'slides.md')}
+运行日志：${logPath}
+
+最近日志：
+Vite compiler error: components/Card.vue:12 Unexpected token`)
 })
 
 it('leaves files untouched on cancel and reopens saved files after explicit confirmation without invoking renderer save', async () => {

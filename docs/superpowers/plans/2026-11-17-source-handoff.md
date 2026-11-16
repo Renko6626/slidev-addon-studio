@@ -27,3 +27,11 @@
 - 新宿主通过可选布尔能力 `nativeProjectManagement` 控制文件页管理提示，旧宿主不显示其不支持的快捷键说明。没有新增任意文件 API、编辑器、依赖或服务。
 - 一次限定范围独立只读审阅，无阻塞发现。
 - 未验证：Windows 原生菜单、Alt/Ctrl+Shift+M、原生确认框、真实错误工程的宿主恢复、系统剪贴板和外部 agent 启动。本轮不承诺完整 Studio 的错误隔离，也未打包、发布或合并 main。
+
+## 后续文案及复制内容修订
+
+用户指出“源码与 agent”把制作建议写成了产品入口，已确认统一为“源码”。按钮使用“复制本页源码”“复制源码位置”“复制页面信息”；原生菜单使用“复制工程诊断”。页面信息及工程诊断只附带位置、源码、选中对象、错误和日志，不自动附加任务指令、技能路径或制作约束。文件页移除 agent 引导段落，打开目录及独立管理提示保留；外部工具用法留在帮助文档。上文关于 agent 专用复制内容的描述仅记录原实现，当前行为以本节为准。
+
+已有源码与诊断用例改为断言完整的中性复制结果，保留所有位置、错误及原始源码覆盖；先观察旧输出失败，再修改生产逻辑。`node_modules/.bin/vitest run test/source-context.test.ts test/desktop-management.test.ts test/i18n.test.ts`：8 项通过。`node_modules/.bin/tsc --noEmit`、上述 Vue SFC 检查、`node --check desktop/main.cjs`、`node --check desktop/project-management.cjs` 与 `git diff --check` 均通过。未新增永久测试或重复全量检查。
+
+修订后的宽窄屏截图为 `/tmp/studio-source-neutral-{desktop,compact}.png`，入口显示“源码”，复制按钮正常排列。仅导航及初始化状态，没有自动点击、填写、剪贴板或 Windows 原生流程测试；系统剪贴板和 Windows 菜单仍待人工验收。

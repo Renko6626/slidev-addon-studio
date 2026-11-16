@@ -67,7 +67,7 @@
 
 ## Current editor boundaries
 
-- Source and agent is read-only. Page text comes from Slidev's original source,
+- Source is read-only. Page text comes from Slidev's original source,
   including frontmatter and notes; selected components expose their catalog paths.
   The project script inventory is not a dependency graph. Clipboard can require a
   secure browser context; the read-only text can also be selected manually.

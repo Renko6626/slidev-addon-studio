@@ -8,7 +8,7 @@ import { useStudio } from '../../context'
 import { t } from '../../i18n'
 import { getBlock } from '../../md/lines'
 import { projectWriteError } from '../../project-save'
-import { agentSourceContext, pageSource, projectScripts } from '../../source-context'
+import { pageSourceInfo, pageSource, projectScripts } from '../../source-context'
 import { busy, editing, lastCompileError, lastError, selection } from '../../state'
 
 const studio = useStudio()
@@ -18,10 +18,11 @@ const { components } = useCatalog()
 const { project, loading, error: projectError, refresh } = useProject(studio.save)
 onMounted(refresh)
 const page = computed(() => pageSource(info.value))
+const location = computed(() => page.value.file + (page.value.line === null ? '' : ':' + page.value.line))
 const component = computed(() => components.find(item => item.name === selection.value?.tag) ?? null)
 const scripts = computed(() => projectScripts(project.value?.files ?? []))
 const diagnostic = computed(() => [lastCompileError.value, projectWriteError.value, lastError.value].filter(Boolean).join('\n\n'))
-const context = computed(() => agentSourceContext({
+const pageInfo = computed(() => pageSourceInfo({
   no: studio.no(), slide: info.value, project: project.value, component: component.value,
   selectedSource: selection.value?.range ? getBlock(studio.content(), selection.value.range) : '',
   error: diagnostic.value,
@@ -38,19 +39,22 @@ async function copy(text: string) {
 
 <template>
   <section class="studio-section studio-source-panel">
-    <p class="studio-hint">{{ t('sourceAgentHint') }}</p>
+    <p class="studio-hint">{{ t('sourceHint') }}</p>
     <p v-if="loading" role="status">{{ t('projectLoading') }}</p>
     <p v-if="projectError" role="alert">{{ projectError }}</p>
     <p v-if="project"><strong>{{ t('projectLocation') }}</strong><code class="studio-source-path">{{ project.root }}</code></p>
-    <button class="studio-button" :disabled="loading || busy || editing || !page.file || !project" @click="copy(context)">{{ t('sourceCopyContext') }}</button>
+    <button class="studio-button" :disabled="loading || busy || editing || !page.file || !project" @click="copy(pageInfo)">{{ t('sourceCopyPageInfo') }}</button>
     <p v-if="copied" class="studio-hint" role="status">{{ t('sourceCopied') }}</p>
     <p v-if="copyError" class="studio-hint" role="alert">{{ t('sourceCopyFailed') }}</p>
   </section>
   <section class="studio-section studio-source-panel">
     <h3 class="studio-section__title">{{ t('sourceCurrentPage') }}</h3>
-    <code class="studio-source-path">{{ page.file ? `${page.file}${page.line === null ? '' : ':' + page.line}` : t('sourceUnknownLocation') }}</code>
+    <code class="studio-source-path">{{ page.file ? location : t('sourceUnknownLocation') }}</code>
     <textarea class="studio-source-code" readonly spellcheck="false" wrap="off" :value="page.markdown" :aria-label="t('sourceCurrentPage')" />
-    <button class="studio-button" :disabled="!page.markdown" @click="copy(page.markdown)">{{ t('sourceCopyMarkdown') }}</button>
+    <div class="studio-button-row">
+      <button class="studio-button" :disabled="!page.markdown" @click="copy(page.markdown)">{{ t('sourceCopyMarkdown') }}</button>
+      <button class="studio-button" :disabled="!page.file" @click="copy(location)">{{ t('sourceCopyLocation') }}</button>
+    </div>
   </section>
   <section v-if="component" class="studio-section studio-source-panel">
     <h3 class="studio-section__title">{{ t('sourceComponentDefinition', { name: component.name }) }}</h3>
@@ -69,8 +73,8 @@ async function copy(text: string) {
       <ul class="studio-source-scripts"><li v-for="file in scripts" :key="file"><code>{{ file }}</code></li></ul>
     </details>
     <details>
-      <summary>{{ t('sourceContextPreview') }}</summary>
-      <textarea class="studio-source-code" readonly spellcheck="false" wrap="off" :value="context" :aria-label="t('sourceContextPreview')" />
+      <summary>{{ t('sourcePageInfoPreview') }}</summary>
+      <textarea class="studio-source-code" readonly spellcheck="false" wrap="off" :value="pageInfo" :aria-label="t('sourcePageInfoPreview')" />
     </details>
   </section>
 </template>

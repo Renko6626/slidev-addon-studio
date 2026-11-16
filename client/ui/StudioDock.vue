@@ -17,7 +17,7 @@ const panels = {
   layout: { title: 'pageSettings', component: PanelLayout },
   transition: { title: 'slideTransition', component: PanelTransition },
   layers: { title: 'layers', component: PanelLayers },
-  source: { title: 'sourceAndAgent', component: PanelSource },
+  source: { title: 'sourcePanel', component: PanelSource },
 } as const
 const currentId = computed(() => activePanel.value === 'inspect' && !selection.value && !missed.value ? 'layout' : activePanel.value)
 const current = computed(() => panels[currentId.value])

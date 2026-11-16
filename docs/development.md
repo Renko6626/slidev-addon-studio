@@ -123,7 +123,7 @@ addon source merge.
 | Source writes and history | `client/composables/useSlideSource.ts`, `client/actions.ts` |
 | Catalog, pages and assets | `node/`, `client/composables/useDeckApi.ts` |
 | Project info, archive and File page | `node/project.ts`, `shared/project.ts`, `client/composables/useProject.ts`, `client/ui/StudioFile.vue` |
-| Read-only source and agent handoff | `client/source-context.ts`, `client/ui/panels/PanelSource.vue`; existing Slidev info, catalog and project API |
+| Read-only source and page information | `client/source-context.ts`, `client/ui/panels/PanelSource.vue`; existing Slidev info, catalog and project API |
 | Native project management | `desktop/project-management.cjs`, assembled by `desktop/main.cjs`; independent menu, existing log and explicit reload/home confirmation |
 | Explicit save and write status | `client/project-save.ts`, exposed apply methods on `InlineEditor.vue` and `StudioNotes.vue` |
 | App runtime and preview isolation | `runtime/app.ts`, `runtime/preview.ts`, `runtime/composables/`, `setup/main.ts`, `setup/root.ts` |

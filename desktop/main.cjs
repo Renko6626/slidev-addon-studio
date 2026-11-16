@@ -306,7 +306,7 @@ app.whenReady().then(async () => {
   const managementMenu = Menu.buildFromTemplate([
     { label: '打开工程目录', click: () => { void manageProject('folder') } },
     { label: '查看运行日志', click: () => { void manageProject('logs') } },
-    { label: '复制工程诊断给 agent', click: () => { void manageProject('diagnostics') } },
+    { label: '复制工程诊断', click: () => { void manageProject('diagnostics') } },
     { type: 'separator' },
     { label: '从磁盘重新加载工程…', click: () => { void manageProject('reload') } },
     { label: '返回主页…', click: () => { void manageProject('home') } },

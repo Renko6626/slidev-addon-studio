@@ -24,8 +24,6 @@ function createProjectManagement({ getProject, getLogPath, getWindow, isWorking,
           `工程目录：${project?.root ?? '尚未打开工程'}`,
           `入口文件：${project?.entry ?? '未知'}`,
           `运行日志：${logPath || '尚无'}`,
-          '请在工程目录打开 coding agent，先读 AGENTS.md 和 node_modules/slidev-addon-studio/skills/studio-authoring/SKILL.md。',
-          '保留用户已有排版和字段，结合日志及当前代码修复；不要自动回滚整个工程。',
           '', '最近日志：', log.slice(-16000),
         ].join('\n'))
       }

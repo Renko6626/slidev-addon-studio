@@ -19,7 +19,6 @@ const { project, loading, downloading, exporting, error, refresh, download, expo
 const exporterAvailable = nav.router.hasRoute('export')
 const locked = computed(() => busy.value || projectSaving.value || downloading.value || exporting.value || hostWorking.value)
 const savedTime = computed(() => projectSavedAt.value ? new Date(projectSavedAt.value).toLocaleTimeString() : '')
-const authoringSkill = 'node_modules/slidev-addon-studio/skills/studio-authoring/SKILL.md'
 onMounted(refresh)
 function openExporter() {
   if (locked.value || !exporterAvailable) return
@@ -117,18 +116,11 @@ async function studioUpdate() {
           <p>{{ t('projectImportHint') }}</p>
           <button class="studio-button studio-file-action" :disabled="locked" @click="importProject"><StudioIcon name="folder" />{{ t('importProjectZip') }}</button>
         </section>
-        <section v-if="host" class="studio-file-section">
-          <h2>{{ t('projectAgentTitle') }}</h2>
-          <p v-if="host.nativeProjectManagement" class="studio-file-note">{{ t('desktopManagementHint') }}</p>
-          <p>{{ t('projectAgentHint') }}</p>
-          <p><code>{{ project.root }}</code></p>
-          <p class="studio-file-note">{{ t('projectAgentSkillHint') }}</p>
-          <p><code>{{ authoringSkill }}</code></p>
-          <button class="studio-button" :disabled="locked" @click="hostAction('openFolder')"><StudioIcon name="folder" :size="14" />{{ t('projectOpenFolder') }}</button>
-        </section>
         <section class="studio-file-section">
           <h2>{{ t('projectFiles') }}</h2>
           <p class="studio-file-note">{{ t('projectFilesHint') }}</p>
+          <p v-if="host?.nativeProjectManagement" class="studio-file-note">{{ t('desktopManagementHint') }}</p>
+          <button v-if="host" class="studio-button studio-file-action" :disabled="locked" @click="hostAction('openFolder')"><StudioIcon name="folder" :size="14" />{{ t('projectOpenFolder') }}</button>
           <ProjectTree :files="project.files" />
         </section>
         <section class="studio-file-section">
