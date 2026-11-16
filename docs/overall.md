@@ -2,7 +2,7 @@
 
 Slidev Studio 服务于一个人与 coding agent 协同创作 PPT：人在可视化画布里组织内容、调整排版和试播，agent 在同一份 Slidev 工程里编写组件、效果和交互逻辑。双方可以多轮接手，产物始终保留可继续编辑的源码与素材。
 
-这里的 PPT 指演示文稿。当前工程格式为 Slidev，播放依赖浏览器。文件页可打开 PDF、PNG 和图片型 PPTX 导出；PPTX 每页是一张图片，无法在 PowerPoint 单独编辑文字或对象。尚未提供 PPTX 导入、原生可编辑 PPTX 转换和网页播放包。
+这里的 PPT 指演示文稿。当前工程格式为 Slidev，播放依赖浏览器。文件页可打开 PDF、PNG 和图片型 PPTX 导出；PPTX 每页是一张图片，无法在 PowerPoint 单独编辑文字或对象。播放电脑可安装 Studio 后打开工程放映，也可使用桌面版导出的 Windows x64 网页播放包，在浏览器中播放。尚未提供 PPTX 导入和原生可编辑 PPTX 转换。
 
 本文定义产品定位与已有约束。具体能力见[使用指南](usage.zh-CN.md)、[限制说明](limitations.md)和[当前状态](status.md)；本文不授权新增功能或改变架构。
 

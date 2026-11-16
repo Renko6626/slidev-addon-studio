@@ -11,6 +11,8 @@ const name = '@renko_1055/slidev-addon-studio'
 const roots: string[] = []
 const servers: ReturnType<typeof createServer>[] = []
 const integrity = (bytes: Buffer) => `sha512-${createHash('sha512').update(bytes).digest('base64')}`
+const playbackBytes = Buffer.from('playback server fixture')
+const playbackAsset = (origin: string) => ({ version: '0.35.0', url: `${origin}/miniserve.exe`, sha256: createHash('sha256').update(playbackBytes).digest('hex') })
 afterEach(async () => {
   await Promise.all(servers.splice(0).map(server => new Promise<void>((resolve, reject) => { server.close(error => error ? reject(error) : resolve()); server.closeAllConnections() })))
   await Promise.all(roots.splice(0).map(root => rm(root, { recursive: true, force: true })))
@@ -29,6 +31,7 @@ async function fixture() {
 
 async function registry(bytes: Buffer, digest = integrity(bytes)) {
   const server = createServer((req, res) => {
+    if (req.url === '/miniserve.exe') { res.end(playbackBytes); return }
     if (req.url === '/studio.tgz') { res.end(bytes); return }
     res.setHeader('Content-Type', 'application/json')
     res.end(JSON.stringify({ name, version: '0.5.2', dist: { tarball: `${origin}/studio.tgz`, integrity: digest } }))
@@ -77,10 +80,35 @@ it('prepares the precise published artifact and its descriptor without repacking
   await writeFile(join(root, 'desktop/template/slides.md'), '# Template')
   await writeFile(join(root, 'package.json'), JSON.stringify({ name, version: '0.5.2' }))
   const bytes = Buffer.from('canonical published artifact')
-  await prepare({ root, resources, source: 'published', registryUrl: await registry(bytes) })
+  const origin = await registry(bytes)
+  await prepare({ root, resources, source: 'published', registryUrl: origin, playbackAsset: playbackAsset(origin) })
   expect(await readFile(join(resources, 'slidev-addon-studio.tgz'))).toEqual(bytes)
   expect(await readBundledStudio(resources)).toMatchObject({ name, version: '0.5.2', integrity: integrity(bytes) })
   expect(await readFile(join(resources, 'template/slides.md'), 'utf8')).toBe('# Template')
+  expect(await readFile(join(resources, 'playback/miniserve.exe'))).toEqual(playbackBytes)
+})
+
+it('prepares a checked playback binary and reuses it without downloading during later preparation', async () => {
+  const { resources } = await fixture()
+  const { preparePlayback, readPlayback } = createRequire(import.meta.url)('../desktop/scripts/prepare-playback.cjs')
+  const asset = playbackAsset(await registry(Buffer.from('unused')))
+  await preparePlayback({ resources, asset })
+  const files = await readPlayback(resources, asset)
+  expect(await readFile(files.executable)).toEqual(playbackBytes)
+  expect(await readFile(files.license, 'utf8')).toContain('MIT License')
+  expect(await readFile(files.launcher, 'utf8')).toContain('127.0.0.1')
+  await preparePlayback({ resources, asset, fetchImpl: () => { throw new Error('Offline') } })
+  expect(await readFile(files.executable)).toEqual(playbackBytes)
+  await writeFile(files.executable, 'damaged')
+  await expect(readPlayback(resources, asset)).rejects.toThrow('校验')
+})
+
+it('does not install an incorrectly checked playback download', async () => {
+  const { resources } = await fixture()
+  const { preparePlayback } = createRequire(import.meta.url)('../desktop/scripts/prepare-playback.cjs')
+  const asset = { ...playbackAsset(await registry(Buffer.from('unused'))), sha256: '0'.repeat(64) }
+  await expect(preparePlayback({ resources, asset })).rejects.toThrow('校验')
+  await expect(readFile(join(resources, 'playback/miniserve.exe'))).rejects.toMatchObject({ code: 'ENOENT' })
 })
 
 it('stops a formal build when its exact Studio version is unavailable, keeping the old bundled artifact', async () => {

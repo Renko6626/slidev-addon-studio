@@ -101,9 +101,19 @@
   File's presentation export entry opens Slidev's existing browser exporter after
   saving. PDF uses printing; PNGs are a tar.gz archive and PPTX slides are images.
   Desktop export opens the system browser, so keep the project running. Image
-  capture requires sharing the current tab. Built-site export, editable PPTX
+  capture requires sharing the current tab. Editable PPTX
   conversion and PowerPoint import are not supplied. Disabling `browserExporter`
   disables this entry.
+- Hosts with `exportWebPlayback()` can build a static-site ZIP with miniserve for
+  Windows x64. This capability needs both the updated desktop host and addon;
+  browser sessions and older hosts omit the entry. The package excludes speaker
+  notes and supplies no source editor. Keep the source project and re-export after
+  editing. Builds use the project's CLI and font/asset configuration; external
+  resources and services may still need a network connection. Media decoding and
+  autoplay remain browser-dependent. The launcher serves the site root on
+  `127.0.0.1:8080`; resolve port conflicts manually as described in its README.
+  Avoid changing the project while exporting. Archives are built in memory;
+  large media increases memory usage. Export does not install missing build tools.
 - Hosts with the optional `importProject()` capability can extract project ZIPs
   into an empty directory and follow the normal opening workflow. The user picks
   a nested Markdown entry when there is no root `slides.md`; no new entry manifest

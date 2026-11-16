@@ -129,6 +129,7 @@ addon source merge.
 | Project info, archive and File page | `node/project.ts`, `shared/project.ts`, `client/composables/useProject.ts`, `client/ui/StudioFile.vue` |
 | Read-only source and page information | `client/source-context.ts`, `client/ui/panels/PanelSource.vue`; existing Slidev info, catalog and project API |
 | Native project management | `desktop/project-management.cjs`, assembled by `desktop/main.cjs`; independent menu, existing log and explicit reload/home confirmation |
+| Desktop web playback export | `desktop/web-playback.cjs` builds and archives; `desktop/playback.cjs` verifies bundled resources; `desktop/scripts/prepare-playback.cjs` prepares fixed miniserve resources |
 | Explicit save and write status | `client/project-save.ts`, exposed apply methods on `InlineEditor.vue` and `StudioNotes.vue` |
 | App runtime and preview isolation | `runtime/app.ts`, `runtime/preview.ts`, `runtime/composables/`, `setup/main.ts`, `setup/root.ts` |
 | Quiz state and public API | `runtime/stores/quiz.ts`, `runtime/interactions.ts`, `runtime/index.ts`, `shared/quiz.ts` |
@@ -160,6 +161,29 @@ to the main process, and the File page calls fixed project actions. `desktop/`
 contains the Windows Electron host, process runner, project operations and Forge
 ZIP configuration; see [desktop development](../desktop/README.md). A normal
 browser has no desktop bridge and retains the standalone File page.
+
+The optional, parameterless `exportWebPlayback(): Promise<{ ok: boolean;
+error?: string }>` host capability uses fixed IPC and the existing sender checks.
+The native host chooses a ZIP path and runs the save bridge before building.
+The exporter owns a separate child process, leaving the editing runtime running:
+
+```text
+<Electron Node> <project>/node_modules/@slidev/cli/bin/slidev.mjs build <entry> --base / --without-notes --download false --out <temporary>/web
+```
+
+Its cwd is the project root and `NODE_ENV` is `production`. Output stays outside
+the project; manifest, lockfiles and existing `dist` are retained. The temporary
+directory is removed after success or failure, and confirmed app exit stops the
+build process. JSZip packages `web/`, `start.cmd`, verified `miniserve.exe`,
+`README.txt` and `licenses/miniserve-LICENSE.txt`; only then is the chosen ZIP
+written. Errors use the existing project log and manual retry.
+
+`desktop/playback/miniserve.json` pins the release URL and SHA-256. Desktop
+preparation reuses verified cached bytes or downloads that release, copies the
+launcher/readme/license, and includes them through the existing Forge resource
+directory. Both desktop flavors include the executable. Export only reads these
+resources and never downloads a server; the addon npm package excludes desktop
+files. See the [desktop guide](../desktop/README.md#网页播放包) for playback limits.
 
 Run the checks relevant to the complete change:
 
