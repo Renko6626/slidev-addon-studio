@@ -1,6 +1,6 @@
-# Windows 桌面预览版
+# Windows 桌面版
 
-Windows x64，使用 Electron 自带 Node。分发 ZIP 不包含第二份 `node.exe`，用户无需安装 Node、pnpm、Docker 或工作台服务。轻量版随附 Studio，缺少的依赖安装时联网获取；完整版额外随附标准工程的 Windows x64 依赖缓存。两者采用同一安装和更新流程。Studio 与桌面壳分别使用 X.Y.Z 版本号，目前均为 0.5.2，可独立更新。源码具备下述能力，不代表该版桌面 ZIP 已公开发布。
+Windows x64，使用 Electron 自带 Node。分发 ZIP 不包含第二份 `node.exe`，用户无需安装 Node、pnpm、Docker 或工作台服务。轻量版随附 Studio，缺少的依赖安装时联网获取；完整版额外随附标准工程的 Windows x64 依赖缓存。两者采用同一安装和更新流程。Studio 与桌面壳分别使用 X.Y.Z 版本号，目前均为 0.5.2，可独立更新。实际发布版本与下载文件以 [GitHub Releases](https://github.com/Renko6626/slidev-addon-studio/releases) 为准。
 
 ## 使用
 
