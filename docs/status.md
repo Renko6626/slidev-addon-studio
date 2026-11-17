@@ -69,6 +69,14 @@
 
 随后 Sol 独立审阅发现旧文本框首次设置布局会转义已有 Vue 插值。已让布局包装原样保留正文；文字编辑的新输入仍按原规则转义。新增回归用例已先复现失败再通过；本次局部验证运行 `vitest run test/elements.test.ts test/rich-text.test.ts`（37 通过）、`tsc --noEmit` 和 `git diff --check`，均通过，未重跑浏览器或 Windows 验收。
 
+## 当前源码桌面预览包，2026-11-17
+
+- 已按用户要求从 `codex/studio-text-fonts` 的 `ce77a51` 制作 Windows x64 轻量源码预览 ZIP 和 addon tgz；清单版本保持 `0.5.1`，产物名使用 `source-ce77a51` 区分原正式包，没有替换原归档或发布 npm/GitHub。
+- 目录为仓库同级 `release/studio/previews/2026-11-17-ce77a51/`。桌面 ZIP 为 166,645,502 字节，addon 为 274,743 字节；随附 README、SHA256SUMS 和 verification.json。
+- 实际执行 workspace prepare 与 Forge `make --platform=win32 --arch=x64`。核对 app.asar 中的主进程/桥接/播放模块与源码一致，ZIP 内 addon 与单独 tgz 一致，miniserve 固定摘要与播放模板一致；ZIP 完整性检查和 SHA-256 复核通过。
+- 将实际 tgz 解压为临时工程安装包后，Slidev `build --base /packed-check/ --without-notes --download false` 通过，字体字节和生产注册路径保持。未在 Windows 运行此包。
+- 新建工程使用随包 Studio；已有工程保留自己的依赖，同版本不自动替换为预览源码。线上工作台与现有文稿没有随本次打包升级。
+
 ## 尚待实际使用验证
 
 实际 PDF 打印、标签页采集和 PNG/PPTX 产物、Windows ZIP 导入、原生工程管理菜单及确认框、真实错误工程重新加载、网络更新与进程重启、输入法、原生剪贴板、文件选择、全屏和音视频解码仍需按实际场景试用。没有执行浏览器自动点击、填写或交互流程。
