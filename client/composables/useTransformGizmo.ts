@@ -112,7 +112,7 @@ export function useTransformGizmo(context: {
     const current = context.getTarget()
     if (!current || !current.range)
       return
-    if (current.element === 'text' && next.type === 'resize' && !['e', 'w'].includes(next.handle))
+    if (current.element === 'text' && readDrag(context.getContent(), current.range)?.pos?.h == null && next.type === 'resize' && !['e', 'w'].includes(next.handle))
       return
 
     const targets = context.getTargets?.() ?? [current]

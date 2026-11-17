@@ -92,7 +92,8 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
     activeSource.value = source
     const inherited = defaults.value
     activeDefaults.value = inherited
-    const element = field?.element ?? target.el
+    const root = field?.element ?? target.el
+    const element = root.querySelector<HTMLElement>(':scope > [data-studio-text-content]') ?? root
     element.replaceChildren()
     const instance = createTextEditor(html, {
       element,

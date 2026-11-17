@@ -2,6 +2,7 @@ import type { CatalogComponent, CatalogLayout } from '../types'
 import { components, config, layouts, palette } from 'virtual:slidev-studio/catalog'
 import { computed, ref } from 'vue'
 import { catalogDescription, catalogOrigin } from '../i18n/catalog'
+import type { WorkspaceContext } from '../../shared/workspace'
 
 /**
  * The palette's inventory, built at dev time from every root Slidev resolved:
@@ -17,6 +18,7 @@ const allLayouts = layouts as CatalogLayout[]
 /** The deck's own colours, read from its stylesheets. */
 export const studioPalette = palette as { value: string, name: string, resolved: string }[]
 export const studioConfig = config as Record<string, any>
+export const studioWorkspace = studioConfig.workspace as WorkspaceContext | undefined
 
 export function useCatalog() {
   const query = ref('')

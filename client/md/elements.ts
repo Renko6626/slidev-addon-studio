@@ -6,7 +6,7 @@ import { findAttr, opensWithTag, writeAttr } from './tags'
 
 export type ElementKind = 'text' | 'image' | 'shape'
 export interface Size { width: number, height: number }
-const STYLE_KEYS = ['font-family', 'font-size', 'color', 'text-align', 'line-height', 'object-fit', 'object-position'] as const
+const STYLE_KEYS = ['font-family', 'font-size', 'color', 'text-align', 'line-height', 'object-fit', 'object-position', 'display', 'flex-direction', 'justify-content', 'box-sizing', 'min-height', 'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left'] as const
 
 /** Percentage controls cover Studio's saved positions and ordinary CSS keywords. */
 export function readImagePosition(value: string) {
@@ -105,7 +105,17 @@ export function readTextContent(content: string, range: SourceRange): string | n
   const block = getBlock(content, range)
   const tag = opensWithTag(block)!
   const end = block.lastIndexOf('</div>')
-  return end < tag.end ? null : block.slice(tag.end, end)
+  if (end < tag.end) return null
+  const html = block.slice(tag.end, end)
+  const wrapper = textContentWrapper(html)
+  return wrapper ? html.slice(wrapper.start, wrapper.end) : html
+}
+
+function textContentWrapper(html: string) {
+  const tag = opensWithTag(html)
+  if (tag?.name !== 'div' || !findAttr(html, 'data-studio-text-content')) return null
+  const end = html.lastIndexOf('</div>')
+  return end >= tag.end ? { start: tag.end, end } : null
 }
 
 export function replaceTextContent(content: string, range: SourceRange, html: string) {
@@ -116,7 +126,51 @@ export function replaceTextContent(content: string, range: SourceRange, html: st
   const end = block.lastIndexOf('</div>')
   if (end < tag.end)
     return content
-  return replaceBlock(content, range, block.slice(0, tag.end) + html.replace(/\{\{/g, '&#123;&#123;') + block.slice(end))
+  const body = block.slice(tag.end, end)
+  const wrapper = textContentWrapper(body)
+  const escaped = html.replace(/\{\{/g, '&#123;&#123;')
+  const next = wrapper ? body.slice(0, wrapper.start) + escaped + body.slice(wrapper.end) : escaped
+  return replaceBlock(content, range, block.slice(0, tag.end) + next + block.slice(end))
+}
+
+type PaddingSide = 'top' | 'right' | 'bottom' | 'left'
+export interface TextBoxLayout {
+  height: number | null
+  vertical: 'top' | 'middle' | 'bottom'
+  padding: Record<PaddingSide, number>
+}
+
+export function readTextBoxLayout(content: string, range: SourceRange): TextBoxLayout | null {
+  const element = readElement(content, range)
+  const pos = readDrag(content, range)?.pos
+  if (element?.kind !== 'text' || !pos) return null
+  const s = element.styles
+  const parts = (s.padding || '0').split(/\s+/)
+  const values = [parts[0], parts[1] ?? parts[0], parts[2] ?? parts[0], parts[3] ?? parts[1] ?? parts[0]]
+  const sides = ['top', 'right', 'bottom', 'left'] as const
+  const padding = Object.fromEntries(sides.map((side, i) => [side, Number.parseFloat(s[`padding-${side}`] || values[i]) || 0])) as TextBoxLayout['padding']
+  return { height: pos.h, vertical: s['justify-content'] === 'center' ? 'middle' : s['justify-content'] === 'flex-end' ? 'bottom' : 'top', padding }
+}
+
+export function patchTextBoxLayout(content: string, range: SourceRange, patch: Partial<Omit<TextBoxLayout, 'padding'>> & { padding?: Partial<TextBoxLayout['padding']> }) {
+  const layout = readTextBoxLayout(content, range)
+  const pos = readDrag(content, range)?.pos
+  if (!layout || !pos || (patch.height !== undefined && patch.height !== null && (!Number.isFinite(patch.height) || patch.height <= 0))) return content
+  const block = getBlock(content, range)
+  const opening = opensWithTag(block)!.end
+  const closing = block.lastIndexOf('</div>')
+  if (closing < opening) return content
+  const body = block.slice(opening, closing)
+  // Layout moves authored source verbatim, including Vue bindings. Only new
+  // text supplied through replaceTextContent goes through literal-text escaping.
+  let next = textContentWrapper(body) ? content : replaceBlock(content, range,
+    `${block.slice(0, opening)}<div data-studio-text-content style="width:100%;min-width:0;flex:none">${body}</div>${block.slice(closing)}`)
+  const styles: Record<string, string> = { display: 'flex', 'flex-direction': 'column', 'box-sizing': 'border-box', 'min-height': '0' }
+  if (patch.vertical) styles['justify-content'] = { top: 'flex-start', middle: 'center', bottom: 'flex-end' }[patch.vertical]
+  for (const [side, value] of Object.entries(patch.padding ?? {}))
+    if (Number.isFinite(value) && value >= 0) styles[`padding-${side}`] = `${value}px`
+  next = patchElementStyle(next, range, styles)
+  return patch.height === undefined ? next : writeDrag(next, range, { ...pos, h: patch.height })
 }
 
 export function resizeElement(content: string, range: SourceRange, field: 'x' | 'y' | 'w' | 'h' | 'rotate', value: number | null) {
@@ -126,15 +180,12 @@ export function resizeElement(content: string, range: SourceRange, field: 'x' | 
     return content
   if (element.kind === 'shape' && (field === 'w' || field === 'h') && value === null) return content
   if (element.kind === 'shape' && field === 'h' && readShape(content, range)?.kind === 'line') return content
-  if (field === 'h' && element.kind === 'text')
-    return content
-  if ((field === 'w' || field === 'h') && (value === null || value <= 0))
+  if ((field === 'w' || field === 'h') && (value === null && !(element.kind === 'text' && field === 'h') || value !== null && value <= 0))
     return content
   const next = { ...pos, [field]: value }
   if (element.lockRatio && pos.h && value !== null) {
     if (field === 'w') next.h = value * pos.h / pos.w
     if (field === 'h') next.w = value * pos.w / pos.h
   }
-  if (element.kind === 'text') next.h = null
   return writeDrag(content, range, next)
 }

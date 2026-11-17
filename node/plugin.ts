@@ -4,12 +4,17 @@ import { join, relative } from 'node:path'
 import { buildCatalog } from './catalog'
 import { readPalette } from './palette'
 import { assetRoot, listAssets, saveAsset } from './assets'
+import { readFontCSS, saveFont, loadFontCSS } from './fonts'
+import { FONT_CSS_PATH } from '../shared/fonts'
+import { readWorkspaceContext } from './workspace'
 import { applyDeckAction } from './deck'
 import { exportProject, readProject } from './project'
 import { studioErrorResponse } from '../shared/errors'
 
 const VIRTUAL_CATALOG = 'virtual:slidev-studio/catalog'
 const RESOLVED_CATALOG = `\0${VIRTUAL_CATALOG}`
+const VIRTUAL_FONTS = 'virtual:slidev-studio/fonts.css'
+const RESOLVED_FONTS = `\0${VIRTUAL_FONTS}`
 const API_PREFIX = '/@studio/'
 const STUDIO_BLOCK_REQUEST = /[?&]vue&type=studio\b/
 
@@ -21,8 +26,8 @@ const STUDIO_BLOCK_REQUEST = /[?&]vue&type=studio\b/
  * used for the edits Slidev's own endpoint cannot express: adding, removing,
  * reordering slides and writing assets into `public/`.
  *
- * Everything here is dev-only. In build and export mode the plugin serves an
- * empty catalog and registers no routes.
+ * Editing routes and the catalog are dev-only. Project font CSS also loads
+ * in production so ordinary builds keep the authored typography.
  */
 export function studioPlugin(options: ResolvedSlidevOptions): Plugin {
 
@@ -43,12 +48,14 @@ export function studioPlugin(options: ResolvedSlidevOptions): Plugin {
     enforce: 'pre',
 
     resolveId(id) {
+      if (id === VIRTUAL_FONTS) return RESOLVED_FONTS
       if (id === VIRTUAL_CATALOG)
         return RESOLVED_CATALOG
       return null
     },
 
     async load(id) {
+      if (id === RESOLVED_FONTS) return loadFontCSS(options)
       // A component's metadata lives in a `<studio>` block, which keeps an SFC
       // looking like an SFC to editors. Vue emits an import for every custom
       // block it does not recognise and expects a plugin to answer it; without
@@ -66,6 +73,11 @@ export function studioPlugin(options: ResolvedSlidevOptions): Plugin {
     configureServer(server) {
       if (!isDev)
         return
+
+      const invalidateFonts = () => {
+        const mod = server.moduleGraph.getModuleById(RESOLVED_FONTS)
+        if (mod) server.moduleGraph.invalidateModule(mod)
+      }
 
       // `markdownSetup` is a single slot: a project that defines its own wins
       // over the addon's, which silently costs Studio its click-to-select.
@@ -100,6 +112,7 @@ export function studioPlugin(options: ResolvedSlidevOptions): Plugin {
           const result = await handle(route, req.method ?? 'GET', req, options)
           if (result === undefined)
             return next()
+          if (route === 'fonts' && req.method === 'POST') invalidateFonts()
 
           // Adding, duplicating, removing or moving a slide renumbers the deck,
           // and Slidev's own reload only refreshes the slides it already knows:
@@ -128,6 +141,10 @@ export function studioPlugin(options: ResolvedSlidevOptions): Plugin {
         ...options.roots.map(root => join(root, 'layouts')),
       ]
       server.watcher.on('all', (_event, file) => {
+        if (relative(assetRoot(options), file).replace(/\\/g, '/') === FONT_CSS_PATH) {
+          invalidateFonts()
+          return
+        }
         if (!componentDirs.some(dir => !relative(dir, file).startsWith('..')))
           return
         const mod = server.moduleGraph.getModuleById(RESOLVED_CATALOG)
@@ -152,6 +169,12 @@ async function handle(route: string, method: string, req: any, options: Resolved
 
   if (route === 'assets' && method === 'POST')
     return await saveAsset(options, await readJson(req))
+
+  if (route === 'fonts' && method === 'GET')
+    return { css: await readFontCSS(options) }
+
+  if (route === 'fonts' && method === 'POST')
+    return await saveFont(options, await readJson(req))
 
   if (route === 'deck' && method === 'POST')
     return await applyDeckAction(options, await readJson(req))
@@ -187,7 +210,7 @@ export function studioConfig(options: ResolvedSlidevOptions): StudioConfig {
 async function renderCatalogModule(options: ResolvedSlidevOptions) {
   const catalog = await buildCatalog(options)
   const palette = await readPalette(options)
-  const config = studioConfig(options)
+  const config = { ...studioConfig(options), workspace: readWorkspaceContext() }
 
   const componentLoaders = catalog.components
     .filter(c => !c.hidden && c.previewable)

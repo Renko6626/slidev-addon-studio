@@ -126,11 +126,24 @@
 - New text boxes and pictures have dedicated controls. Supported native prose
   also shares the text controls; no automatic document migration is performed.
 - Studio text boxes support character-level fonts, sizes, colours and marks,
-  paragraph alignment/spacing and lists. Height still follows content; fixed-height
-  boxes, vertical alignment, text-box margins, auto-shrink and font installation
-  remain future work. Images in Fill frame mode support horizontal/vertical
+  paragraph alignment/spacing and lists. Automatic height and fixed size are
+  available; fixed boxes support vertical alignment and all eight resize handles.
+  Box padding is source-backed. Overflow is reported for the selected fixed box,
+  remains visible and is not auto-shrunk. Native prose and component fields keep
+  their existing layout. Layout edits wrap text in one ordinary content div;
+  opening an old box alone does not migrate its markup.
+  Images in Fill frame mode support horizontal/vertical
   `object-position` percentages and a 50%/50% centre reset. The frame and source
   image remain unchanged; draggable crop tools and editable SVG paths are not included.
+- Font choices distinguish imported project fonts from local candidates. Local
+  availability and glyph coverage are not inferred from a font name. Import
+  WOFF2/WOFF/TTF/OTF files (32 MiB each), explicitly provide family/weight/style,
+  and use files you may distribute. Registration is standard `@font-face` CSS in
+  `public/fonts/studio-fonts.css`; static builds and project ZIPs include it and
+  the original font files. Existing remote fonts remain remote. Font conversion,
+  glyph subsetting, OS font enumeration, automatic face metadata extraction and
+  font deletion are not provided. The selected family does not automatically
+  alter a text selection's bold or italic marks.
 - Rich text supports Studio text boxes, ordinary ATX Markdown headings and
   paragraphs, standalone HTML headings/paragraphs and generated HTML lists.
   Heading levels, document flow and existing root attributes are retained; font,

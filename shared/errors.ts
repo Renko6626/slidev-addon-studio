@@ -7,6 +7,7 @@ export type StudioErrorCode =
   | 'moveBeforeHeadmatter'
   | 'unsupportedAssetType'
   | 'assetTooLarge'
+  | 'invalidFont'
   | 'projectLinkedFile'
   | 'projectExternalSource'
   | 'projectExcludedSource'

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import './styles/layers.css'
+import 'virtual:slidev-studio/fonts.css'
 import { computed, defineAsyncComponent } from 'vue'
 import { useNav } from '@slidev/client'
 // Keep the authoring UI and rich-text engine out of static presentation bundles.

@@ -16,7 +16,7 @@ Git services and a workbench are not required.
 
 ## Version and installation
 
-The Studio source and desktop host are both `0.5.1`, with independent versions.
+The Studio source is `0.5.2`; the desktop host is `0.5.1`, with independent versions.
 The repository's last recorded npm publication is `0.4.0-renko.1`; see
 [current delivery and validation records](docs/status.md) before assuming source
 features are available in an installed package. Existing projects keep their
@@ -95,6 +95,11 @@ Windows x64: unzip, run `start.cmd`, and play in a browser without installing
 Studio. It includes a static site, local media and miniserve; external assets may
 still need a network connection. Keep the source project for further editing.
 PowerPoint import is not provided.
+
+Text boxes support automatic height or fixed size, vertical alignment and padding.
+The font picker previews and searches project fonts and local candidates. Import
+WOFF2/WOFF/TTF/OTF files to keep fonts with the source project and web export;
+registration stays ordinary CSS under `public/fonts/`.
 
 **View → Source** shows the current page's original Markdown, component file
 locations and copyable page information. It is read-only; complex code changes

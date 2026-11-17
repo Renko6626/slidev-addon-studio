@@ -10,6 +10,8 @@ import { useStudio } from '../context'
 import { useDeckActions } from '../composables/useDeckActions'
 import { projectSaving } from '../project-save'
 import { projectHost } from '../project-host'
+import { studioWorkspace } from '../composables/useCatalog'
+import { returnToActivity } from '../workspace'
 import { canRedo, canUndo, lastAction, useStudioHistory } from '../composables/useSlideSource'
 import { appendElement, createTextElement, patchElementStyle } from '../md/elements'
 import { createInteractionButton, createQuizPage, listQuestions, readInteraction } from '../md/interactions'
@@ -17,13 +19,16 @@ import { imageLibraryRequest, imagePending, useImageInsertion } from '../composa
 import ShapePicker from './parts/ShapePicker.vue'
 import ArrangeSelection from './parts/ArrangeSelection.vue'
 import TextElementFields from './parts/TextElementFields.vue'
-import { activePanel, busy, clearSelection, editing, gridEnabled, inspectorVisible, library, notesVisible, outlineEnabled, ribbonTab, selectAllOnEdit, selection, selectedTargets, slidesVisible, snapEnabled, studioOpen } from '../state'
+import { activePanel, busy, clearSelection, editing, gridEnabled, inspectorVisible, library, notesVisible, outlineEnabled, ribbonTab, selectAllOnEdit, selection, selectedTargets, slidesVisible, snapEnabled, studioOpen, reportError } from '../state'
 import PanelTransition from './panels/PanelTransition.vue'
 import StudioIcon from './parts/StudioIcon.vue'
 
 const emit = defineEmits<{ preview: [], present: [], fit: [] }>()
 const studio = useStudio()
 const desktop = !!projectHost()
+function backToActivity() {
+  if (studioWorkspace) void returnToActivity(studioWorkspace, studio.save).catch(reportError)
+}
 const nav = useNav()
 const deck = useDeckActions()
 const images = useImageInsertion()
@@ -183,6 +188,8 @@ const groups = computed<Group[]>(() => {
         <button class="studio-icon-button" :disabled="!redoEnabled" :title="t('redo')" @click="redo"><StudioIcon name="redo" /></button>
       </div>
       <span class="studio-document-title" :title="title">{{ title }}</span>
+      <span v-if="studioWorkspace" class="studio-workspace-label" :title="t('onlineDraftHint')">{{ studioWorkspace.name }}<small>{{ t('onlinePersonalDraft') }}</small></span>
+      <button v-if="studioWorkspace" class="studio-title-action" :disabled="busy || imagePending || projectSaving" @click="backToActivity"><StudioIcon name="back" />{{ t('returnToActivity') }}</button>
       <select v-model="studioLocale" class="studio-language" :aria-label="t('language')"><option value="en">English</option><option value="zh-CN">简体中文</option></select>
       <button class="studio-title-action" :disabled="locked" :title="editing ? t('finishEditing') : t('preview')" @click="emit('preview')"><StudioIcon name="eye" />{{ t('preview') }}</button>
       <button class="studio-title-action studio-title-action--primary" :disabled="locked" :title="editing ? t('finishEditing') : t('presentCurrent')" @click="emit('present')"><StudioIcon name="play" />{{ t('present') }}</button>

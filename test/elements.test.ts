@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendElement, createImageElement, createTextElement, fitImageSize, patchElementAttribute, patchElementStyle, readElement, readImagePosition, replaceTextContent, resizeElement } from '../client/md/elements'
+import { appendElement, createImageElement, createTextElement, fitImageSize, patchElementAttribute, patchElementStyle, patchTextBoxLayout, readElement, readImagePosition, readTextBoxLayout, readTextContent, replaceTextContent, resizeElement } from '../client/md/elements'
 import { getBlock } from '../client/md/lines'
 import { readDrag } from '../client/md/drag'
 
@@ -65,5 +65,46 @@ describe('basic elements', () => {
     expect(readDrag(resizeElement(free, [0, 1], 'w', 300), [0, 1])?.pos).toMatchObject({ w: 300, h: 300 })
     const text = createTextElement(canvas, 'Text')
     expect(readDrag(resizeElement(text, [0, 1], 'w', 280), [0, 1])?.pos).toMatchObject({ w: 280, h: null })
+  })
+
+  it('switches text box sizing and preserves fixed height on width, move and rotation changes', () => {
+    const source = createTextElement(canvas, 'Text')
+    let fixed = patchTextBoxLayout(source, [0, 1], { height: 180, vertical: 'middle', padding: { top: 12, right: 20, bottom: 12, left: 20 } })
+    fixed = resizeElement(fixed, [0, 1], 'w', 320)
+    fixed = resizeElement(fixed, [0, 1], 'x', 50)
+    fixed = resizeElement(fixed, [0, 1], 'rotate', 15)
+    expect(readDrag(fixed, [0, 1])?.pos).toEqual({ x: 50, y: 282, w: 320, h: 180, rotate: 15 })
+    expect(readTextBoxLayout(fixed, [0, 1])).toEqual({ height: 180, vertical: 'middle', padding: { top: 12, right: 20, bottom: 12, left: 20 } })
+    expect(readDrag(resizeElement(fixed, [0, 1], 'h', 220), [0, 1])?.pos?.h).toBe(220)
+    const automatic = patchTextBoxLayout(fixed, [0, 1], { height: null })
+    expect(readDrag(automatic, [0, 1])?.pos).toMatchObject({ w: 320, h: null, rotate: 15 })
+    expect(readTextContent(automatic, [0, 1])).toBe('Text')
+  })
+
+  it('keeps mixed inline text and paragraphs together and edits inside its layout container', () => {
+    const html = '第一行 <strong>粗体</strong><p>第二段</p>'
+    const source = `<div data-studio-element="text" v-drag="[10,20,300,NaN]" class="custom" style="color:red">${html}</div>\n\nNeighbour`
+    const next = patchTextBoxLayout(source, [0, 1], { height: 200, vertical: 'bottom' })
+    expect(readTextContent(next, [0, 1])).toBe(html)
+    expect(next).toContain('class="custom"')
+    expect(next).toContain('color:red')
+    expect(next.endsWith('\n\nNeighbour')).toBe(true)
+    const edited = replaceTextContent(next, [0, 1], '<p>新文字 <em>斜体</em></p>')
+    expect(readTextContent(edited, [0, 1])).toBe('<p>新文字 <em>斜体</em></p>')
+    expect(readTextBoxLayout(edited, [0, 1])?.vertical).toBe('bottom')
+    expect(readDrag(edited, [0, 1])?.pos?.h).toBe(200)
+  })
+
+  it('preserves authored Vue interpolation when adding or adjusting a text layout container', () => {
+    const html = 'Hello {{ name }} <span v-if="show">{{ score + 1 }}</span>'
+    const source = `<div data-studio-element="text" v-drag="[10,20,300,NaN]">${html}</div>`
+    for (const patch of [{ height: 120 }, { padding: { left: 16 } }]) {
+      const wrapped = patchTextBoxLayout(source, [0, 1], patch)
+      expect(readTextContent(wrapped, [0, 1])).toBe(html)
+      expect(readTextContent(patchTextBoxLayout(wrapped, [0, 1], { vertical: 'bottom' }), [0, 1])).toBe(html)
+      // Newly typed braces remain literal; preserving source must not change editing semantics.
+      const edited = replaceTextContent(wrapped, [0, 1], 'Literal {{ name }}')
+      expect(readTextContent(edited, [0, 1])).toBe('Literal &#123;&#123; name }}')
+    }
   })
 })

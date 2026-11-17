@@ -21,6 +21,7 @@ import StudioField from '../parts/StudioField.vue'
 import StudioIcon from '../parts/StudioIcon.vue'
 import ShapeFields from '../parts/ShapeFields.vue'
 import ImageElementFields from '../parts/ImageElementFields.vue'
+import TextBoxFields from '../parts/TextBoxFields.vue'
 import ArrangeSelection from '../parts/ArrangeSelection.vue'
 import InteractionFields from '../parts/InteractionFields.vue'
 import MediaFields from '../parts/MediaFields.vue'
@@ -184,6 +185,7 @@ async function remove() {
     <section v-if="element?.kind === 'shape'" class="studio-section"><ShapeFields /></section>
 
     <section v-if="element?.kind === 'image'" class="studio-section"><ImageElementFields /></section>
+    <section v-if="element?.kind === 'text'" class="studio-section"><TextBoxFields /></section>
     <section v-if="interaction" class="studio-section"><InteractionFields /></section>
     <section v-if="selection.tag === 'StudioMedia'" class="studio-section"><MediaFields /></section>
 
@@ -206,7 +208,7 @@ async function remove() {
         <StudioField :label="t('width')">
           <input type="number" :value="Math.round(pos.w)" @change="setPos('w', +($event.target as HTMLInputElement).value)">
         </StudioField>
-        <StudioField v-if="element?.kind !== 'text' && studio.shapes.parameters.value?.kind !== 'line'" :label="t('height')">
+        <StudioField v-if="(element?.kind !== 'text' || pos.h !== null) && studio.shapes.parameters.value?.kind !== 'line'" :label="t('height')">
           <input
             type="number"
             :value="pos.h === null ? '' : Math.round(pos.h)"

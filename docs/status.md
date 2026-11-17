@@ -4,14 +4,14 @@
 
 ## 源码与交付
 
-- Studio 根包与桌面壳的源码版本当前均为 `0.5.1`，分别维护，允许独立更新。
+- Studio 根包源码版本当前为 `0.5.2`，桌面壳为 `0.5.1`，分别维护，允许独立更新。0.5.2 的源码与本地归档先完成线上兼容性验证；公开发布状态另行记录。
 - 本地 main 已整合 `codex/studio-import-export` 的三个功能提交：`d08abf4`（演示导出与工程 ZIP 导入）、`74e3f89`（只读源码定位与桌面原生工程管理）、`3821d93`（中性源码入口和复制内容）。此前 `660e2f2` 提供的包更新与桌面改进保留。已有工程打开不会自动升级。
 - 仓库最近明确记录的 npm 发布是 [0.4.0-renko.1](releases/0.4.0-renko.1.md)。本次未联网复核注册库；源码版本、发布说明或本地产物的存在均不证明该版本已经公开发布。
 - [0.5.0](releases/0.5.0.md) 和 [0.5.1](releases/0.5.1.md) 记录对应版本的改动。桌面包另按壳版本交付；这次合并不改版本、不发布 npm、不打包 Windows，也不代表已安装版本含有新增能力。
 
 ## 当前可用能力
 
-- 可视化制作：页面列表与预设、富文本、图片、形状、音视频、多选排版、图层、背景、复制粘贴、备注、动画与放映。
+- 可视化制作：页面列表与预设、富文本、自动高度/固定大小文本框、垂直对齐与内边距、工程字体导入和预览、图片、形状、音视频、多选排版、图层、背景、复制粘贴、备注、动画与放映。
 - 人与 agent 接续制作：只读源码、文件位置与页面信息复制、随包技能、完整样例、组件可编辑字段与公共 runtime。agent 由外部工具运行，复制信息不附带任务指令。
 - 内置交互：单选、多选、规则控件、独立题干/选项/反馈、选项增删及本次试播首次答对计数。动态表达式和自定义选项结构仍按源码维护。
 - 本地工程：源码写回、显式保存、工程 ZIP，以及 PDF/PNG/图片型 PPTX 导出入口；桌面壳提供新建、打开、ZIP 导入、另存、日志、依赖准备和手动 Studio 包更新。原生工程管理不依赖项目编译，允许显式确认后从磁盘重新加载或返回主页。
@@ -53,6 +53,36 @@
 - 正式链路样例 `Studio-Web-Playback-integrated-win-x64.zip` 为 2,600,285 字节，SHA-256 为 `ab1eecc9332f4a6840b7f23875d0ec635f91950e143e875eccec49a17afbaddb`，本地产物、校验与验证 JSON 保存在仓库同级的 `release/web-playback/integrated-2026-11-17/`。
 
 此前 miniserve 试包已收到用户 Windows 可用反馈。上述正式链路验证未在 Windows 执行；新桌面入口、原生保存对话框、完整桌面资源分发及新 ZIP 的 Windows 播放仍待实机试用。未执行浏览器自动交互。
+
+## 文本框与工程字体验证，2026-11-17
+
+实现位于 `codex/studio-text-fonts`，基于 main 的 `bcff561`。保留现有编辑器与工程格式，没有新增依赖、发布 npm 或制作 Windows 桌面包。已完成的计划结论并入使用与开发文档，计划过程保留在 Git 历史。
+
+- `node_modules/.bin/vitest run`：408 通过，1 项既有可选 HTTP QA 跳过。关键新增覆盖固定框尺寸与模式、内容容器读写/编辑、字体文件与标准 CSS、工程 ZIP 携带，以及手工 CSS 相对 URL 重定位。
+- `node_modules/.bin/tsc --noEmit` 与既有缓存 vue-tsc 的 `--noEmit --project tsconfig.json`：通过；`git diff --check` 通过。
+- 临时真实工程通过 `POST @studio/fonts` 导入 757,076 字节的 DejaVu Sans TTF，HTTP 读取字节一致，MIME 为 `font/ttf`；开发虚拟 CSS 能读取新登记。使用系统字体验证，不向项目源码附带默认字体。
+- 真实 Slidev 根路径网页播放包及 `--base /font-check/` 静态构建均携带原字体字节和注册 CSS；生产样式中使用正确的字体 URL。导出后编辑服务仍返回 HTTP 200。
+- 编辑页和播放页已截图查看；只导航、截图，没有自动点击、填写、导入或拖拽流程。字体表单、选区内应用字体、输入法及 Windows 行为仍待实际使用。
+- 字体演示播放 ZIP 为 2,985,369 字节，SHA-256 为 `39660e7f4ead9e52a2ff3afc0fa498e8089d45b9f74aed5d8d472570c28ffcee`，随附 DejaVu 许可。本地产物与验证 JSON 在同级 `release/text-fonts/preview-2026-11-17/`。
+
+一次独立代码审阅发现标准 CSS 的单引号/无引号相对字体 URL 在生产构建中定位错误；已补真实注册文件用例并修正。没有扩展自动缩字、字体子集化、系统字体扫描或额外后台。
+
+随后 Sol 独立审阅发现旧文本框首次设置布局会转义已有 Vue 插值。已让布局包装原样保留正文；文字编辑的新输入仍按原规则转义。新增回归用例已先复现失败再通过；本次局部验证运行 `vitest run test/elements.test.ts test/rich-text.test.ts`（37 通过）、`tsc --noEmit` 和 `git diff --check`，均通过，未重跑浏览器或 Windows 验收。
+
+## 当前源码桌面预览包，2026-11-17
+
+- 已按用户要求从 `codex/studio-text-fonts` 的 `ce77a51` 制作 Windows x64 轻量源码预览 ZIP 和 addon tgz；清单版本保持 `0.5.1`，产物名使用 `source-ce77a51` 区分原正式包，没有替换原归档或发布 npm/GitHub。
+- 目录为仓库同级 `release/studio/previews/2026-11-17-ce77a51/`。桌面 ZIP 为 166,645,502 字节，addon 为 274,743 字节；随附 README、SHA256SUMS 和 verification.json。
+- 实际执行 workspace prepare 与 Forge `make --platform=win32 --arch=x64`。核对 app.asar 中的主进程/桥接/播放模块与源码一致，ZIP 内 addon 与单独 tgz 一致，miniserve 固定摘要与播放模板一致；ZIP 完整性检查和 SHA-256 复核通过。
+- 将实际 tgz 解压为临时工程安装包后，Slidev `build --base /packed-check/ --without-notes --download false` 通过，字体字节和生产注册路径保持。未在 Windows 运行此包。
+- 新建工程使用随包 Studio；已有工程保留自己的依赖，同版本不自动替换为预览源码。线上工作台与现有文稿没有随本次打包升级。
+
+## 线上统一接入候选，2026-11-17
+
+- `codex/studio-online-host` 准备 Studio `0.5.2`；桌面壳版号保持。线上活动/个人草稿上下文由 runtime 启动环境提供，编辑器先保存再返回活动，生产播放不包含这些入口。
+- addon `vitest run`：411 通过，1 项既有可选 HTTP QA 跳过；`tsc --noEmit`、缓存 vue-tsc、`git diff --check` 通过。Sol 独立审阅未发现核心阻断问题。
+- 将真实 tgz 安装到保留两个原补丁的 Slidev CLI/client 53.0.0 临时模板，HTTP/WS 探针及 `/edit/<UUID>/` 的导入页保存、素材上传、字体字节与工程 ZIP 均通过；`/preview/<UUID>/` 静态构建字体路径正确，未包含工作区上下文。已截图查看顶部活动/草稿/返回入口，没有自动点击或填写。
+- 发布前只读盘点确认 npm latest 为 `0.4.0-renko.1`，生产活动及两个个人工作区仍为 `0.3.1-renko.1`；工作区各有未同步 slides.md。当前代码、归档验证不代表这些在线工程已升级，公开发布和实际迁移结果需单独记录。
 
 ## 尚待实际使用验证
 

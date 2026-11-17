@@ -72,6 +72,8 @@
 .studio-brand { display: flex; align-items: center; gap: 7px; font-weight: 650; color: var(--studio-accent); }
 .studio-quick-actions { display: flex; gap: 2px; border-left: 1px solid var(--studio-border); padding-left: 10px; }
 .studio-document-title { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--studio-text-dim); }
+.studio-workspace-label { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--studio-text); font-size: 12px; }
+.studio-workspace-label small { display: block; color: var(--studio-text-dim); font-size: 10px; }
 .studio-title-action { display: flex; gap: 6px; align-items: center; padding: 5px 10px; border: 1px solid var(--studio-border); border-radius: 4px; white-space: nowrap; }
 .studio-title-action:hover:not(:disabled) { background: var(--studio-bg-hover); }
 .studio-title-action--primary { background: var(--studio-accent); border-color: var(--studio-accent); color: white; }
