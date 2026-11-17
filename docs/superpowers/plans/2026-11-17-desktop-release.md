@@ -39,10 +39,10 @@
 **Files:** create desktop/client-updates.cjs; modify desktop/main.cjs, desktop/welcome.html, desktop/welcome.js. Extend test/desktop-release.test.ts for native controller behavior only.
 **Interfaces:** createClientUpdates({resources, currentVersion, dialog, shell, getWindow, check?}) -> async action('info'|'check'); calls Task 1 metadata and lookup. Native controller owns dialogs/browser navigation, not project actions.
 
-- [ ] Add focused controller tests for offline notes without lookup, explicit check/opening the selected release, and query failure/manual fixed-page fallback. Use injected Electron boundary dependencies.
-- [ ] Implement controller, dispatch read-only clientInfo/clientUpdate actions before project mutation guards, and add Help menu entries. Keep IPC sender checks unchanged.
-- [ ] Add one welcome-page version entry, clarify Studio package update wording, and isolate clicked read-only button waiting from project progress. No layout redesign or automatic check.
-- [ ] Run `node node_modules/vitest/vitest.mjs run test/desktop-release.test.ts test/desktop-update.test.ts test/desktop-management.test.ts`; expected: all pass. Commit Task 2.
+- [x] Add focused controller tests for offline notes without lookup, explicit check/opening the selected release, and query failure/manual fixed-page fallback. Use injected Electron boundary dependencies.
+- [x] Implement controller, dispatch read-only clientInfo/clientUpdate actions before project mutation guards, and add Help menu entries. Keep IPC sender checks unchanged.
+- [x] Add one welcome-page version entry, clarify Studio package update wording, and isolate clicked read-only button waiting from project progress. No layout redesign or automatic check.
+- [x] Run `node node_modules/vitest/vitest.mjs run test/desktop-release.test.ts test/desktop-update.test.ts test/desktop-management.test.ts`; expected: all pass. Commit Task 2.
 
 ### Task 3: Prerelease CLI, documentation and final verification
 
