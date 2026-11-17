@@ -94,4 +94,17 @@ describe('basic elements', () => {
     expect(readTextBoxLayout(edited, [0, 1])?.vertical).toBe('bottom')
     expect(readDrag(edited, [0, 1])?.pos?.h).toBe(200)
   })
+
+  it('preserves authored Vue interpolation when adding or adjusting a text layout container', () => {
+    const html = 'Hello {{ name }} <span v-if="show">{{ score + 1 }}</span>'
+    const source = `<div data-studio-element="text" v-drag="[10,20,300,NaN]">${html}</div>`
+    for (const patch of [{ height: 120 }, { padding: { left: 16 } }]) {
+      const wrapped = patchTextBoxLayout(source, [0, 1], patch)
+      expect(readTextContent(wrapped, [0, 1])).toBe(html)
+      expect(readTextContent(patchTextBoxLayout(wrapped, [0, 1], { vertical: 'bottom' }), [0, 1])).toBe(html)
+      // Newly typed braces remain literal; preserving source must not change editing semantics.
+      const edited = replaceTextContent(wrapped, [0, 1], 'Literal {{ name }}')
+      expect(readTextContent(edited, [0, 1])).toBe('Literal &#123;&#123; name }}')
+    }
+  })
 })

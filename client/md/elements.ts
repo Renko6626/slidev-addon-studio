@@ -156,10 +156,15 @@ export function patchTextBoxLayout(content: string, range: SourceRange, patch: P
   const layout = readTextBoxLayout(content, range)
   const pos = readDrag(content, range)?.pos
   if (!layout || !pos || (patch.height !== undefined && patch.height !== null && (!Number.isFinite(patch.height) || patch.height <= 0))) return content
-  const html = readTextContent(content, range)!
   const block = getBlock(content, range)
-  const body = block.slice(opensWithTag(block)!.end, block.lastIndexOf('</div>'))
-  let next = textContentWrapper(body) ? content : replaceTextContent(content, range, `<div data-studio-text-content style="width:100%;min-width:0;flex:none">${html}</div>`)
+  const opening = opensWithTag(block)!.end
+  const closing = block.lastIndexOf('</div>')
+  if (closing < opening) return content
+  const body = block.slice(opening, closing)
+  // Layout moves authored source verbatim, including Vue bindings. Only new
+  // text supplied through replaceTextContent goes through literal-text escaping.
+  let next = textContentWrapper(body) ? content : replaceBlock(content, range,
+    `${block.slice(0, opening)}<div data-studio-text-content style="width:100%;min-width:0;flex:none">${body}</div>${block.slice(closing)}`)
   const styles: Record<string, string> = { display: 'flex', 'flex-direction': 'column', 'box-sizing': 'border-box', 'min-height': '0' }
   if (patch.vertical) styles['justify-content'] = { top: 'flex-start', middle: 'center', bottom: 'flex-end' }[patch.vertical]
   for (const [side, value] of Object.entries(patch.padding ?? {}))
