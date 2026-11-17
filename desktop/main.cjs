@@ -16,7 +16,7 @@ let lastProject = null
 let working = false
 let allowClose = false
 let quitting = false
-let lastStatus = { message: '选择一个工程开始编辑。', logPath: '' }
+let lastStatus = { message: '', logPath: '' }
 const welcome = pathToFileURL(path.join(__dirname, 'welcome.html')).href
 const resources = app.isPackaged ? path.join(process.resourcesPath, 'studio-resources') : path.join(__dirname, 'studio-resources')
 const pnpm = app.isPackaged ? path.join(process.resourcesPath, 'pnpm/bin/pnpm.cjs') : path.join(__dirname, 'node_modules/pnpm/bin/pnpm.cjs')
@@ -54,7 +54,7 @@ const manageProject = createProjectManagement({
   },
 })
 
-async function showWelcome(message = '选择一个工程开始编辑。') {
+async function showWelcome(message = '') {
   lastStatus = { message, logPath: runtime.logPath, working }
   await window.loadURL(welcome)
 }
@@ -315,6 +315,7 @@ async function quit() {
 app.whenReady().then(async () => {
   window = new BrowserWindow({
     width: 1440, height: 920, minWidth: 800, minHeight: 600, title: 'Slidev Studio', backgroundColor: '#202229',
+    icon: path.join(__dirname, 'assets', process.platform === 'win32' ? 'studio.ico' : 'studio.png'),
     titleBarStyle: 'hidden', autoHideMenuBar: true,
     titleBarOverlay: { color: '#17181c', symbolColor: '#e6e7ea', height: 44 },
     webPreferences: { preload: path.join(__dirname, 'preload.cjs'), nodeIntegration: false, contextIsolation: true, sandbox: true },

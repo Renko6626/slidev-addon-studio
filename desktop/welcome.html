@@ -5,29 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'">
   <title>Slidev Studio</title>
+  <link rel="icon" href="assets/studio.ico">
   <link rel="stylesheet" href="welcome.css">
 </head>
 <body>
-  <header class="desktop-titlebar">Slidev Studio</header>
+  <header class="desktop-titlebar"><img src="assets/studio.png" width="20" height="20" alt="">Slidev Studio</header>
   <main>
-    <div class="slide-mark" aria-hidden="true"><span></span><span></span><span></span></div>
-    <h1>Slidev Studio</h1>
-    <p class="intro">打开一份工程，继续你的演示。</p>
+    <div class="welcome-heading">
+      <img class="welcome-logo" src="assets/studio.png" width="66" height="66" alt="">
+      <h1>Slidev Studio</h1>
+    </div>
     <div class="actions">
-      <button data-action="open" class="primary">打开工程<span>选择已有 Slidev 文件夹</span></button>
-      <button data-action="new">新建工程<span>从空白演示开始</span></button>
-      <button data-action="import" class="import">导入工程 ZIP<span>解包到空文件夹后继续编辑</span></button>
+      <button data-action="open" class="primary">打开工程<span>选择 Slidev 工程文件夹</span></button>
+      <button data-action="new">新建工程<span>从空白文稿开始</span></button>
+      <button data-action="import" class="import">导入工程 ZIP<span>解压到空文件夹</span></button>
     </div>
     <section class="progress" aria-label="工程准备状态">
-      <div class="progress-heading"><p id="status" role="status">选择一个工程开始编辑。</p><span id="elapsed" hidden></span></div>
+      <div class="progress-heading"><p id="status" role="status"></p><span id="elapsed" hidden></span></div>
       <div id="progress-bar" role="progressbar" aria-label="工程准备进度" hidden><span></span></div>
       <p id="detail" hidden></p>
     </section>
-    <p class="note">文稿保存在你选择的文件夹中。轻量版首次安装缺少的依赖时需要联网，完整版随附标准工程依赖。</p>
-    <p class="note">页面编译出错或无法加载时，按 Ctrl/Cmd+Shift+M 打开工程管理，也可按 Alt 显示原生菜单。可查看日志、打开目录、复制诊断、重新加载或返回主页。</p>
-    <button class="logs" data-action="clientInfo">版本与更新</button>
-    <button class="logs" data-action="studioUpdate">更新工程内 Studio</button>
-    <button class="logs" data-action="logs">查看运行日志</button>
+    <footer class="utilities">
+      <div class="utility-actions">
+        <button data-action="logs">查看运行日志</button>
+        <button data-action="clientInfo">版本与更新</button>
+        <button data-action="studioUpdate">更新工程内 Studio</button>
+      </div>
+      <details class="help">
+        <summary>启动帮助</summary>
+        <p>轻量版首次安装缺少的依赖时需要联网。完整版随附标准工程的依赖。</p>
+        <p>编辑器无法加载时，按 <kbd>Ctrl/Cmd+Shift+M</kbd> 打开工程管理，或按 <kbd>Alt</kbd> 显示原生菜单。可以查看日志、复制诊断或重新加载工程。</p>
+      </details>
+    </footer>
   </main>
   <script src="welcome.js"></script>
 </body>

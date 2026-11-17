@@ -99,8 +99,7 @@ onDomEvent(window, 'dragend', () => {
       </div>
     </div>
     <div class="studio-filmstrip__footer">
-      <button class="studio-button" :disabled="busy || editing" @click="library = library === 'pagePresets' ? null : 'pagePresets'"><StudioIcon name="plus" />{{ t('newSlide') }} ▾</button>
-      <p class="studio-hint">{{ t('deckReloadHint') }}</p>
+      <button class="studio-button" :title="t('pagePresetsHint')" :disabled="busy || editing" @click="library = library === 'pagePresets' ? null : 'pagePresets'"><StudioIcon name="plus" />{{ t('newSlide') }} ▾</button>
     </div>
   </div>
 </template>

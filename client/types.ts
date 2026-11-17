@@ -71,6 +71,7 @@ export interface ClickConfig {
 /** Catalog data with the browser-only component loader. */
 export interface CatalogComponent extends ComponentEntry {
   load?: () => Promise<any>
+  loadSource?: () => Promise<{ default: string }>
 }
 
 /** Catalog data with the browser-only layout loader. */

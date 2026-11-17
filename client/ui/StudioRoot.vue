@@ -5,6 +5,8 @@ import { useNav } from '@slidev/client'
 import { useElementBounding, useWindowSize } from '@vueuse/core'
 import { slideWidth, slideHeight } from '@slidev/client/env.ts'
 import { computed, onScopeDispose, provide, ref, watch, watchEffect } from 'vue'
+import studioLogo from '../assets/studio.svg'
+import studioIcon from '../assets/studio-16.svg'
 import { duplicateBlock, nudgeBlock } from '../actions'
 import { onDomEvent } from '../composables/useDomEvent'
 import { useSelection } from '../composables/useSelection'
@@ -297,10 +299,15 @@ onScopeDispose(resetView)
 </script>
 
 <template>
+  <Teleport v-if="studioOpen" to="head">
+    <link rel="icon" type="image/svg+xml" :href="studioIcon" sizes="any">
+  </Teleport>
   <Teleport to="body">
     <div class="slidev-studio">
       <div v-if="desktop && !studioOpen && !mode.isFullscreen.value" class="studio-desktop-preview-titlebar">
-        <div class="studio-titlebar studio-titlebar--desktop">Slidev Studio</div>
+        <div class="studio-titlebar studio-titlebar--desktop">
+          <img class="studio-logo" :src="studioLogo" width="22" height="22" alt="">Slidev Studio
+        </div>
       </div>
       <template v-if="studioOpen">
         <div class="studio-backdrop" />

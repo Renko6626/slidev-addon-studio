@@ -1,7 +1,7 @@
 {
   "name": "slidev-studio-desktop",
   "productName": "Slidev Studio",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Local Slidev project editor",
   "private": true,
   "license": "MIT",

@@ -10,6 +10,7 @@ import { getBlock } from '../../md/lines'
 import { projectWriteError } from '../../project-save'
 import { pageSourceInfo, pageSource, projectScripts } from '../../source-context'
 import { busy, editing, lastCompileError, lastError, selection } from '../../state'
+import VueSource from '../parts/VueSource.vue'
 
 const studio = useStudio()
 const nav = useNav()
@@ -39,28 +40,29 @@ async function copy(text: string) {
 
 <template>
   <section class="studio-section studio-source-panel">
-    <p class="studio-hint">{{ t('sourceHint') }}</p>
-    <p v-if="loading" role="status">{{ t('projectLoading') }}</p>
-    <p v-if="projectError" role="alert">{{ projectError }}</p>
-    <p v-if="project"><strong>{{ t('projectLocation') }}</strong><code class="studio-source-path">{{ project.root }}</code></p>
-    <button class="studio-button" :disabled="loading || busy || editing || !page.file || !project" @click="copy(pageInfo)">{{ t('sourceCopyPageInfo') }}</button>
-    <p v-if="copied" class="studio-hint" role="status">{{ t('sourceCopied') }}</p>
-    <p v-if="copyError" class="studio-hint" role="alert">{{ t('sourceCopyFailed') }}</p>
-  </section>
-  <section class="studio-section studio-source-panel">
     <h3 class="studio-section__title">{{ t('sourceCurrentPage') }}</h3>
     <code class="studio-source-path">{{ page.file ? location : t('sourceUnknownLocation') }}</code>
-    <textarea class="studio-source-code" readonly spellcheck="false" wrap="off" :value="page.markdown" :aria-label="t('sourceCurrentPage')" />
     <div class="studio-button-row">
       <button class="studio-button" :disabled="!page.markdown" @click="copy(page.markdown)">{{ t('sourceCopyMarkdown') }}</button>
       <button class="studio-button" :disabled="!page.file" @click="copy(location)">{{ t('sourceCopyLocation') }}</button>
     </div>
+    <p v-if="copied" class="studio-copy-feedback" role="status">{{ t('sourceCopied') }}</p>
+    <p v-if="copyError" class="studio-copy-feedback" role="alert">{{ t('sourceCopyFailed') }}</p>
+    <textarea class="studio-source-code studio-source-code--page" readonly spellcheck="false" wrap="off" :value="page.markdown" :aria-label="t('sourceCurrentPage')" />
   </section>
   <section v-if="component" class="studio-section studio-source-panel">
     <h3 class="studio-section__title">{{ t('sourceComponentDefinition', { name: component.name }) }}</h3>
+    <VueSource v-if="component.loadSource" :key="component.file" :load="component.loadSource" @copy="copy" />
     <p class="studio-hint">{{ t(component.source === 'project' ? 'sourceProjectComponent' : 'sourceDependencyComponent') }}</p>
     <code class="studio-source-path">{{ component.file }}</code>
     <button class="studio-button" @click="copy(component.file)">{{ t('sourceCopyPath') }}</button>
+  </section>
+  <section class="studio-section studio-source-panel">
+    <h3 class="studio-section__title">{{ t('projectInfo') }}</h3>
+    <p v-if="loading" role="status">{{ t('projectLoading') }}</p>
+    <p v-if="projectError" role="alert">{{ projectError }}</p>
+    <p v-if="project"><strong>{{ t('projectLocation') }}</strong><code class="studio-source-path">{{ project.root }}</code></p>
+    <button class="studio-button" :disabled="loading || busy || editing || !page.file || !project" @click="copy(pageInfo)">{{ t('sourceCopyPageInfo') }}</button>
   </section>
   <section v-if="diagnostic" class="studio-section studio-source-panel">
     <h3 class="studio-section__title">{{ t('sourceRecentError') }}</h3>

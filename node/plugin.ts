@@ -70,6 +70,28 @@ export function studioPlugin(options: ResolvedSlidevOptions): Plugin {
       return renderCatalogModule(options)
     },
 
+    handleHotUpdate: {
+      order: 'post',
+      handler({ modules, server, timestamp }) {
+        // Slidev includes the numbered facades when a slot is added again, but
+        // the compiled Markdown and frontmatter behind that slot can still be cached.
+        if (!isDev || !modules.some(mod => mod.id === '/@slidev/slides')) return
+        const no = options.data.slides.length
+        const file = options.data.slides[no - 1]?.source.filepath
+        if (!file) return
+        return modules.filter(mod => {
+          if (mod.id !== `/@slidev/slides/${no}/md` && mod.id !== `/@slidev/slides/${no}/frontmatter`) return true
+          const kind = mod.id.split('/').pop()
+          const source = server.moduleGraph.getModuleById(`${file}__slidev_${no}.${kind}`)
+          if (source) server.moduleGraph.invalidateModule(source, undefined, timestamp, true)
+          // An orphan from a deleted page has no live HMR consumer. The new
+          // slide table will import it again; broadcasting it triggers a full reload.
+          server.moduleGraph.invalidateModule(mod, undefined, timestamp, true)
+          return mod.importers.size > 0
+        })
+      },
+    },
+
     configureServer(server) {
       if (!isDev)
         return
@@ -109,19 +131,19 @@ export function studioPlugin(options: ResolvedSlidevOptions): Plugin {
             res.end(data)
             return
           }
-          const result = await handle(route, req.method ?? 'GET', req, options)
+          let result
+          if (route === 'deck' && req.method === 'POST') {
+            const action = await readJson(req)
+            result = await applyDeckAction(options, action)
+            if (action.action !== 'insert')
+              setTimeout(() => server.hot.send({ type: 'full-reload' }), 150)
+          }
+          else {
+            result = await handle(route, req.method ?? 'GET', req, options)
+          }
           if (result === undefined)
             return next()
           if (route === 'fonts' && req.method === 'POST') invalidateFonts()
-
-          // Adding, duplicating, removing or moving a slide renumbers the deck,
-          // and Slidev's own reload only refreshes the slides it already knows:
-          // a slide added past the end came back rendering whatever used to
-          // carry that number. Rebuilding the page is the honest answer to a
-          // change in the deck's shape, and it is a deliberate, occasional act.
-          if (route === 'deck' && req.method === 'POST') {
-            setTimeout(() => server.hot.send({ type: 'full-reload' }), 150)
-          }
 
           res.statusCode = 200
           res.setHeader('Content-Type', 'application/json')
@@ -176,9 +198,6 @@ async function handle(route: string, method: string, req: any, options: Resolved
   if (route === 'fonts' && method === 'POST')
     return await saveFont(options, await readJson(req))
 
-  if (route === 'deck' && method === 'POST')
-    return await applyDeckAction(options, await readJson(req))
-
   return undefined
 }
 
@@ -217,14 +236,20 @@ async function renderCatalogModule(options: ResolvedSlidevOptions) {
     .map(c => `  ${JSON.stringify(c.name)}: () => import(${JSON.stringify(toFsUrl(c.file))}),`)
     .join('\n')
 
+  const sourceLoaders = catalog.components
+    .filter(c => c.file.endsWith('.vue'))
+    .map(c => `  ${JSON.stringify(c.name)}: () => import(${JSON.stringify(toFsUrl(c.file) + '?raw')}),`)
+    .join('\n')
+
   const layoutLoaders = catalog.layouts
     .map(l => `  ${JSON.stringify(l.name)}: () => import(${JSON.stringify(toFsUrl(l.file))}),`)
     .join('\n')
 
   return [
     `const componentLoaders = {\n${componentLoaders}\n}`,
+    `const sourceLoaders = {\n${sourceLoaders}\n}`,
     `const layoutLoaders = {\n${layoutLoaders}\n}`,
-    `export const components = ${JSON.stringify(catalog.components)}.map(c => ({ ...c, load: componentLoaders[c.name] }))`,
+    `export const components = ${JSON.stringify(catalog.components)}.map(c => ({ ...c, load: componentLoaders[c.name], loadSource: sourceLoaders[c.name] }))`,
     `export const layouts = ${JSON.stringify(catalog.layouts)}.map(l => ({ ...l, load: layoutLoaders[l.name] }))`,
     `export const palette = ${JSON.stringify(palette)}`,
     `export const config = ${JSON.stringify(config)}`,

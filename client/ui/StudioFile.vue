@@ -99,9 +99,6 @@ async function studioUpdate() {
       </template>
       <button :disabled="locked" @click="studio.save"><StudioIcon name="save" /><span>{{ t('saveProject') }}<small>Ctrl / Cmd + S</small></span></button>
       <button v-if="host" :disabled="locked" @click="hostAction('saveAs')"><StudioIcon name="copy" />{{ t('saveProjectAs') }}</button>
-      <button :disabled="locked || !exporterAvailable" @click="openExporter"><StudioIcon name="download" /><span>{{ t('exportPresentation') }}<small>PDF / PNG / PPTX</small></span></button>
-      <button v-if="host?.exportWebPlayback" :disabled="locked" @click="exportWebPlayback"><StudioIcon name="download" /><span>{{ t(webPlaybackExporting ? 'webPlaybackExporting' : 'exportWebPlayback') }}<small>Windows x64</small></span></button>
-      <button :disabled="locked || loading || !project" @click="download"><StudioIcon name="download" /><span>{{ t(downloading ? 'projectDownloading' : 'downloadProject') }}<small>{{ t('projectZipFormat') }}</small></span></button>
       <button v-if="host" :disabled="locked" @click="hostAction('close')"><StudioIcon name="close" />{{ t('closeProject') }}</button>
       <button v-if="host" :disabled="hostWorking" @click="hostAction('logs')"><StudioIcon name="folder" />{{ t('projectOpenLogs') }}</button>
       <button v-if="host?.studioUpdate" :disabled="locked" @click="studioUpdate"><StudioIcon name="refresh" />{{ t('studioCheckUpdates') }}</button>
@@ -114,6 +111,30 @@ async function studioUpdate() {
       </header>
       <p v-if="loading" role="status">{{ t('projectLoading') }}</p>
       <p v-if="error" class="studio-file-error" role="alert">{{ error }}</p>
+      <section class="studio-file-overview studio-file-exports" :aria-label="t('fileExports')">
+        <div class="studio-file-actions">
+          <button class="studio-button" :disabled="locked || !exporterAvailable" @click="openExporter"><StudioIcon name="download" />{{ t('exportPresentation') }}</button>
+          <button v-if="host?.exportWebPlayback" class="studio-button" :disabled="locked" @click="exportWebPlayback"><StudioIcon name="download" />{{ t(webPlaybackExporting ? 'webPlaybackExporting' : 'exportWebPlayback') }}</button>
+          <button class="studio-button" :disabled="locked || loading || !project" @click="download"><StudioIcon name="download" />{{ t(downloading ? 'projectDownloading' : 'downloadProject') }}</button>
+        </div>
+        <p v-if="webPlaybackExporting" class="studio-file-note" role="status">{{ t('webPlaybackBusyHint') }}</p>
+        <p v-if="!exporterAvailable" class="studio-file-note">{{ t('presentationExportDisabled') }}</p>
+        <details class="studio-file-details">
+          <summary>{{ t('fileExportDetails') }}</summary>
+          <h2>{{ t('exportPresentation') }}</h2>
+          <p>{{ t('presentationExportHint') }}</p>
+          <p v-if="host">{{ t('presentationExportBrowserHint') }}</p>
+          <p>{{ t('presentationExportPdfHint') }}</p>
+          <p>{{ t('presentationExportImagesHint') }}</p>
+          <template v-if="host?.exportWebPlayback">
+            <h2>{{ t('exportWebPlayback') }}</h2>
+            <p>{{ t('webPlaybackHint') }}</p>
+          </template>
+          <h2>{{ t('projectExportTitle') }}</h2>
+          <p>{{ t('projectZipHint') }}</p>
+          <p>{{ t('projectExcludedHint') }}</p>
+        </details>
+      </section>
       <div v-if="project" class="studio-file-overview">
         <dl class="studio-project-info">
           <div v-if="studioWorkspace"><dt>{{ t('onlineActivity') }}</dt><dd>{{ studioWorkspace.name }}</dd></div>
@@ -125,37 +146,15 @@ async function studioUpdate() {
         <p v-if="projectWriteError" class="studio-file-error" role="alert">{{ projectWriteError }}<br>{{ t('projectWriteFailed') }}</p>
         <p class="studio-file-note">{{ t('projectAutosaveHint') }}</p>
         <section class="studio-file-section">
-          <h2>{{ t('exportPresentation') }}</h2>
-          <p>{{ t('presentationExportHint') }}</p>
-          <p v-if="host" class="studio-file-note">{{ t('presentationExportBrowserHint') }}</p>
-          <p class="studio-file-note">{{ t('presentationExportPdfHint') }}</p>
-          <p class="studio-file-note">{{ t('presentationExportImagesHint') }}</p>
-          <button class="studio-button studio-file-action" :disabled="locked || !exporterAvailable" @click="openExporter"><StudioIcon name="download" />{{ t('openPresentationExporter') }}</button>
-          <p v-if="!exporterAvailable" class="studio-file-note">{{ t('presentationExportDisabled') }}</p>
-        </section>
-        <section v-if="host?.exportWebPlayback" class="studio-file-section">
-          <h2>{{ t('exportWebPlayback') }}</h2>
-          <p>{{ t('webPlaybackHint') }}</p>
-          <p v-if="webPlaybackExporting" class="studio-file-note" role="status">{{ t('webPlaybackBusyHint') }}</p>
-          <button class="studio-button studio-file-action" :disabled="locked" @click="exportWebPlayback"><StudioIcon name="download" />{{ t(webPlaybackExporting ? 'webPlaybackExporting' : 'exportWebPlayback') }}</button>
-        </section>
-        <section v-if="host?.importProject" class="studio-file-section">
-          <h2>{{ t('importProjectZip') }}</h2>
-          <p>{{ t('projectImportHint') }}</p>
-          <button class="studio-button studio-file-action" :disabled="locked" @click="importProject"><StudioIcon name="folder" />{{ t('importProjectZip') }}</button>
-        </section>
-        <section class="studio-file-section">
           <h2>{{ t('projectFiles') }}</h2>
           <p class="studio-file-note">{{ t('projectFilesHint') }}</p>
           <p v-if="host?.nativeProjectManagement" class="studio-file-note">{{ t('desktopManagementHint') }}</p>
-          <button v-if="host" class="studio-button studio-file-action" :disabled="locked" @click="hostAction('openFolder')"><StudioIcon name="folder" :size="14" />{{ t('projectOpenFolder') }}</button>
           <ProjectTree :files="project.files" />
         </section>
-        <section class="studio-file-section">
-          <h2>{{ t('projectExportTitle') }}</h2>
-          <p>{{ t('projectZipHint') }}</p>
-          <p class="studio-file-note">{{ t('projectExcludedHint') }}</p>
-        </section>
+        <details v-if="host?.importProject" class="studio-file-details">
+          <summary>{{ t('projectImportDetails') }}</summary>
+          <p>{{ t('projectImportHint') }}</p>
+        </details>
       </div>
     </div>
   </section>

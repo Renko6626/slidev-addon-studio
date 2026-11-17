@@ -4,6 +4,7 @@ import type { PanelId, RibbonTab } from '../state'
 import { computed, watch } from 'vue'
 import { configs } from '@slidev/client/env.ts'
 import { useNav } from '@slidev/client'
+import studioLogo from '../assets/studio.svg'
 import { action, actionText, studioLocale, t } from '../i18n'
 import { canReorder, deleteBlock, duplicateBlock, editText, freePosition } from '../actions'
 import { useStudio } from '../context'
@@ -121,8 +122,10 @@ const groups = computed<Group[]>(() => {
         { label: 'duplicateSlide', icon: 'copy', run: () => deck.duplicate(studio.no()), hint: 'deckReloadHint' },
         { label: 'deleteSlide', icon: 'trash', run: () => deck.remove(studio.no()), disabled: studio.no() === 1, hint: studio.no() === 1 ? 'firstSlideProtected' : 'deckReloadHint' },
       ] },
-      { label: 'fontGroup', text: 'font', commands: [] },
-      { label: 'paragraphGroup', text: 'paragraph', commands: [] },
+      ...(studio.text.supported.value && selectedTargets.value.length <= 1 ? [
+        { label: 'fontGroup', text: 'font', commands: [] },
+        { label: 'paragraphGroup', text: 'paragraph', commands: [] },
+      ] as const satisfies readonly Group[] : []),
       { label: 'editingGroup', commands: [
         { label: 'editTextCommand', icon: 'edit', run: editText, disabled: selectedTargets.value.length > 1 || !target || target.el.hasAttribute('data-studio-question-control') || (target.element === 'image' || target.element === 'shape') || (!mapped.value && !target.prop) },
         { label: 'duplicateObject', icon: 'copy', run: () => target && duplicateBlock(studio, target), disabled: !reorderable.value },
@@ -181,7 +184,7 @@ const groups = computed<Group[]>(() => {
 <template>
   <header class="studio-ribbon">
     <div class="studio-titlebar" :class="{ 'studio-titlebar--desktop': desktop }">
-      <span class="studio-brand"><StudioIcon name="slides" :size="19" />Studio</span>
+      <span class="studio-brand"><img class="studio-logo" :src="studioLogo" width="22" height="22" alt="">Studio</span>
       <div class="studio-quick-actions" data-studio-text-controls>
         <button class="studio-icon-button" :disabled="busy || imagePending || projectSaving" :title="t('saveProject') + ' (Ctrl / Cmd + S)'" @click="studio.save"><StudioIcon name="save" /></button>
         <button class="studio-icon-button" :disabled="!undoEnabled" :title="!textActive && lastAction ? t('undoAction', { action: actionText(lastAction) }) : t('undo')" @click="undo"><StudioIcon name="undo" /></button>
@@ -200,7 +203,7 @@ const groups = computed<Group[]>(() => {
       <button v-for="tab in tabs" :key="tab.id" :aria-pressed="ribbonTab === tab.id" @click="ribbonTab = tab.id">{{ t(tab.label) }}</button>
       <button v-if="selection" class="studio-context-tab" :aria-pressed="ribbonTab === 'object'" @click="ribbonTab = 'object'">{{ t('objectTab') }}</button>
     </nav>
-    <div v-if="ribbonTab !== 'file'" class="studio-ribbon-tools">
+    <div v-if="ribbonTab !== 'file'" class="studio-ribbon-tools" role="region" :aria-label="t('editorTools')" tabindex="0">
       <div v-if="ribbonTab === 'insert'" class="studio-command-group">
         <details class="studio-picture-menu">
           <summary class="studio-command" :aria-label="t('picture')"><StudioIcon name="assets" :size="20" /><span>{{ t('picture') }} ▾</span></summary>

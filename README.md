@@ -1,4 +1,4 @@
-# Slidev Studio — Renko fork
+# <img src="client/assets/studio.svg" alt="" width="34" height="34" align="middle"> Slidev Studio — Renko fork
 
 Create presentations through an ongoing collaboration between one person and a
 coding agent. Work visually in Studio to write, arrange and rehearse; let an
@@ -63,7 +63,7 @@ package updates, see the [desktop guide](desktop/README.md).
 
 ## Create, hand off and present
 
-Press **E**, use the navigation pencil, or open a slide with `?studio=1`.
+Press **E**, click the Studio icon in the slide navigation bar, or open a slide with `?studio=1`.
 The workspace includes a slide filmstrip, ribbon, canvas, inspector and notes.
 Use **Preview** for normal slide interaction and **Present** for fullscreen.
 Static builds retain authored content and runtime behavior without the editor UI.
@@ -105,10 +105,10 @@ The font picker previews and searches project fonts and local candidates. Import
 WOFF2/WOFF/TTF/OTF files to keep fonts with the source project and web export;
 registration stays ordinary CSS under `public/fonts/`.
 
-**View → Source** shows the current page's original Markdown, component file
-locations and copyable page information. It is read-only; complex code changes
-continue in your external tools. The desktop's native project menu remains
-available when the project's renderer cannot load. See the [usage guide](docs/usage.zh-CN.md)
+**View → Source** shows the current page's original Markdown and copyable page
+information. To read or copy a component's `.vue` file, select the component on
+the canvas, open **Source**, then expand **View Vue source**. The desktop's native
+project menu remains available when the project's renderer cannot load. See the [usage guide](docs/usage.zh-CN.md)
 and [desktop guide](desktop/README.md) for the operating boundaries.
 
 Project ZIP excludes dependencies and machine credentials. Desktop import extracts

@@ -35,9 +35,9 @@
 - Skipping a slide is a one way door from inside the editor. Slidev drops hidden
   slides from the deck, so the slide loses its number and nothing can reach it
   again: delete `hide: true` in the Markdown to bring it back.
-- Adding, duplicating, deleting or reordering a slide reloads the page. Slidev's
-  own reload only refreshes slides it already knows, so a new slide would
-  otherwise come back rendering whatever used to carry its number.
+- Adding a slide uses Slidev's hot update. Studio opens the new slide once its
+  route and editable source are ready. If the update stalls, refresh to open the saved slide.
+  Duplicating, deleting and reordering slides reload the editor. All four operations clear undo history.
 - Content a component renders from *other* slides, such as `<Toc>`, carries
   those slides' own annotations. Clicking an entry there selects nothing:
   its lines belong to a different slide, and following them would edit it.
@@ -67,8 +67,9 @@
 
 ## Current editor boundaries
 
-- Source is read-only. Page text comes from Slidev's original source,
-  including frontmatter and notes; selected components expose their catalog paths.
+- Source is read-only. Page text comes from Slidev's original Markdown,
+  including frontmatter and notes. A selected catalog component shows its file
+  path. Vue components also offer their full source on demand.
   The project script inventory is not a dependency graph. Clipboard can require a
   secure browser context; the read-only text can also be selected manually.
 - The desktop native project menu and Ctrl/Cmd+Shift+M do not depend on project
