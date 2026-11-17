@@ -82,7 +82,7 @@ pnpm release:build --offline
 
 ## 验证范围
 
-以下 Electron 启动和 ZIP 记录属于此前版本。此次包更新源码已用相关文件/HTTP/编排测试与静态检查验证，尚未重新制作 Windows 桌面包，也未实际在 Windows 执行更新。
+客户端 0.5.2 已完成正式 npm 包打包、ZIP/ASAR 内容和 SHA256 校验，并已上传为正式 Release；远端资产摘要和客户端查新结果与本地一致。Windows 原生操作和实际更新仍未实机验证，具体发布与检查结果见[当前状态](../docs/status.md)。以下 Electron 启动记录属于此前版本。
 
 网页播放接入另已通过真实工程 CLI 构建及 ZIP 解包探针：导出前后编辑服务正常响应，静态路由、47 个脚本/样式的字节与 MIME、本地图片与音视频 206 Range 通过，默认备注探针未进入输出。此前临时 miniserve 试包已获用户 Windows 可用反馈；新桌面入口和正式接入产物仍待 Windows 实机试用。详细命令与产物记录见[当前状态](../docs/status.md)。
 

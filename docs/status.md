@@ -4,7 +4,7 @@
 
 ## 源码与交付
 
-- Studio 根包 `0.5.2` 已正式发布到 npm，桌面壳源码已更新为 `0.5.2`，分别维护，允许独立更新；新桌面版尚未实际打包或发布。
+- Studio 根包 `0.5.2` 已正式发布到 npm，桌面客户端 `0.5.2` 已发布 Windows x64 轻量 ZIP；两者分别维护，允许独立更新。
 - 本地 main 已整合 `codex/studio-import-export` 的三个功能提交：`d08abf4`（演示导出与工程 ZIP 导入）、`74e3f89`（只读源码定位与桌面原生工程管理）、`3821d93`（中性源码入口和复制内容）。此前 `660e2f2` 提供的包更新与桌面改进保留。已有工程打开不会自动升级。
 - 当前 npm latest 为 [0.5.2](releases/0.5.2.md)。已核对 registry 元数据、下载归档与候选逐字节一致，正式锁文件在全新 Slidev53 模板中冻结安装通过。
 - [0.5.0](releases/0.5.0.md) 和 [0.5.1](releases/0.5.1.md) 记录对应版本的改动。桌面包另按壳版本交付，本次线上发布未重新制作 Windows 桌面包；已有工程仍需通过原包更新流程升级。
@@ -86,11 +86,13 @@
 
 ## 桌面客户端发行流程，2026-11-17
 
-桌面 0.5.2 源码提供离线本版日志、手动稳定客户端查新和固定 GitHub Release 下载入口；发布脚本要求桌面更新日志，新建 Release 默认预发布，补充离线版不改变稳定状态。首个采用此流程的桌面 ZIP 尚未构建或上传，Windows 实机反馈和提升稳定尚未执行。流程见[桌面指南](../desktop/README.md)，本版说明见[客户端 0.5.2](releases/desktop-0.5.2.md)。
+桌面 0.5.2 提供离线本版日志、手动稳定客户端查新和固定 GitHub Release 下载入口；发布脚本要求桌面更新日志，新建 Release 默认预发布，补充离线版不改变稳定状态。Windows x64 轻量 ZIP 已于 2026-11-18（北京时间）[正式发布并设为 Latest](https://github.com/Renko6626/slidev-addon-studio/releases/tag/desktop-v0.5.2)。本次用户明确要求正式发布，已按该指令提升同一批校验产物的发布状态；Windows 实机验收尚未完成，发布说明已明示。流程见[桌面指南](../desktop/README.md)，本版说明见[客户端 0.5.2](releases/desktop-0.5.2.md)。
 
 本次 `vitest run` 422 项通过、1 项既有可选 HTTP QA 跳过；`tsc --noEmit`、6 个修改后 JavaScript 文件的语法检查、`node scripts/release.cjs build --dry-run` 与差异检查通过。发布 dry-run 在临时文件/校验表用例中确认不调用 GitHub；未将临时文件当作真实桌面产物。生产查询模块实际访问 GitHub 成功，当前正确返回未找到稳定桌面包。一次独立审阅未发现核心阻断问题。
 
-实施保持现有 Electron Forge ZIP、npm Studio 包和模块边界，没有引入额外依赖或更新服务。代码已在独立分支完成，尚未合并、推送或公开发布；完成的设计和计划过程保留在 Git 历史。
+实施保持现有 Electron Forge ZIP、npm Studio 包和模块边界，没有引入额外依赖或更新服务。代码已合并推送 main，发布标签 `desktop-v0.5.2` 固定源码提交 `c23669fd5643c7621ba22eb077ec40f9e8febbed`；完成的设计和计划过程保留在 Git 历史。
+
+正式构建从 npm 取得精确 Studio 0.5.2，归档与已发布包逐字节一致。合并后的桌面/发布相关检查 25 项通过；实际 ZIP 的 CRC、Windows x64 PE、ASAR 中客户端代码、随包版本/日志、pnpm 与 miniserve 校验通过。远端 ZIP、addon 和校验表三个资产的 GitHub SHA256 摘要与本地一致，公开下载 HTTP 200，实际客户端查询识别稳定版 0.5.2。ZIP 为 166650816 字节（约 159 MiB），SHA256 为 `e2d591aae3ca6e2acb959ddf42947a9e27bcb79f981ff5aeccd7c6e95d330458`；本地产物与验证记录在仓库相邻的 `release/studio/0.5.2/`。本轮只分发轻量版，未重新发布 npm 或部署线上工作台。
 
 ## 尚待实际使用验证
 
