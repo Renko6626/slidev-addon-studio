@@ -10,6 +10,8 @@ import { projectHost } from '../project-host'
 import type { ProjectHostAction } from '../project-host'
 import StudioIcon from './parts/StudioIcon.vue'
 import ProjectTree from './parts/ProjectTree.vue'
+import { studioWorkspace } from '../composables/useCatalog'
+import { returnToActivity } from '../workspace'
 
 const studio = useStudio()
 const nav = useNav()
@@ -21,6 +23,11 @@ const exporterAvailable = nav.router.hasRoute('export')
 const locked = computed(() => busy.value || projectSaving.value || downloading.value || exporting.value || hostWorking.value || webPlaybackExporting.value)
 const savedTime = computed(() => projectSavedAt.value ? new Date(projectSavedAt.value).toLocaleTimeString() : '')
 onMounted(refresh)
+async function backToActivity() {
+  if (!studioWorkspace || locked.value) return
+  try { await returnToActivity(studioWorkspace, studio.save) }
+  catch (cause) { error.value = cause instanceof Error ? cause.message : String(cause) }
+}
 function openExporter() {
   if (locked.value || !exporterAvailable) return
   return exportPresentation(() => {
@@ -84,6 +91,7 @@ async function studioUpdate() {
   <section class="studio-file-page" :aria-label="t('fileTab')">
     <nav class="studio-file-menu" :aria-label="t('projectActions')">
       <button class="studio-file-menu__back" @click="ribbonTab = 'home'"><StudioIcon name="back" />{{ t('returnEditor') }}</button>
+      <button v-if="studioWorkspace" :disabled="locked" @click="backToActivity"><StudioIcon name="back" />{{ t('returnToActivity') }}</button>
       <template v-if="host">
         <button :disabled="locked" @click="hostAction('new')"><StudioIcon name="plus" />{{ t('newProject') }}</button>
         <button :disabled="locked" @click="hostAction('open')"><StudioIcon name="folder" />{{ t('openProject') }}</button>
@@ -97,7 +105,7 @@ async function studioUpdate() {
       <button v-if="host" :disabled="locked" @click="hostAction('close')"><StudioIcon name="close" />{{ t('closeProject') }}</button>
       <button v-if="host" :disabled="hostWorking" @click="hostAction('logs')"><StudioIcon name="folder" />{{ t('projectOpenLogs') }}</button>
       <button v-if="host?.studioUpdate" :disabled="locked" @click="studioUpdate"><StudioIcon name="refresh" />{{ t('studioCheckUpdates') }}</button>
-      <p v-if="!host" class="studio-file-menu__hint">{{ t('projectHostHint') }}</p>
+      <p v-if="!host" class="studio-file-menu__hint">{{ t(studioWorkspace ? 'onlineProjectHint' : 'projectHostHint') }}</p>
     </nav>
     <div class="studio-file-content">
       <header class="studio-file-heading">
@@ -108,11 +116,12 @@ async function studioUpdate() {
       <p v-if="error" class="studio-file-error" role="alert">{{ error }}</p>
       <div v-if="project" class="studio-file-overview">
         <dl class="studio-project-info">
-          <div><dt>{{ t('projectLocation') }}</dt><dd><button v-if="host" class="studio-project-path" :disabled="locked" :title="t('projectOpenFolder')" @click="hostAction('openFolder')"><code>{{ project.root }}</code><StudioIcon name="folder" :size="14" /></button><code v-else>{{ project.root }}</code></dd></div>
+          <div v-if="studioWorkspace"><dt>{{ t('onlineActivity') }}</dt><dd>{{ studioWorkspace.name }}</dd></div>
+          <div><dt>{{ t(studioWorkspace ? 'onlineWorkspace' : 'projectLocation') }}</dt><dd><span v-if="studioWorkspace">{{ t('onlinePersonalDraft') }}</span><button v-else-if="host" class="studio-project-path" :disabled="locked" :title="t('projectOpenFolder')" @click="hostAction('openFolder')"><code>{{ project.root }}</code><StudioIcon name="folder" :size="14" /></button><code v-else>{{ project.root }}</code></dd></div>
           <div><dt>{{ t('projectEntry') }}</dt><dd><code>{{ project.entry }}</code></dd></div>
           <div><dt>{{ t('projectSaveLabel') }}</dt><dd role="status" :class="{ 'studio-file-error': projectWriteError }">{{ t(projectSaveStatus()) }}<small v-if="savedTime && !projectWriteError">{{ t('projectSavedTime', { time: savedTime }) }}</small></dd></div>
         </dl>
-        <p class="studio-file-note">{{ t('projectLocationHint') }}</p>
+        <p class="studio-file-note">{{ t(studioWorkspace ? 'onlineDraftHint' : 'projectLocationHint') }}</p>
         <p v-if="projectWriteError" class="studio-file-error" role="alert">{{ projectWriteError }}<br>{{ t('projectWriteFailed') }}</p>
         <p class="studio-file-note">{{ t('projectAutosaveHint') }}</p>
         <section class="studio-file-section">

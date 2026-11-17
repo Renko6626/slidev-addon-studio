@@ -189,6 +189,15 @@ contains the Windows Electron host, process runner, project operations and Forge
 ZIP configuration; see [desktop development](../desktop/README.md). A normal
 browser has no desktop bridge and retains the standalone File page.
 
+Online workbenches can supply display-only `SLIDEV_STUDIO_WORKSPACE_CONTEXT`
+JSON with `{ name, returnUrl }` when starting the project CLI. The existing
+dev-only catalog exposes this as `config.workspace`; no persistent project
+metadata, desktop bridge or cross-origin command channel is added. Return URLs
+accept HTTP(S) without embedded credentials. Toolbar and File show the activity
+and personal-draft scope. Returning applies the existing save hook first; it
+does not sync, commit or submit a review. Production catalog remains empty, so
+workspace navigation is excluded from static presentations.
+
 The optional, parameterless `exportWebPlayback(): Promise<{ ok: boolean;
 error?: string }>` host capability uses fixed IPC and the existing sender checks.
 The native host chooses a ZIP path and runs the save bridge before building.

@@ -16,7 +16,7 @@ Git services and a workbench are not required.
 
 ## Version and installation
 
-The Studio source and desktop host are both `0.5.1`, with independent versions.
+The Studio source is `0.5.2`; the desktop host is `0.5.1`, with independent versions.
 The repository's last recorded npm publication is `0.4.0-renko.1`; see
 [current delivery and validation records](docs/status.md) before assuming source
 features are available in an installed package. Existing projects keep their

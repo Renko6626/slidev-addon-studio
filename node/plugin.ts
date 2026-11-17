@@ -6,6 +6,7 @@ import { readPalette } from './palette'
 import { assetRoot, listAssets, saveAsset } from './assets'
 import { readFontCSS, saveFont, loadFontCSS } from './fonts'
 import { FONT_CSS_PATH } from '../shared/fonts'
+import { readWorkspaceContext } from './workspace'
 import { applyDeckAction } from './deck'
 import { exportProject, readProject } from './project'
 import { studioErrorResponse } from '../shared/errors'
@@ -209,7 +210,7 @@ export function studioConfig(options: ResolvedSlidevOptions): StudioConfig {
 async function renderCatalogModule(options: ResolvedSlidevOptions) {
   const catalog = await buildCatalog(options)
   const palette = await readPalette(options)
-  const config = studioConfig(options)
+  const config = { ...studioConfig(options), workspace: readWorkspaceContext() }
 
   const componentLoaders = catalog.components
     .filter(c => !c.hidden && c.previewable)

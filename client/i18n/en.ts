@@ -1,4 +1,11 @@
 export default {
+  "returnToActivity": "Return to activity",
+  "onlinePersonalDraft": "My personal draft",
+  "onlineActivity": "Activity",
+  "onlineWorkspace": "Draft location",
+  "onlineDraftHint": "Saving writes text, notes and assets to your personal workspace. It does not sync changes to others. Return to the activity to sync progress, update your workspace or submit a review.",
+  "onlineProjectHint": "Return to the workbench to create or switch activities. Your current edits are applied and saved before leaving.",
+
   "textBoxLayout": "Text box layout",
   "textBoxSizing": "Sizing",
   "textBoxAutoHeight": "Automatic height",

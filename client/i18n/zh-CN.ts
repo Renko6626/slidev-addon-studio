@@ -1,6 +1,13 @@
 import type en from './en'
 
 export default {
+  "returnToActivity": "返回活动",
+  "onlinePersonalDraft": "我的个人草稿",
+  "onlineActivity": "所属活动",
+  "onlineWorkspace": "草稿位置",
+  "onlineDraftHint": "保存会将文字、备注和素材写入你的个人工作区，不会自动同步给其他人。返回活动页后可同步进度、更新工作区或提交审核。",
+  "onlineProjectHint": "创建或切换活动，请返回工作台。返回前会先应用并保存当前编辑。",
+
   "textBoxLayout": "文本框布局",
   "textBoxSizing": "大小模式",
   "textBoxAutoHeight": "随内容增高",
