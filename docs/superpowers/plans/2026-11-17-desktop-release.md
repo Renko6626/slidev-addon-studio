@@ -29,10 +29,10 @@
 **Files:** create desktop/client-release.cjs and test/desktop-release.test.ts; modify desktop/scripts/prepare.cjs, test/desktop-packages.test.ts, desktop/package.json; create docs/releases/desktop-0.5.2.md.
 **Interfaces:** readDesktopRelease(root) -> {desktopVersion, studioVersion, notes}; readBundledDesktopRelease(resources) -> same; checkDesktopRelease({fetchImpl?, timeoutMs?}) -> {version, notes, url}|null; fixed RELEASES_URL exported. Reuse compareStudioVersions.
 
-- [ ] Add direct behavioral tests for stable desktop filtering and numeric ordering, subsequent pages, lookup HTTP failure, and real-file local metadata. Run new tests and observe missing behavior.
-- [ ] Implement small metadata/lookup module. Generate desktop-release.json from mandatory Markdown before published package preparation, retaining the prior tgz when its npm lookup fails.
-- [ ] Extend the existing preparation fixture with desktop manifest/notes and assert packaged metadata from the real preparation function. Update desktop version and author concise user notes.
-- [ ] Run `node node_modules/vitest/vitest.mjs run test/desktop-release.test.ts test/desktop-packages.test.ts`; expected: all pass. Commit Task 1.
+- [x] Add direct behavioral tests for stable desktop filtering and numeric ordering, subsequent pages, lookup HTTP failure, and real-file local metadata. Run new tests and observe missing behavior.
+- [x] Implement small metadata/lookup module. Generate desktop-release.json from mandatory Markdown before published package preparation, retaining the prior tgz when its npm lookup fails.
+- [x] Extend the existing preparation fixture with desktop manifest/notes and assert packaged metadata from the real preparation function. Update desktop version and author concise user notes.
+- [x] Run `node node_modules/vitest/vitest.mjs run test/desktop-release.test.ts test/desktop-packages.test.ts`; expected: all pass. Commit Task 1.
 
 ### Task 2: Native version information and manual update entry
 

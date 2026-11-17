@@ -23,6 +23,10 @@ async function fixture() {
   roots.push(root)
   const resources = join(root, 'resources'), userData = join(root, 'data')
   await mkdir(resources)
+  await mkdir(join(root, 'desktop'))
+  await mkdir(join(root, 'docs/releases'), { recursive: true })
+  await writeFile(join(root, 'desktop/package.json'), JSON.stringify({ version: '0.8.0' }))
+  await writeFile(join(root, 'docs/releases/desktop-0.8.0.md'), '# Desktop 0.8.0\n\nChanges\n')
   const bytes = Buffer.from('bundled 0.5.1')
   await writeFile(join(resources, 'slidev-addon-studio.tgz'), bytes)
   await writeFile(join(resources, 'studio-package.json'), JSON.stringify({ name, version: '0.5.1', integrity: integrity(bytes) }))
@@ -86,6 +90,9 @@ it('prepares the precise published artifact and its descriptor without repacking
   expect(await readBundledStudio(resources)).toMatchObject({ name, version: '0.5.2', integrity: integrity(bytes) })
   expect(await readFile(join(resources, 'template/slides.md'), 'utf8')).toBe('# Template')
   expect(await readFile(join(resources, 'playback/miniserve.exe'))).toEqual(playbackBytes)
+  expect(JSON.parse(await readFile(join(resources, 'desktop-release.json'), 'utf8'))).toEqual({
+    desktopVersion: '0.8.0', studioVersion: '0.5.2', notes: '# Desktop 0.8.0\n\nChanges\n',
+  })
 })
 
 it('prepares a checked playback binary and reuses it without downloading during later preparation', async () => {

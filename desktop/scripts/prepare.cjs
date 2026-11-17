@@ -4,6 +4,7 @@ const os = require('node:os')
 const { execFileSync } = require('node:child_process')
 const { prepareOffline } = require('./prepare-offline.cjs')
 const { preparePlayback } = require('./prepare-playback.cjs')
+const { readDesktopRelease } = require('../client-release.cjs')
 const { STUDIO_PACKAGE, packageIntegrity, compareStudioVersions, createStudioPackageSource } = require('../studio-packages.cjs')
 
 async function writeStudioPackageInfo(resources, { name, version }) {
@@ -19,6 +20,7 @@ async function prepare({ source = 'workspace', root = path.resolve(__dirname, '.
   const manifest = JSON.parse(await fs.readFile(path.join(root, 'package.json'), 'utf8'))
   if (manifest.name !== STUDIO_PACKAGE) throw new Error('Studio 包名称不匹配。')
   compareStudioVersions(manifest.version, manifest.version)
+  const desktopRelease = readDesktopRelease(root)
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'studio-prepare-'))
   try {
     let archive
@@ -36,6 +38,7 @@ async function prepare({ source = 'workspace', root = path.resolve(__dirname, '.
     await fs.mkdir(resources, { recursive: true })
     await fs.copyFile(archive, path.join(resources, 'slidev-addon-studio.tgz'))
     await writeStudioPackageInfo(resources, manifest)
+    await fs.writeFile(path.join(resources, 'desktop-release.json'), `${JSON.stringify(desktopRelease, null, 2)}\n`)
     await fs.rm(path.join(resources, 'template'), { recursive: true, force: true })
     await fs.cp(path.join(desktop, 'template'), path.join(resources, 'template'), { recursive: true })
     await preparePlayback({ resources, asset: playbackAsset, fetchImpl })
