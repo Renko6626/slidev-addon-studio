@@ -23,7 +23,8 @@ function working(value) {
     clearInterval(timer)
     timer = null
   }
-  for (const button of buttons) button.disabled = value && button.dataset.action !== 'logs'
+  for (const button of buttons) button.disabled = button.dataset.pending === 'true'
+    || value && !['logs', 'clientInfo'].includes(button.dataset.action)
 }
 window.studioDesktop.onStatus(update => {
   status.textContent = update.message
@@ -32,14 +33,18 @@ window.studioDesktop.onStatus(update => {
   working(update.working)
 })
 for (const button of buttons) button.addEventListener('click', async () => {
-  const projectAction = button.dataset.action !== 'logs'
+  const projectAction = !['logs', 'clientInfo'].includes(button.dataset.action)
   if (projectAction) working(true)
+  else { button.dataset.pending = 'true'; button.disabled = true }
   try {
     const result = button.dataset.action === 'studioUpdate'
       ? await window.studioDesktop.studioUpdate()
       : await window.studioDesktop.perform(button.dataset.action)
-    if (result.error) status.textContent = result.error
+    if (result.error && projectAction) status.textContent = result.error
   }
-  catch (error) { status.textContent = error.message }
-  finally { if (projectAction) working(false) }
+  catch (error) { if (projectAction) status.textContent = error.message; else console.error(error) }
+  finally {
+    if (projectAction) working(false)
+    else { delete button.dataset.pending; button.disabled = false }
+  }
 })

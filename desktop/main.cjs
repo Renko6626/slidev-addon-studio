@@ -6,6 +6,7 @@ const fs = require('node:fs/promises')
 const { createRuntime } = require('./runtime.cjs')
 const { createStudioPackageSource } = require('./studio-packages.cjs')
 const { runStudioUpdate } = require('./studio-update.cjs')
+const { createClientUpdates } = require('./client-updates.cjs')
 const { createProjectManagement } = require('./project-management.cjs')
 const { createWebPlaybackExporter, runWebPlaybackExport } = require('./web-playback.cjs')
 
@@ -20,6 +21,7 @@ const welcome = pathToFileURL(path.join(__dirname, 'welcome.html')).href
 const resources = app.isPackaged ? path.join(process.resourcesPath, 'studio-resources') : path.join(__dirname, 'studio-resources')
 const pnpm = app.isPackaged ? path.join(process.resourcesPath, 'pnpm/bin/pnpm.cjs') : path.join(__dirname, 'node_modules/pnpm/bin/pnpm.cjs')
 const packages = createStudioPackageSource({ resources, userData: app.getPath('userData') })
+const clientUpdates = createClientUpdates({ resources, currentVersion: app.getVersion(), dialog, shell, getWindow: () => window })
 function reportStatus(status) {
   lastStatus = { ...status, working }
   if (window && !window.isDestroyed()) window.webContents.send('studio:status', lastStatus)
@@ -147,6 +149,7 @@ async function openPrepared(project, { changed = false, enable = false } = {}) {
 }
 
 async function perform(action) {
+  if (action === 'clientInfo' || action === 'clientUpdate') return clientUpdates(action === 'clientInfo' ? 'info' : 'check')
   if (action === 'openFolder') {
     if (!current) return { ok: false, error: '请先打开一个工程。' }
     const error = await shell.openPath(current.root)
@@ -351,7 +354,13 @@ app.whenReady().then(async () => {
     { label: '从磁盘重新加载工程…', click: () => { void manageProject('reload') } },
     { label: '返回主页…', click: () => { void manageProject('home') } },
   ])
-  Menu.setApplicationMenu(Menu.buildFromTemplate([{ label: '工程管理', submenu: managementMenu }]))
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    { label: '工程管理', submenu: managementMenu },
+    { label: '帮助', submenu: [
+      { label: '版本与更新', click: () => { void clientUpdates('info') } },
+      { label: '检查客户端更新', click: () => { void clientUpdates('check') } },
+    ] },
+  ]))
   window.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown' || input.alt || !(input.control || input.meta)) return
     const key = input.key.toLowerCase()
