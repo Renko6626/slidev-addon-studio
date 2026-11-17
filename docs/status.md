@@ -1,13 +1,17 @@
 # Studio 当前状态
 
-按 2026-11-17 的仓库与发布结果整理。产品定位与约束见 [overall](overall.md)，本文只记录源码、交付和验证范围。
+按 2026-11-18 的仓库与发布结果整理。产品定位与约束见 [overall](overall.md)。
+
+## 0.5.3 发布，2026-11-18
+
+- npm 的 `latest` 为 Studio 0.5.3。通过 npm CLI 从源码标签打包发布，公开归档的 SHA-512 与 registry 元数据及本地候选一致。 [npm](https://www.npmjs.com/package/@renko_1055/slidev-addon-studio/v/0.5.3) / [改动记录](releases/0.5.3.md)
+- Windows x64 轻量版以 0.5.3 预发布，内含从 npm 下载的同一份 Studio 归档。桌面稳定版本为 0.5.2。 [桌面 0.5.3](https://github.com/Renko6626/slidev-addon-studio/releases/tag/desktop-v0.5.3)
+- `pnpm test --reporter=dot` 通过 424 项，跳过 1 项既有可选 HTTP QA。`pnpm typecheck`、`git diff --check` 和 `node scripts/release.cjs build` 通过。核对了 ZIP 的 CRC、Windows x64 可执行文件及九种图标尺寸资源、ASAR 内容、随包版本及 GitHub 交付资产的 SHA-256。Windows 实机验收待完成。
 
 ## 源码与交付
 
-- Studio 根包 `0.5.2` 已正式发布到 npm，桌面客户端 `0.5.2` 已发布 Windows x64 轻量 ZIP；两者分别维护，允许独立更新。
 - 本地 main 已整合 `codex/studio-import-export` 的三个功能提交：`d08abf4`（演示导出与工程 ZIP 导入）、`74e3f89`（只读源码定位与桌面原生工程管理）、`3821d93`（中性源码入口和复制内容）。此前 `660e2f2` 提供的包更新与桌面改进保留。已有工程打开不会自动升级。
-- 当前 npm latest 为 [0.5.2](releases/0.5.2.md)。已核对 registry 元数据、下载归档与候选逐字节一致，正式锁文件在全新 Slidev53 模板中冻结安装通过。
-- [0.5.0](releases/0.5.0.md) 和 [0.5.1](releases/0.5.1.md) 记录对应版本的改动。桌面包另按壳版本交付，本次线上发布未重新制作 Windows 桌面包；已有工程仍需通过原包更新流程升级。
+- [0.5.2](releases/0.5.2.md) 曾在全新 Slidev 53 模板中完成冻结安装验证。更早的改动见 [0.5.0](releases/0.5.0.md) 和 [0.5.1](releases/0.5.1.md)。
 
 ## 当前可用能力
 

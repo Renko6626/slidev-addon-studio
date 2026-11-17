@@ -16,12 +16,11 @@ Git services and a workbench are not required.
 
 ## Version and installation
 
-Studio `0.5.2` is published on npm. The Windows desktop client `0.5.2` is also
-available; the two versions are maintained independently. Existing projects keep
-their editor versions until explicitly upgraded.
+Studio `0.5.3` is available on npm. The stable Windows desktop client is
+`0.5.2`. Existing projects keep their editor versions until explicitly upgraded.
 
 [Download Windows x64 portable ZIP](https://github.com/Renko6626/slidev-addon-studio/releases/download/desktop-v0.5.2/Slidev-Studio-0.5.2-win32-x64-online.zip)
-or read the [desktop release notes](https://github.com/Renko6626/slidev-addon-studio/releases/tag/desktop-v0.5.2).
+or try the [Windows x64 0.5.3 prerelease](https://github.com/Renko6626/slidev-addon-studio/releases/tag/desktop-v0.5.3).
 Extract the entire ZIP to a writable folder and run `Slidev Studio.exe`.
 This lightweight package downloads missing project dependencies when needed.
 See [delivery and validation records](docs/status.md) for checks and limitations.
@@ -44,7 +43,7 @@ pnpm add -D "link:../slidev-addon-studio"
 To install the recorded published version:
 
 ```bash
-pnpm add -D slidev-addon-studio@npm:@renko_1055/slidev-addon-studio@0.5.2
+pnpm add -D slidev-addon-studio@npm:@renko_1055/slidev-addon-studio@0.5.3
 ```
 
 Keep the alias `slidev-addon-studio`; installing that name without the alias
