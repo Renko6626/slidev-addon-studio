@@ -1,6 +1,6 @@
 # Windows 桌面预览版
 
-Windows x64，使用 Electron 自带 Node。分发 ZIP 不包含第二份 `node.exe`，用户无需安装 Node、pnpm、Docker 或工作台服务。轻量版随附 Studio，缺少的依赖安装时联网获取；完整版额外随附标准工程的 Windows x64 依赖缓存。两者采用同一安装和更新流程。Studio 与桌面壳分别使用 X.Y.Z 版本号，目前 Studio 源码为 0.5.2，桌面壳为 0.5.1，可独立更新。
+Windows x64，使用 Electron 自带 Node。分发 ZIP 不包含第二份 `node.exe`，用户无需安装 Node、pnpm、Docker 或工作台服务。轻量版随附 Studio，缺少的依赖安装时联网获取；完整版额外随附标准工程的 Windows x64 依赖缓存。两者采用同一安装和更新流程。Studio 与桌面壳分别使用 X.Y.Z 版本号，目前均为 0.5.2，可独立更新。源码具备下述能力，不代表该版桌面 ZIP 已公开发布。
 
 ## 使用
 
@@ -40,7 +40,7 @@ Windows x64，使用 Electron 自带 Node。分发 ZIP 不包含第二份 `node.
 
 ## 检查和更新 Studio
 
-欢迎页和支持该宿主能力的“文件”页均提供“检查 Studio 更新”。原生对话框显示本机版本、npm 最新发布版本，以及当前工程版本（如已打开）。仅手动检查联网；取消或没有更高版本时不安装、不降级。
+欢迎页提供“更新工程内 Studio”，支持该宿主能力的“文件”页提供“检查 Studio 更新”。原生对话框显示本机版本、npm 最新发布版本，以及当前工程版本（如已打开）。仅手动检查联网；取消或没有更高版本时不安装、不降级。
 
 - 没有打开工程：选择“下载更新”，取得经 SHA-512 校验的 tgz，之后新建工程使用这个版本。
 - 已打开工程：选择“更新并重启编辑器”，先取得归档，再完成保存，随后停止旧服务、更新当前工程的 Studio 依赖、安装并重开。其他工程不变。
@@ -49,6 +49,14 @@ Windows x64，使用 Electron 自带 Node。分发 ZIP 不包含第二份 `node.
 随附 Studio tgz 和 `studio-package.json` 记录一个明确版本。下载归档保存在 Electron 用户数据目录的 `studio-packages`；工程保留自己的 `vendor` tgz，ZIP 导出会带走它。第三方依赖缓存仍由 pnpm store 管理，工程运行使用自己的 node_modules。不会自建注册库或包数据库。
 
 完整版本的旧缓存不保证覆盖新版新增的依赖。更新时可复用缓存，缺少的依赖仍需联网。该入口更新 Studio，不更新 Electron、窗口或原生文件功能；旧壳需要先换成支持该入口的桌面版本。
+
+## 客户端版本与更新日志
+
+欢迎页“版本与更新”离线显示当前客户端、随附 Studio 版本和本版更新日志。打开工程后可按 Alt 显示原生菜单，从“帮助”进入；这些入口不依赖工程编译成功。
+
+点击“检查客户端更新”才会连接 GitHub。查询只选择 `desktop-vX.Y.Z` 的稳定发布，且必须有对应 Windows x64 轻量 ZIP；npm 版本、草稿和预发布包不会显示为稳定客户端。“查看更新与下载”在系统浏览器打开对应 Release，查看完整说明并选择轻量版或离线完整版。网络失败时保留当前编辑，可稍后重试或手动打开发布页。
+
+下载后完整解压到新的可写目录，运行新版并打开原工程。不要只替换 exe 或混合覆盖旧目录。客户端查新不会下载或安装更新，不会保存、重启或改写工程；工程内的 Studio 仍使用自己的依赖，另按上一节明确更新。
 
 ## 开发与打包
 
@@ -68,7 +76,7 @@ pnpm release:build
 pnpm release:build --offline
 ```
 
-正式产物归档到仓库相邻的 `release/studio/<桌面版本>/`：ZIP 使用桌面版本，`slidev-addon-studio-<Studio版本>.tgz` 使用 Studio 版本，校验表按模式区分。online 表示轻量版，offline 表示完整版。`desktop/out` 是 Forge 中间输出。正式打包从 npm 获取根 package.json 指定、已经发布的精确 Studio tgz；未发布则停止，不改用本地源码。`desktop:dev` 仍从当前源码 pack。Forge 带入模板和 pnpm JS。`desktop/pnpm-workspace.yaml` 将此工具包与根仓库隔离，并仅在桌面包使用 hoisted 布局。未新增根 workspace 成员。
+正式产物归档到仓库相邻的 `release/studio/<桌面版本>/`：ZIP 使用桌面版本，`slidev-addon-studio-<Studio版本>.tgz` 使用 Studio 版本，校验表按模式区分。online 表示轻量版，offline 表示完整版。`desktop/out` 是 Forge 中间输出。正式打包从 npm 获取根 package.json 指定、已经发布的精确 Studio tgz；未发布则停止，不改用本地源码。`desktop:dev` 仍从当前源码 pack。必须先编写 `docs/releases/desktop-X.Y.Z.md`；准备阶段将两个版本和日志原文写入随包 `studio-resources/desktop-release.json`，GitHub 发布也使用该 Markdown。Forge 带入模板和 pnpm JS。`desktop/pnpm-workspace.yaml` 将此工具包与根仓库隔离，并仅在桌面包使用 hoisted 布局。未新增根 workspace 成员。
 
 新建工程固定 Slidev CLI 52.19.0、默认主题 0.25.0、Vue 3.5.41、Markdown-it 14.3.0；后者避免当前 Markdown 插件自动解析到 15 后无法启动。首次安装生成工程自己的 `pnpm-lock.yaml`。现有工程不套用这套模板版本。
 
@@ -112,16 +120,24 @@ pnpm release:build --offline    # 需要时再制作离线版
 pnpm release:publish --dry-run  # 检查本地产物并预览上传，不联网
 ```
 
-Studio 发布沿用 `docs/releases/X.Y.Z.md`、根 package.json 和 `vX.Y.Z` 标签；显式推送该标签触发现有 npm 工作流，版号校验不读取 desktop。正式桌面包需要等指定 Studio 版本发布完成，再本地构建。桌面发布使用 `desktop-vX.Y.Z` 标签；可提供 `docs/releases/desktop-X.Y.Z.md` 作为说明。本地打包不会发布 npm，版本命令不自动提交或打标签。
+Studio 发布沿用 `docs/releases/X.Y.Z.md`、根 package.json 和 `vX.Y.Z` 标签；显式推送该标签触发现有 npm 工作流，版号校验不读取 desktop。正式桌面包需要等指定 Studio 版本发布完成，再本地构建。桌面发布使用 `desktop-vX.Y.Z` 标签，必须提供非空 `docs/releases/desktop-X.Y.Z.md` 作为说明；缺失时构建、发布和对应 dry-run 都会停止。本地打包不会发布 npm，版本命令不自动提交或打标签。
 
 GitHub Release 另行手动执行，需先安装并登录 GitHub CLI，且远端已存在对应标签：
 
 ```bash
-pnpm release:publish            # 上传已构建的轻量版
+pnpm release:publish --prerelease # 上传轻量版，新建 Release 默认预发布
 pnpm release:publish --offline  # 可选：给同一 Release 补充离线版
 ```
 
-上传命令先核对本地 SHA256，再创建 Release 或给已有 Release 上传所选模式。已有同名资产会报错，不覆盖。每次重新分发内容不同的桌面 ZIP 都使用新桌面版本；平日只更新 Studio 时无需打桌面包。`--dry-run` 也可用于打包命令，查看模式和输出位置。
+上传命令先核对本地 SHA256，再创建预发布或给已有 Release 上传所选模式。轻量版必须先发布，离线版仅补充到已有轻量版的同一 Release；补充上传不改变发布状态。已有同名资产会报错，不覆盖。每次重新分发内容不同的桌面 ZIP 都使用新桌面版本；平日只更新 Studio 时无需打桌面包。`--dry-run` 也可用于打包命令，查看模式和输出位置。
+
+新建 Release 默认使用 `--prerelease --latest=false`，显式 `--prerelease` 表达相同意图。按精确源码提交创建和推送桌面标签，再构建、校验与上传；脚本不代为推标签。Windows 人工试用至少覆盖解压启动、新旧工程、编辑保存重开，以及工程字体和网页播放包。获得反馈后，再明确提升同一 Release 为稳定版，产物和标签保持不变：
+
+```bash
+gh release edit desktop-vX.Y.Z --repo Renko6626/slidev-addon-studio --prerelease=false --latest
+```
+
+发布状态提升不重新构建、不覆盖 ZIP，也不改变其他版本。客户端会在下次手动检查时识别稳定版。真实打包、上传和提升稳定各按明确授权执行。
 
 历史安装包按需手动清理；打包脚本不自动删除其他版本、截图或其他项目的产物。
 

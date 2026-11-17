@@ -49,8 +49,8 @@
 **Files:** modify scripts/release.cjs and test/release.test.ts; update desktop/README.md and docs/status.md.
 **Interfaces:** releaseInfo retains existing fields; publish(info,dryRun,spawn?) remains real CLI orchestration, defaults new releases to --prerelease --latest=false, requires mandatory notes and online ZIP when creating a release. Existing uploads preserve release status.
 
-- [ ] Extend existing release tests for missing notes, default prerelease creation and preserving an existing stable release. Keep network/process doubles at the gh boundary, assert externally visible arguments/results.
-- [ ] Implement mandatory notes, explicit prerelease CLI option, and user-facing dry-run instructions for stable promotion. Ensure upload dry runs do not invoke gh.
-- [ ] Update current docs with actual scope, version semantics, manual ZIP upgrade and Windows verification still needed. Run related tests, then the full existing Vitest suite and typecheck once; syntax-check modified desktop JS and run release build/publish dry runs.
+- [x] Extend existing release tests for missing notes, default prerelease creation and preserving an existing stable release. Keep network/process doubles at the gh boundary, assert externally visible arguments/results.
+- [x] Implement mandatory notes, explicit prerelease CLI option, and user-facing dry-run instructions for stable promotion. Ensure upload dry runs do not invoke gh.
+- [x] Update current docs with actual scope, version semantics, manual ZIP upgrade and Windows verification still needed. Run related tests, then the full existing Vitest suite and typecheck once; syntax-check modified desktop JS and run release build/publish dry runs.
 - [ ] One independent whole-branch review; fix evidenced core issues in one pass with affected checks. No repeated full verification absent a change/failure.
 - [ ] Fold completed plan/design conclusions into current docs, remove completed temporary plan, retain implementation commits, and report results without packaging, publishing or merging automatically.
