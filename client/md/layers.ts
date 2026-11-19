@@ -9,7 +9,7 @@ import { isInteractionTag } from './interactions'
 export function canWriteLayer(content: string, range: SourceRange): boolean {
   const block = getBlock(content, range)
   const tag = opensWithTag(block)
-  if (!tag || (!readElement(content, range) && !isInteractionTag(tag.name)) || readDrag(content, range)?.via !== 'attr')
+  if (!tag || (!readElement(content, range) && !isInteractionTag(tag.name) && tag.name !== 'StudioTable') || readDrag(content, range)?.via !== 'attr')
     return false
   return !parseAttrs(tag.attrs).some(attr => (['style', 'class'].includes(attr.name) && attr.bound) || attr.raw === 'v-bind')
 }

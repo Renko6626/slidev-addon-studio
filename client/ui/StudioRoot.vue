@@ -27,6 +27,7 @@ import { useShapeTools } from '../composables/useShapeTools'
 import ShapeDrawingLayer from './ShapeDrawingLayer.vue'
 import InlineEditor from './InlineEditor.vue'
 import SelectionLayer from './SelectionLayer.vue'
+import TableEditorLayer from './TableEditorLayer.vue'
 import QuestionRelations from './QuestionRelations.vue'
 import StudioDock from './StudioDock.vue'
 import StudioToolbar from './StudioToolbar.vue'
@@ -50,12 +51,14 @@ const no = computed(() => nav.currentSlideNo.value)
 
 const source = useSlideSource(no)
 const inlineEditor = ref<InstanceType<typeof InlineEditor> | null>(null)
+const tableEditor = ref<InstanceType<typeof TableEditorLayer> | null>(null)
 const notesEditor = ref<InstanceType<typeof StudioNotes> | null>(null)
 async function save() {
   if (imagePending.value) return false
   return saveProject(async () => {
     await inlineEditor.value?.apply()
     if (editing.value) throw new Error(t('finishEditing'))
+    await tableEditor.value?.apply()
     await notesEditor.value?.apply()
   })
 }
@@ -337,6 +340,7 @@ onScopeDispose(resetView)
         <SelectionLayer v-if="ribbonTab !== 'file'" />
         <ShapeDrawingLayer v-if="ribbonTab !== 'file'" :viewport="area" />
         <InlineEditor ref="inlineEditor" />
+        <TableEditorLayer ref="tableEditor" v-if="ribbonTab !== 'file'" />
         <StudioLibrary v-if="ribbonTab !== 'file'" />
       </template>
       <button v-else-if="mode.previewing.value && !mode.isFullscreen.value" class="studio-return" @click="mode.returnToEditor">

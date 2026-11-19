@@ -2,8 +2,10 @@ import { action, t, targetLabel, targetName } from './i18n'
 import type { StudioContext } from './context'
 import type { SourceRange, StudioTarget } from './types'
 import { positionedUnit, readDrag, removeDrag, writeDrag } from './md/drag'
-import { duplicateListItem, listItemUnit, moveBlock, moveListItem, removeBlock } from './md/lines'
+import { duplicateListItem, getBlock, listItemUnit, moveBlock, moveListItem, removeBlock, replaceBlock } from './md/lines'
 import { captureBlock, insertCopiedBlock } from './md/clipboard'
+import { parseMarkdownTable } from './md/table-import'
+import { tableFromMarkdownTable, tableSnippet } from './md/table'
 import { activePanel, busy, editing, editSourceRequested, reportError, selection, selectedTargets } from './state'
 import { captureBlocks, insertCopiedBlocks, movePositions, removePositions, writePositions } from './md/batch'
 import { alignDeltas, distributeDeltas } from './selection-geometry'
@@ -43,6 +45,23 @@ export function editSource() {
   if (busy.value || editing.value || selectedTargets.value.length !== 1 || !selection.value?.range) return
   editSourceRequested.value = true
   editing.value = true
+}
+
+/** Markdown tables are source-only; this replaces one with an editable object. */
+export async function importMarkdownTable(studio: StudioContext, target: StudioTarget) {
+  if (busy.value || editing.value || target.kind !== 'table' || !target.range) return
+  const parsed = parseMarkdownTable(getBlock(studio.content(), target.range))
+  if (!parsed) {
+    reportError(new Error(t('tableImportFailed')))
+    return
+  }
+  const no = studio.no()
+  const table = tableFromMarkdownTable(parsed.columns, parsed.rows)
+  const snippet = tableSnippet(table)
+  const range: SourceRange = [target.range[0], target.range[0] + snippet.split('\n').length]
+  await studio.commit(replaceBlock(studio.content(), target.range, snippet), action('actionTableImport'))
+  if (studio.no() === no)
+    await studio.selectInserted('StudioTable', range)
 }
 
 /** Removing a control intentionally leaves independently authored display objects. */

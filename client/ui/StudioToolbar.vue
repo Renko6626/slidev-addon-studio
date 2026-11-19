@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { MessageKey } from '../i18n'
+import type { TableCellPosition } from '../md/table-cell'
 import type { PanelId, RibbonTab } from '../state'
 import { computed, watch } from 'vue'
 import { configs } from '@slidev/client/env.ts'
@@ -16,11 +17,15 @@ import { returnToActivity } from '../workspace'
 import { canRedo, canUndo, lastAction, useStudioHistory } from '../composables/useSlideSource'
 import { appendElement, createTextElement, patchElementStyle } from '../md/elements'
 import { createInteractionButton, createQuizPage, listQuestions, readInteraction } from '../md/interactions'
+import { DEFAULT_TABLE_SNIPPET } from '../../shared/table'
+import { addColumn, addRow, removeColumn, removeRow } from '../../shared/table'
+import { readTable, writeTable, writeTableStyle } from '../md/table'
+import { clampTableCell, defaultTableCell } from '../md/table-cell'
 import { imageLibraryRequest, imagePending, useImageInsertion } from '../composables/useImageInsertion'
 import ShapePicker from './parts/ShapePicker.vue'
 import ArrangeSelection from './parts/ArrangeSelection.vue'
 import TextElementFields from './parts/TextElementFields.vue'
-import { activePanel, busy, clearSelection, editing, gridEnabled, inspectorVisible, library, notesVisible, outlineEnabled, ribbonTab, selectAllOnEdit, selection, selectedTargets, slidesVisible, snapEnabled, studioOpen, reportError } from '../state'
+import { activePanel, busy, clearSelection, editing, gridEnabled, inspectorVisible, library, notesVisible, outlineEnabled, ribbonTab, selectAllOnEdit, selection, selectedTargets, slidesVisible, snapEnabled, studioOpen, reportError, tableCell, tableEditing, tableEditRequest } from '../state'
 import PanelTransition from './panels/PanelTransition.vue'
 import StudioIcon from './parts/StudioIcon.vue'
 
@@ -60,7 +65,9 @@ async function openFile() {
   ribbonTab.value = 'file'
 }
 watch(selection, value => {
-  if (!value && ribbonTab.value === 'object')
+  if (!value && (ribbonTab.value === 'object' || ribbonTab.value === 'table'))
+    ribbonTab.value = 'home'
+  else if (value && value.tag !== 'StudioTable' && ribbonTab.value === 'table')
     ribbonTab.value = 'home'
 })
 watch(editing, value => {
@@ -87,6 +94,115 @@ async function insertTextBox(heading = false) {
   panel('inspect')
   selectAllOnEdit.value = true
   editing.value = true
+}
+async function insertTable() {
+  if (locked.value) return
+  const no = studio.no()
+  const inserted = appendElement(studio.content(), DEFAULT_TABLE_SNIPPET)
+  await studio.commit(inserted.content, action('actionInsert', { name: { key: 'table' } }))
+  if (studio.no() !== no || !await studio.selectInserted('StudioTable', inserted.range)) return
+  panel('inspect')
+}
+
+function activeTable() {
+  const target = selection.value
+  if (!target?.range || target.tag !== 'StudioTable')
+    return null
+  const read = readTable(studio.content(), target.range)
+  if (read.unparsed)
+    return null
+  const position = tableCell.value
+    ? clampTableCell(read.table, tableCell.value)
+    : defaultTableCell(read.table)
+  return { range: target.range, table: read.table, position }
+}
+
+async function commitTable(next: ReturnType<typeof readTable>['table'], position?: TableCellPosition | null) {
+  const active = activeTable()
+  if (!active || locked.value)
+    return
+  await studio.commit(writeTable(studio.content(), active.range, next), action('actionTableEdit'))
+  if (position !== undefined)
+    tableCell.value = position
+}
+
+function insertTableRow(where: 'above' | 'below') {
+  const active = activeTable()
+  if (!active?.position)
+    return
+  const at = active.position.row === null ? 0 : active.position.row + (where === 'below' ? 1 : 0)
+  return commitTable(addRow(active.table, at), { row: at, column: active.position.column })
+}
+
+function deleteTableRow() {
+  const active = activeTable()
+  if (!active?.position || active.position.row === null)
+    return
+  const next = removeRow(active.table, active.position.row)
+  return commitTable(next, clampTableCell(next, { row: active.position.row, column: active.position.column }))
+}
+
+function insertTableColumn(side: 'left' | 'right') {
+  const active = activeTable()
+  if (!active?.position)
+    return
+  const at = active.position.column + (side === 'right' ? 1 : 0)
+  const next = addColumn(active.table, at, { label: t('tableColumn', { index: at + 1 }) })
+  return commitTable(next, { row: active.position.row, column: at })
+}
+
+function deleteTableColumn() {
+  const active = activeTable()
+  if (!active?.position)
+    return
+  const next = removeColumn(active.table, active.position.column)
+  return commitTable(next, clampTableCell(next, { row: active.position.row, column: active.position.column }))
+}
+
+function editTableCell() {
+  const active = activeTable()
+  if (!active?.position)
+    return
+  panel('inspect')
+  tableEditRequest.value = active.position
+}
+
+function alignTableCell(align: 'left' | 'center' | 'right') {
+  const active = activeTable()
+  if (!active?.position)
+    return
+  const next = {
+    ...active.table,
+    columns: active.table.columns.map((column, index) => index === active.position!.column ? { ...column, align } : column),
+  }
+  return commitTable(next)
+}
+
+function toggleTableStyle(key: 'header' | 'border' | 'striped') {
+  const active = activeTable()
+  if (!active || locked.value)
+    return
+  return studio.commit(
+    writeTableStyle(studio.content(), active.range, { [key]: !active.table[key] }),
+    action('actionTableEdit'),
+  )
+}
+
+function addTableRowEnd() {
+  const active = activeTable()
+  if (!active)
+    return
+  const next = addRow(active.table)
+  return commitTable(next, { row: next.rows.length - 1, column: 0 })
+}
+
+function addTableColumnEnd() {
+  const active = activeTable()
+  if (!active?.position)
+    return
+  const at = active.table.columns.length
+  const next = addColumn(active.table, at, { label: t('tableColumn', { index: at + 1 }) })
+  return commitTable(next, { row: active.position.row, column: at })
 }
 async function insertQuiz(mode: 'single' | 'multiple') {
   if (locked.value) return
@@ -136,6 +252,7 @@ const groups = computed<Group[]>(() => {
       { label: 'textGroup', commands: [
         { label: 'blockHeading', icon: 'h1', run: () => insertTextBox(true) },
         { label: 'textBox', icon: 'edit', run: () => insertTextBox() },
+        { label: 'table', icon: 'grid', run: insertTable },
       ] },
       { label: 'insertTab', commands: [
         { label: 'assets', icon: 'assets', run: () => openLibrary('assets'), pressed: library.value === 'assets' },
@@ -171,6 +288,37 @@ const groups = computed<Group[]>(() => {
         { label: 'outlineAll', icon: 'eye', run: () => (outlineEnabled.value = !outlineEnabled.value), pressed: outlineEnabled.value },
       ] },
     ]
+    case 'table': {
+      const current = activeTable()
+      const tableLocked = locked.value || tableEditing.value || !current
+      const position = current?.position ?? null
+      const column = position && current ? current.table.columns[position.column] : null
+      return [
+        { label: 'tableRowsGroup', commands: [
+          { label: 'insertRowAbove', icon: 'plus', run: () => insertTableRow('above'), disabled: tableLocked || !position },
+          { label: 'insertRowBelow', icon: 'plus', run: () => insertTableRow('below'), disabled: tableLocked || !position },
+          { label: 'tableDeleteRow', icon: 'trash', run: deleteTableRow, disabled: tableLocked || !position || position.row === null },
+          { label: 'tableAddRow', icon: 'plus', run: addTableRowEnd, disabled: tableLocked },
+        ] },
+        { label: 'tableColumnsGroup', commands: [
+          { label: 'insertColumnLeft', icon: 'plus', run: () => insertTableColumn('left'), disabled: tableLocked || !position },
+          { label: 'insertColumnRight', icon: 'plus', run: () => insertTableColumn('right'), disabled: tableLocked || !position },
+          { label: 'tableDeleteColumn', icon: 'trash', run: deleteTableColumn, disabled: tableLocked || !position },
+          { label: 'tableAddColumn', icon: 'plus', run: addTableColumnEnd, disabled: tableLocked || !position },
+        ] },
+        { label: 'tableCellGroup', commands: [
+          { label: 'tableEditCell', icon: 'edit', run: editTableCell, disabled: tableLocked || !position },
+          { label: 'alignLeft', icon: 'align-left', run: () => alignTableCell('left'), pressed: column?.align === 'left', disabled: tableLocked || !position },
+          { label: 'alignCenter', icon: 'align-center', run: () => alignTableCell('center'), pressed: column?.align === 'center', disabled: tableLocked || !position },
+          { label: 'alignRight', icon: 'align-right', run: () => alignTableCell('right'), pressed: column?.align === 'right', disabled: tableLocked || !position },
+        ] },
+        { label: 'tableStyleGroup', commands: [
+          { label: 'tableHeader', icon: 'layout', run: () => toggleTableStyle('header'), pressed: !!current?.table.header, disabled: tableLocked },
+          { label: 'tableBorder', icon: 'grid', run: () => toggleTableStyle('border'), pressed: !!current?.table.border, disabled: tableLocked },
+          { label: 'tableStriped', icon: 'list', run: () => toggleTableStyle('striped'), pressed: !!current?.table.striped, disabled: tableLocked },
+        ] },
+      ]
+    }
     case 'object': return [{ label: 'objectTab', commands: [
       ...(!target?.positioned ? [{ label: 'freePosition' as const, icon: 'free', disabled: !mapped.value, run: () => target && freePosition(studio, target) }] : []),
       { label: 'properties', icon: 'settings', run: () => panel('inspect') },
@@ -202,6 +350,7 @@ const groups = computed<Group[]>(() => {
       <button class="studio-file-tab" :aria-pressed="ribbonTab === 'file'" :disabled="imagePending || projectSaving" @click="openFile">{{ t('fileTab') }}</button>
       <button v-for="tab in tabs" :key="tab.id" :aria-pressed="ribbonTab === tab.id" @click="ribbonTab = tab.id">{{ t(tab.label) }}</button>
       <button v-if="selection" class="studio-context-tab" :aria-pressed="ribbonTab === 'object'" @click="ribbonTab = 'object'">{{ t('objectTab') }}</button>
+      <button v-if="selection?.tag === 'StudioTable'" class="studio-context-tab" :aria-pressed="ribbonTab === 'table'" @click="ribbonTab = 'table'">{{ t('tableTab') }}</button>
     </nav>
     <div v-if="ribbonTab !== 'file'" class="studio-ribbon-tools" role="region" :aria-label="t('editorTools')" tabindex="0">
       <div v-if="ribbonTab === 'insert'" class="studio-command-group">

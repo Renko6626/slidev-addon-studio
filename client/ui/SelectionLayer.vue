@@ -6,8 +6,8 @@ import { useRafFn } from '@vueuse/core'
 import { computed, ref } from 'vue'
 import { mappedElements } from '../dom'
 import { useStudio } from '../context'
-import { readDrag } from '../md/drag'
 import { editing, hovered, outlineEnabled, selection, selectedTargets, marquee } from '../state'
+import { usesAutoHeight } from '../selection-target'
 
 /**
  * Everything drawn on top of the slide: the hover outline, the selection box
@@ -112,7 +112,7 @@ const shapePoints = computed(() => {
   const scale = studio.canvas.scale.value
   return shapeHandles(shape, rect.width / scale, rect.height / scale).map(handle => ({ ...handle, left: handle.x * scale, top: handle.y * scale }))
 })
-const visibleHandles = computed(() => studio.shapes.parameters.value?.kind === 'line' ? [] : selection.value?.element === 'text' && (!selection.value.range || readDrag(studio.content(), selection.value.range)?.pos?.h == null)
+const visibleHandles = computed(() => studio.shapes.parameters.value?.kind === 'line' ? [] : usesAutoHeight(selection.value, studio.content())
   ? handles.filter(handle => handle.id === 'e' || handle.id === 'w')
   : handles)
 

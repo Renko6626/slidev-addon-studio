@@ -256,3 +256,12 @@ When copying a set containing a controller, Studio remaps component `question`
 props and ordinary HTML `data-studio-question-ref` attributes that refer to that
 controller, including custom option components. Copying a child alone keeps its
 binding. Treat `question` as the question-binding prop in custom components.
+
+
+## Built-in table
+
+`StudioTable` is a built-in component and a worked example of a declared
+metadata block: its data and presentation props are hidden from the generic
+prop form because the table panel edits cells, structure and styling directly.
+A page's Markdown table is not read as this component; the inspector offers a
+one-way conversion instead.

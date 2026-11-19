@@ -1,7 +1,8 @@
 import type { ResolvedSlidevOptions } from '@slidev/types'
 import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { buildCatalog, parseProps, shapeOf } from '../node/catalog'
 
@@ -102,6 +103,17 @@ describe('parseProps', () => {
   })
 })
 
+
+it('catalogs StudioTable with editable style props and hidden data props', async () => {
+  const source = readFileSync(resolve(process.cwd(), 'components/StudioTable.vue'), 'utf8')
+  const catalog = await catalogFromFiles({ StudioTable: source })
+  const entry = catalog.components.find(component => component.name === 'StudioTable')!
+  expect(entry).toMatchObject({ propsMode: 'declared', category: '内容' })
+  expect(entry.hidden).toBe(false)
+  expect(entry.props).toEqual([])
+  expect(entry.snippet).toContain('<StudioTable')
+  expect(entry.preview).toBe(entry.snippet)
+})
 
 it('keeps hidden component metadata and exposes only declared fields', async () => {
   const catalog = await catalogFromFiles({ Card: `<script setup lang="ts">

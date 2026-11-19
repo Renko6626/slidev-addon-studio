@@ -126,6 +126,15 @@
 
 - New text boxes and pictures have dedicated controls. Supported native prose
   also shares the text controls; no automatic document migration is performed.
+- Tables are `StudioTable` components with plain-text cells and bound
+  `columns`/`rows` props. Cells and headers are edited in place on the canvas;
+  Tab and Shift+Tab move between cells, and Tab after the last cell appends a
+  row. The sidebar holds the current column's properties rather than a data
+  grid, so large tables rely on canvas zoom and the contextual Table tab.
+  Merged cells, rich-text cells, drag column resizing and conversion back to
+  Markdown are not provided. Existing Markdown tables stay source-editable and
+  convert one way in the inspector; inline formatting is flattened to text. A
+  positioned table sizes itself from its rows unless a height is set.
 - Studio text boxes support character-level fonts, sizes, colours and marks,
   paragraph alignment/spacing and lists. Automatic height and fixed size are
   available; fixed boxes support vertical alignment and all eight resize handles.

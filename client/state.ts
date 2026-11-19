@@ -1,11 +1,12 @@
 import type { ComponentFieldTarget } from './component-fields'
+import type { TableCellPosition } from './md/table-cell'
 import type { StudioTarget } from './types'
 import { useLocalStorage } from '@vueuse/core'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { editorOpenStorageKey } from '../shared/editor-mode'
 
 export type PanelId = 'inspect' | 'animate' | 'layout' | 'transition' | 'layers' | 'source'
-export type RibbonTab = 'file' | 'home' | 'insert' | 'design' | 'transition' | 'animate' | 'view' | 'object'
+export type RibbonTab = 'file' | 'home' | 'insert' | 'design' | 'transition' | 'animate' | 'view' | 'object' | 'table'
 
 /** Studio is off until asked for, so a normal `slidev` session is unchanged. */
 export const studioOpen = useLocalStorage(editorOpenStorageKey, false)
@@ -37,6 +38,16 @@ export function setSelectedTargets(targets: StudioTarget[]) {
 }
 watch(selection, target => {
   if (!target || !multiple.value.includes(target)) multiple.value = []
+}, { flush: 'sync' })
+/** The table cell last clicked or edited, shared by the canvas, ribbon and sidebar. */
+export const tableCell = shallowRef<TableCellPosition | null>(null)
+export const tableEditing = ref(false)
+/** One-shot request from the table ribbon or sidebar to edit a cell. */
+export const tableEditRequest = shallowRef<TableCellPosition | null>(null)
+watch(selection, (target, previous) => {
+  if (!target || target.tag !== 'StudioTable'
+    || (previous?.tag === 'StudioTable' && previous.range?.[0] !== target.range?.[0]))
+    tableCell.value = null
 }, { flush: 'sync' })
 export const marquee = shallowRef<{ left: number, top: number, width: number, height: number } | null>(null)
 /**
@@ -87,4 +98,4 @@ export function clearSelection() {
 // A single place to look when something in the editor is not behaving: the
 // live state is on `window.__studio__` while the dev server is running.
 if (typeof window !== 'undefined')
-  (window as any).__studio__ = { studioOpen, activePanel, selection, hovered, busy, lastError, editing, missed }
+  (window as any).__studio__ = { studioOpen, activePanel, selection, hovered, busy, lastError, editing, missed, tableCell, tableEditing }

@@ -16,7 +16,7 @@
  * a list item reading `Line one\nLine two` came back as `Line onenLine two` and
  * was written back that way: an edit to one item silently rewrote the others.
  */
-function decodeEscape(char: string): string {
+export function decodeEscape(char: string): string {
   switch (char) {
     case 'n': return '\n'
     case 't': return '\t'
@@ -30,7 +30,7 @@ function decodeEscape(char: string): string {
 }
 
 /** Writes a value as a single-quoted literal that JavaScript can read back. */
-function quote(value: string): string {
+export function quote(value: string): string {
   const escaped = value
     .replace(/\\/g, '\\\\')
     .replace(/'/g, '\\\'')
@@ -104,6 +104,77 @@ export function formatStringArray(items: string[], indent = '  '): string {
   return `[\n${quoted.map(q => `${indent}${q},`).join('\n')}\n]`
 }
 
+/** Reads one quoted string literal. Empty strings are values, not omissions. */
+export function parseStringLiteral(text: string): string | undefined {
+  const value = text.trim()
+  if (value.length < 2)
+    return undefined
+
+  const delimiter = value[0]
+  if (delimiter !== '\'' && delimiter !== '"' && delimiter !== '`')
+    return undefined
+
+  let result = ''
+  for (let i = 1; i < value.length; i++) {
+    const char = value[i]
+    if (char === '\\') {
+      result += decodeEscape(value[i + 1] ?? '')
+      i += 1
+      continue
+    }
+    if (char === delimiter)
+      return i === value.length - 1 ? result : undefined
+    result += char
+  }
+  return undefined
+}
+
+/**
+ * Reads an array of string arrays, which is how a table's rows are stored.
+ * Ragged or non-string rows are unparsed rather than padded silently.
+ */
+export function parseStringMatrix(raw: string | null | undefined): string[][] | null {
+  if (!raw)
+    return null
+
+  const text = raw.trim()
+  if (!text.startsWith('[') || !text.endsWith(']'))
+    return null
+
+  const body = text.slice(1, -1).trim()
+  if (!body)
+    return []
+
+  const rows: string[][] = []
+  for (const entry of splitTopLevel(body)) {
+    if (!entry.startsWith('[') || !entry.endsWith(']'))
+      return null
+
+    const cells: string[] = []
+    for (const item of splitTopLevel(entry.slice(1, -1))) {
+      const cell = parseStringLiteral(item)
+      if (cell === undefined)
+        return null
+      cells.push(cell)
+    }
+    rows.push(cells)
+  }
+  return rows
+}
+
+/** Writes rows one per line, which keeps a single cell edit readable in a diff. */
+export function formatStringMatrix(rows: string[][], indent = '  '): string {
+  if (!rows.length)
+    return '[]'
+
+  const rendered = rows.map(row => `[${row.map(cell => quote(cell)).join(', ')}]`)
+  const inline = `[${rendered.join(', ')}]`
+  if (rows.length === 1 && inline.length <= 80)
+    return inline
+
+  return `[\n${rendered.map(row => `${indent}${row},`).join('\n')}\n]`
+}
+
 /** Whether a prop's declared type is an array. */
 export function isArrayType(type: string | undefined) {
   const value = (type ?? '').trim().toLowerCase()
@@ -149,7 +220,7 @@ export function parseObjectArray(raw: string | null | undefined): ObjectRow[] | 
         return null
 
       const key = pair.slice(0, separator).trim().replace(/^['"`]|['"`]$/g, '')
-      const value = readPrimitive(pair.slice(separator + 1).trim())
+      const value = parsePrimitive(pair.slice(separator + 1).trim())
       if (!/^\w[\w-]*$/.test(key) || value === undefined)
         return null
 
@@ -161,7 +232,7 @@ export function parseObjectArray(raw: string | null | undefined): ObjectRow[] | 
   return rows
 }
 
-function readPrimitive(text: string): Primitive | undefined {
+export function parsePrimitive(text: string): Primitive | undefined {
   if (/^'(?:[^'\\]|\\.)*'$/.test(text) || /^"(?:[^"\\]|\\.)*"$/.test(text))
     return text.slice(1, -1).replace(/\\(.)/g, (_, char) => decodeEscape(char))
   if (text === 'true' || text === 'false')
@@ -193,7 +264,7 @@ function writePrimitive(value: Primitive): string {
 }
 
 /** Splits on commas that are not inside a string, bracket or brace. */
-function splitTopLevel(body: string): string[] {
+export function splitTopLevel(body: string): string[] {
   const parts: string[] = []
   let depth = 0
   let quote: string | null = null

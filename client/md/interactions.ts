@@ -1,6 +1,7 @@
 import type { QuestionPresentation, QuizMode, QuizOption, QuizSignal } from '../../shared/quiz'
 import type { SourceRange } from '../types'
 import { createTextElement } from './elements'
+import { decodeEntities as decode, encodeEntities as encode } from './entities'
 import { formatPos } from './drag'
 import { append, getBlock, replaceBlock } from './lines'
 import { parseObjectArray } from './literals'
@@ -14,12 +15,6 @@ const TAG_PATTERN = /<([A-Za-z][\w.-]*)\b(?:"[^"]*"|'[^']*'|[^>"'])*>/g
 
 export function isInteractionTag(tag: string | undefined): tag is InteractionTag {
   return tag === 'StudioQuestion' || tag === 'StudioButton' || tag === 'StudioFeedback'
-}
-function decode(value: string) {
-  return value.replace(/&(amp|quot|apos|lt|gt|#39|#10|#13);/g, (_, name: string) => ({ amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', '#39': "'", '#10': '\n', '#13': '\r' })[name]!)
-}
-function encode(value: string) {
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '&#10;').replace(/\r/g, '&#13;')
 }
 function staticValue(block: string, name: string, fallback?: string | number): string | number | undefined {
   const opening = opensWithTag(block)

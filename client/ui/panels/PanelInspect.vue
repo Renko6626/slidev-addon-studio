@@ -14,7 +14,7 @@ import { sourceEditLabel } from '../../source-label'
 import { readElement, resizeElement } from '../../md/elements'
 import { getBlock } from '../../md/lines'
 import { canStyle, readClasses, writeClasses } from '../../md/classes'
-import { canReorder, editSource, deleteBlock, duplicateBlock, freePosition } from '../../actions'
+import { canReorder, editSource, importMarkdownTable, deleteBlock, duplicateBlock, freePosition } from '../../actions'
 import { busy, editing, editComponentField, selectedComponentField, missed, selection, selectedTargets } from '../../state'
 import PropField from '../parts/PropField.vue'
 import StudioField from '../parts/StudioField.vue'
@@ -25,6 +25,8 @@ import TextBoxFields from '../parts/TextBoxFields.vue'
 import ArrangeSelection from '../parts/ArrangeSelection.vue'
 import InteractionFields from '../parts/InteractionFields.vue'
 import MediaFields from '../parts/MediaFields.vue'
+import TableFields from '../parts/TableFields.vue'
+import { usesAutoHeight } from '../../selection-target'
 import { readInteraction } from '../../md/interactions'
 
 /**
@@ -126,6 +128,11 @@ async function toFreePosition() {
     await freePosition(studio, selection.value)
 }
 
+async function convertTable() {
+  if (selection.value)
+    await importMarkdownTable(studio, selection.value)
+}
+
 async function applyClasses() {
   if (!range.value)
     return
@@ -182,12 +189,25 @@ async function remove() {
       <p v-if="element?.kind === 'text'" class="studio-hint">{{ studio.text.supported.value ? t('textFormatInHome') : t('textSourceFallback') }}</p>
     </section>
 
+    <section v-if="selection.kind === 'table'" class="studio-section">
+      <h3 class="studio-section__title">
+        {{ t('table') }}
+      </h3>
+      <p class="studio-hint">
+        {{ t('tableConvertHint') }}
+      </p>
+      <button class="studio-button" @click="convertTable">
+        <StudioIcon name="grid" :size="14" /> {{ t('tableConvert') }}
+      </button>
+    </section>
+
     <section v-if="element?.kind === 'shape'" class="studio-section"><ShapeFields /></section>
 
     <section v-if="element?.kind === 'image'" class="studio-section"><ImageElementFields /></section>
     <section v-if="element?.kind === 'text'" class="studio-section"><TextBoxFields /></section>
     <section v-if="interaction" class="studio-section"><InteractionFields /></section>
     <section v-if="selection.tag === 'StudioMedia'" class="studio-section"><MediaFields /></section>
+    <section v-if="selection.tag === 'StudioTable'" class="studio-section"><TableFields /></section>
 
     <section class="studio-section">
       <h3 class="studio-section__title">
@@ -208,7 +228,7 @@ async function remove() {
         <StudioField :label="t('width')">
           <input type="number" :value="Math.round(pos.w)" @change="setPos('w', +($event.target as HTMLInputElement).value)">
         </StudioField>
-        <StudioField v-if="(element?.kind !== 'text' || pos.h !== null) && studio.shapes.parameters.value?.kind !== 'line'" :label="t('height')">
+        <StudioField v-if="!usesAutoHeight(selection, studio.content()) && studio.shapes.parameters.value?.kind !== 'line'" :label="t('height')">
           <input
             type="number"
             :value="pos.h === null ? '' : Math.round(pos.h)"
@@ -225,7 +245,7 @@ async function remove() {
       </template>
     </section>
 
-    <section v-if="component && (!interaction || component.propsMode === 'declared')" class="studio-section">
+    <section v-if="component && selection.tag !== 'StudioTable' && (!interaction || component.propsMode === 'declared')" class="studio-section">
       <h3 class="studio-section__title">
         {{ t('componentProps', { name: component.name }) }}
       </h3>

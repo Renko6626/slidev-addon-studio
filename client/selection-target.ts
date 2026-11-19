@@ -172,6 +172,15 @@ export function sameRange(a: SourceRange | null, b: SourceRange | null) {
   return !!a && !!b && a[0] === b[0] && a[1] === b[1]
 }
 
+/** Text boxes and tables size themselves from content when no height is set. */
+export function usesAutoHeight(target: StudioTarget | null | undefined, content: string): boolean {
+  if (!target || (target.element !== 'text' && target.tag !== 'StudioTable'))
+    return false
+  if (!target.range)
+    return target.element === 'text'
+  return readDrag(content, target.range)?.pos?.h == null
+}
+
 /** Only objects whose source and positioning belong to this selectable root. */
 export function isMultiSelectable(target: StudioTarget, content: string): boolean {
   if (!target.range || target.nested || target.prop || target.el.closest('[data-studio-background]') || !(target.element || target.kind === 'component')) return false
