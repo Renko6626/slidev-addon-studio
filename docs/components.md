@@ -265,3 +265,20 @@ metadata block: its data and presentation props are hidden from the generic
 prop form because the table panel edits cells, structure and styling directly.
 A page's Markdown table is not read as this component; the inspector offers a
 one-way conversion instead.
+
+Besides `columns` and `rows`, it reads three optional size/shape props:
+
+```html
+<StudioTable
+  :columns="[{ label: 'A' }, { label: 'B' }]"
+  :rows="[['1', '2'], ['3', '4']]"
+  :merges="[{ row: 0, column: 0, rowspan: 2, colspan: 2 }]"
+  :row-heights="[56, null]"
+  :header-height="40"
+/>
+```
+
+`merges` uses `row: -1` for the header row and spans count cells; covered cells
+stay in `rows` as empty strings. `row-heights` is indexed by body row and
+`null` means automatic. Studio writes these props only when they carry a value,
+so a table that never used them stays as short as before.

@@ -2,15 +2,16 @@
 import type { TableCellPosition } from '../md/table-cell'
 import type { TableData } from '../../shared/table'
 import type { SourceRange } from '../types'
-import { addRow } from '../../shared/table'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRafFn } from '@vueuse/core'
+import { addRow, clearColumnWidths, resizeColumnWidths, withRowHeight } from '../../shared/table'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useStudio } from '../context'
 import { action, t } from '../i18n'
 import { endOfBlock } from '../md/lines'
 import { readTable, writeTable } from '../md/table'
-import { clampTableCell, defaultTableCell, nextTableCell, tableCellValue, withTableCellValue } from '../md/table-cell'
+import { clampTableCell, defaultTableCell, nextTableCell, tableCellValue, tableRectBetween, withTableCellValue } from '../md/table-cell'
 import { opensWithTag } from '../md/tags'
-import { selection, tableCell, tableEditRequest, tableEditing } from '../state'
+import { busy, reportError, selection, tableCell, tableEditRequest, tableEditing, tableRange } from '../state'
 
 interface EditorRect {
   left: number
@@ -57,6 +58,364 @@ const editorStyle = computed(() => rect.value && {
   padding: rect.value.padding,
   lineHeight: rect.value.lineHeight,
 })
+
+interface MeasuredRow {
+  index: number | null
+  top: number
+  bottom: number
+  height: number
+  el: HTMLTableRowElement
+}
+
+interface TableMeasure {
+  table: HTMLTableElement
+  left: number
+  top: number
+  width: number
+  height: number
+  scale: number
+  columns: { left: number, right: number }[]
+  /** Column edges come from a row no merge splits, so handles are exact. */
+  exactColumns: boolean
+  rows: MeasuredRow[]
+}
+
+interface ColumnDrag {
+  kind: 'column'
+  boundary: number
+  startX: number
+  tableWidth: number
+  widths: number[]
+  cols: HTMLTableColElement[]
+  originals: string[]
+  last: number[]
+  moved: boolean
+}
+
+interface RowDrag {
+  kind: 'row'
+  index: number | null
+  startY: number
+  startHeight: number
+  scale: number
+  tr: HTMLTableRowElement
+  original: string
+  height: number
+  moved: boolean
+}
+
+const measure = shallowRef<TableMeasure | null>(null)
+const drag = ref<ColumnDrag | RowDrag | null>(null)
+const guide = shallowRef<{ axis: 'x' | 'y', at: number } | null>(null)
+
+function measureColumns(table: HTMLTableElement, count: number) {
+  const rows = [...table.rows]
+  const exactRow = rows.find(row => row.cells.length === count
+    && [...row.cells].every(cell => cell.colSpan === 1 && cell.rowSpan === 1))
+  if (exactRow) {
+    return {
+      columns: [...exactRow.cells].map((cell) => {
+        const bounds = cell.getBoundingClientRect()
+        return { left: bounds.left, right: bounds.right }
+      }),
+      exact: true,
+    }
+  }
+  // Every row is merged: split each cell's width across its span so the range
+  // highlight still has column edges. Those edges are not used for handles.
+  const candidate = rows
+    .filter(row => [...row.cells].reduce((sum, cell) => sum + Math.max(1, cell.colSpan), 0) === count)
+    .sort((a, b) => b.cells.length - a.cells.length)[0]
+  if (!candidate || !count)
+    return { columns: [], exact: false }
+  const edges: number[] = []
+  const first = candidate.cells[0].getBoundingClientRect().left
+  for (const cell of candidate.cells) {
+    const bounds = cell.getBoundingClientRect()
+    const span = Math.max(1, cell.colSpan)
+    for (let part = 1; part <= span; part++)
+      edges.push(bounds.left + bounds.width * part / span)
+  }
+  if (edges.length !== count)
+    return { columns: [], exact: false }
+  return {
+    columns: edges.map((right, index) => ({ left: index ? edges[index - 1] : first, right })),
+    exact: false,
+  }
+}
+
+function measureTable(): TableMeasure | null {
+  const root = selection.value?.el
+  if (!root?.isConnected || selection.value?.tag !== 'StudioTable')
+    return null
+  const table = root.querySelector('table')
+  if (!table)
+    return null
+  const box = table.getBoundingClientRect()
+  if (!box.width || !box.height)
+    return null
+  const headerRows = table.tHead?.rows.length ?? 0
+  const rows: MeasuredRow[] = [...table.rows].map((row, index) => {
+    const bounds = row.getBoundingClientRect()
+    return {
+      index: index < headerRows ? -1 : index - headerRows,
+      top: bounds.top,
+      bottom: bounds.bottom,
+      height: bounds.height,
+      el: row,
+    }
+  })
+  const count = root.querySelectorAll('colgroup col').length
+  const layout = measureColumns(table, count)
+  return {
+    table,
+    left: box.left,
+    top: box.top,
+    width: box.width,
+    height: box.height,
+    scale: table.offsetWidth ? box.width / table.offsetWidth : (studio.canvas.scale.value || 1),
+    columns: layout.columns,
+    exactColumns: layout.exact,
+    rows,
+  }
+}
+
+function sameMeasure(a: TableMeasure | null, b: TableMeasure | null) {
+  if (!a || !b)
+    return a === b
+  if (a.table !== b.table || a.exactColumns !== b.exactColumns)
+    return false
+  for (const key of ['left', 'top', 'width', 'height', 'scale'] as const)
+    if (Math.abs(a[key] - b[key]) > 0.5) return false
+  if (a.columns.length !== b.columns.length || a.rows.length !== b.rows.length)
+    return false
+  for (let index = 0; index < a.columns.length; index++) {
+    if (Math.abs(a.columns[index].left - b.columns[index].left) > 0.5
+      || Math.abs(a.columns[index].right - b.columns[index].right) > 0.5)
+      return false
+  }
+  for (let index = 0; index < a.rows.length; index++) {
+    const left = a.rows[index], right = b.rows[index]
+    if (left.el !== right.el || left.index !== right.index
+      || Math.abs(left.top - right.top) > 0.5 || Math.abs(left.bottom - right.bottom) > 0.5)
+      return false
+  }
+  return true
+}
+
+let measuredAt = 0
+useRafFn(() => {
+  if (drag.value || tableEditing.value) {
+    if (measure.value)
+      measure.value = null
+    return
+  }
+  const now = performance.now()
+  if (now - measuredAt < 120)
+    return
+  measuredAt = now
+  const next = measureTable()
+  if (!sameMeasure(measure.value, next))
+    measure.value = next
+})
+
+const columnHandles = computed(() => measure.value?.exactColumns
+  ? measure.value.columns.slice(0, -1).map((column, boundary) => ({ boundary, x: column.right }))
+  : [])
+const rowHandles = computed(() => measure.value?.rows.slice(0, -1).map(row => ({ row, y: row.bottom })) ?? [])
+const rangeBox = computed(() => {
+  const current = measure.value
+  const range = tableRange.value
+  if (!current || !range)
+    return null
+  const left = current.columns[range.columnStart]?.left
+  const right = current.columns[range.columnEnd]?.right
+  const top = current.rows.find(row => row.index === range.rowStart)?.top
+  const bottom = current.rows.find(row => row.index === range.rowEnd)?.bottom
+  if (left === undefined || right === undefined || top === undefined || bottom === undefined)
+    return null
+  return {
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${right - left}px`,
+    height: `${bottom - top}px`,
+  }
+})
+
+function roundWidth(value: number) {
+  return Math.round(value * 10) / 10
+}
+
+function listenDrag() {
+  window.addEventListener('pointermove', dragMove, true)
+  window.addEventListener('pointerup', dragEnd, true)
+  window.addEventListener('pointercancel', dragCancel, true)
+  window.addEventListener('keydown', dragKey, true)
+  window.addEventListener('blur', dragCancel, true)
+}
+
+function unlistenDrag() {
+  window.removeEventListener('pointermove', dragMove, true)
+  window.removeEventListener('pointerup', dragEnd, true)
+  window.removeEventListener('pointercancel', dragCancel, true)
+  window.removeEventListener('keydown', dragKey, true)
+  window.removeEventListener('blur', dragCancel, true)
+}
+
+function startColumnResize(event: PointerEvent, boundary: number) {
+  if (busy.value)
+    return
+  const current = measure.value
+  if (!current?.exactColumns || boundary < 0 || boundary >= current.columns.length - 1)
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  const widths = current.columns.map(column => (column.right - column.left) / current.width * 100)
+  const cols = [...current.table.querySelectorAll<HTMLTableColElement>('colgroup col')]
+  drag.value = {
+    kind: 'column',
+    boundary,
+    startX: event.clientX,
+    tableWidth: current.width,
+    widths,
+    cols,
+    originals: cols.map(col => col.style.width),
+    last: widths,
+    moved: false,
+  }
+  listenDrag()
+}
+
+function startRowResize(event: PointerEvent, row: MeasuredRow) {
+  if (busy.value)
+    return
+  const current = measure.value
+  if (!current)
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  drag.value = {
+    kind: 'row',
+    index: row.index,
+    startY: event.clientY,
+    startHeight: row.height / current.scale,
+    scale: current.scale,
+    tr: row.el,
+    original: row.el.style.height,
+    height: row.height / current.scale,
+    moved: false,
+  }
+  listenDrag()
+}
+
+function dragMove(event: PointerEvent) {
+  const current = drag.value
+  if (!current)
+    return
+  event.preventDefault()
+  if (current.kind === 'column') {
+    const delta = (event.clientX - current.startX) / current.tableWidth * 100
+    const next = resizeColumnWidths(current.widths, current.boundary, delta, 5)
+    current.last = next
+    next.forEach((width, index) => {
+      const col = current.cols[index]
+      if (col)
+        col.style.width = `${Math.round(width * 100) / 100}%`
+    })
+    current.moved = next.some((width, index) => Math.abs(width - current.widths[index]) > 0.01)
+    guide.value = { axis: 'x', at: event.clientX }
+  }
+  else {
+    const next = Math.max(8, current.startHeight + (event.clientY - current.startY) / current.scale)
+    current.height = next
+    current.tr.style.height = `${Math.round(next)}px`
+    current.moved = Math.abs(next - current.startHeight) > 0.5
+    guide.value = { axis: 'y', at: event.clientY }
+  }
+}
+
+function restoreDrag(current: ColumnDrag | RowDrag) {
+  if (current.kind === 'column')
+    current.cols.forEach((col, index) => { col.style.width = current.originals[index] ?? '' })
+  else
+    current.tr.style.height = current.original
+}
+
+async function dragEnd() {
+  const current = drag.value
+  unlistenDrag()
+  drag.value = null
+  guide.value = null
+  if (!current)
+    return
+  if (!current.moved) {
+    restoreDrag(current)
+    return
+  }
+  const range = currentRange()
+  const table = sourceTable()
+  if (!range || !table) {
+    restoreDrag(current)
+    return
+  }
+  let next = table
+  if (current.kind === 'column') {
+    const rounded = current.last.map(roundWidth)
+    const sum = rounded.slice(0, -1).reduce((total, width) => total + width, 0)
+    rounded[rounded.length - 1] = roundWidth(Math.max(0.1, 100 - sum))
+    next = {
+      ...table,
+      columns: table.columns.map((column, index) => ({ ...column, width: rounded[index] })),
+    }
+  }
+  else {
+    next = withRowHeight(table, current.index, Math.round(current.height))
+  }
+  try {
+    await studio.commit(writeTable(studio.content(), range, next), action('actionTableEdit'))
+  }
+  catch (error) {
+    restoreDrag(current)
+    reportError(error)
+  }
+}
+
+function dragCancel() {
+  const current = drag.value
+  unlistenDrag()
+  drag.value = null
+  guide.value = null
+  if (current)
+    restoreDrag(current)
+}
+
+function dragKey(event: KeyboardEvent) {
+  if (event.key !== 'Escape')
+    return
+  event.preventDefault()
+  event.stopPropagation()
+  void dragCancel()
+}
+
+async function resetRowHeight(row: MeasuredRow) {
+  const range = currentRange()
+  const table = sourceTable()
+  if (!range || !table)
+    return
+  await studio.commit(writeTable(studio.content(), range, withRowHeight(table, row.index, null)), action('actionTableEdit'))
+}
+
+async function resetColumnWidths(boundary: number) {
+  const range = currentRange()
+  const table = sourceTable()
+  if (!range || !table)
+    return
+  const columns = clearColumnWidths(table.columns, boundary)
+  if (columns === table.columns)
+    return
+  await studio.commit(writeTable(studio.content(), range, { ...table, columns }), action('actionTableEdit'))
+}
+
 
 /** The table block keeps its start line while cells and rows are edited. */
 function sessionRange(): SourceRange | null {
@@ -193,6 +552,7 @@ async function start(position: TableCellPosition, element?: HTMLElement) {
   session = { start: range[0], root }
   active.value = target
   tableCell.value = target
+  tableRange.value = null
   draft.value = tableCellValue(table, target)
   cell.value = element ?? findCell(target)
   needsFocus = true
@@ -216,6 +576,7 @@ async function commitDraft(table: TableData): Promise<TableData | null> {
 async function move(direction: -1 | 1) {
   if (!active.value || moving || closing || closePromise)
     return
+  tableRange.value = null
   const range = currentRange()
   const table = sourceTable()
   if (!table || !range)
@@ -343,20 +704,34 @@ function hit(event: Event) {
 }
 
 function click(event: MouseEvent) {
+  if (event.shiftKey || (event.target instanceof Element && event.target.closest('.studio-table-resize')))
+    return
   const found = hit(event)
   if (found)
     tableCell.value = found.position
 }
 
 function pointerDown(event: PointerEvent) {
-  if (event.button !== 0 || moving)
+  if (event.button !== 0 || moving || drag.value)
     return
-  if (tableEditing.value && !(event.target instanceof Element && event.target.closest('.studio-table-cell-editor')))
+  const target = event.target instanceof Element ? event.target : null
+  if (target?.closest('.studio-table-resize'))
+    return
+  if (tableEditing.value && !target?.closest('.studio-table-cell-editor'))
     void close(true)
   const found = hit(event)
   if (!found)
     return
+  if (event.shiftKey && tableCell.value) {
+    // This gesture belongs to the cell range, never to the table's move surface.
+    event.preventDefault()
+    event.stopPropagation()
+    const table = sourceTable()
+    tableRange.value = table ? tableRectBetween(table, tableCell.value, found.position) : null
+    return
+  }
   tableCell.value = found.position
+  tableRange.value = null
   const key = `${found.position.row ?? -1},${found.position.column}`
   const now = performance.now()
   if (lastClick && lastClick.root === found.root && lastClick.key === key && now - lastClick.time < 500) {
@@ -372,6 +747,8 @@ function pointerDown(event: PointerEvent) {
 }
 
 function doubleClick(event: MouseEvent) {
+  if (event.target instanceof Element && event.target.closest('.studio-table-resize'))
+    return
   const found = hit(event)
   if (!found || selection.value?.el !== found.root)
     return
@@ -412,6 +789,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   void close(true)
+  unlistenDrag()
   cancelAnimationFrame(frame)
   document.removeEventListener('pointerdown', pointerDown, true)
   document.removeEventListener('click', click, true)
@@ -420,6 +798,29 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <template v-if="measure && !tableEditing">
+    <div v-if="rangeBox" class="studio-table-range" :style="rangeBox" />
+    <div
+      v-for="handle in columnHandles"
+      :key="`column-${handle.boundary}`"
+      class="studio-table-resize studio-table-resize--column"
+      :style="{ left: `${handle.x - 4}px`, top: `${measure.top}px`, height: `${measure.height}px` }"
+      :title="t('tableDragColumnWidth')"
+      @pointerdown="startColumnResize($event, handle.boundary)"
+      @dblclick.stop="resetColumnWidths(handle.boundary)"
+    />
+    <div
+      v-for="handle in rowHandles"
+      :key="`row-${handle.row.index ?? 'header'}`"
+      class="studio-table-resize studio-table-resize--row"
+      :style="{ top: `${handle.y - 4}px`, left: `${measure.left}px`, width: `${measure.width}px` }"
+      :title="t('tableDragRowHeight')"
+      @pointerdown="startRowResize($event, handle.row)"
+      @dblclick.stop="resetRowHeight(handle.row)"
+    />
+    <div v-if="guide?.axis === 'x'" class="studio-table-guide" :style="{ left: `${guide.at}px`, top: `${measure.top}px`, height: `${measure.height}px` }" />
+    <div v-else-if="guide?.axis === 'y'" class="studio-table-guide studio-table-guide--row" :style="{ top: `${guide.at}px`, left: `${measure.left}px`, width: `${measure.width}px` }" />
+  </template>
   <textarea
     v-if="tableEditing && rect"
     ref="textarea"
@@ -434,6 +835,39 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.studio-table-range {
+  position: fixed;
+  z-index: 91;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--studio-accent) 16%, transparent);
+  border: 1px solid var(--studio-accent);
+  border-radius: 1px;
+}
+.studio-table-resize {
+  position: fixed;
+  z-index: 92;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  background: transparent;
+}
+.studio-table-resize:hover,
+.studio-table-resize:active {
+  background: color-mix(in srgb, var(--studio-accent) 30%, transparent);
+}
+.studio-table-resize--column { width: 8px; cursor: col-resize; }
+.studio-table-resize--row { height: 8px; cursor: row-resize; }
+.studio-table-guide {
+  position: fixed;
+  z-index: 93;
+  width: 1px;
+  background: var(--studio-accent);
+  pointer-events: none;
+}
+.studio-table-guide--row {
+  width: auto;
+  height: 1px;
+}
 .studio-table-cell-editor {
   position: fixed;
   z-index: 120;

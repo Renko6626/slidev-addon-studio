@@ -65,3 +65,34 @@ it('applies striped class and font size', () => {
   expect(table.classList.contains('studio-table--border')).toBe(false)
   expect(table.getAttribute('style')).toContain('font-size: 18px')
 })
+it('renders merged spans, skips covered cells and applies row heights', () => {
+  const root = mount({
+    columns: [{ label: 'A' }, { label: 'B' }, { label: 'C' }],
+    rows: [['1', '2', '3'], ['4', '5', '6']],
+    merges: [{ row: 0, column: 0, rowspan: 2, colspan: 2 }],
+    rowHeights: [60, null],
+    headerHeight: 44,
+  })
+  expect(root.querySelector('thead tr')!.getAttribute('style')).toContain('height: 44px')
+  const rows = root.querySelectorAll('tbody tr')
+  expect(rows[0]!.getAttribute('style')).toContain('height: 60px')
+  expect(rows[1]!.getAttribute('style')).toBeNull()
+  const cells = root.querySelectorAll('td')
+  expect(cells.length).toBe(3)
+  expect(cells[0]!.getAttribute('colspan')).toBe('2')
+  expect(cells[0]!.getAttribute('rowspan')).toBe('2')
+  expect(cells[0]!.textContent!.trim()).toBe('1')
+  expect(cells[1]!.textContent!.trim()).toBe('3')
+})
+
+it('renders a merged header as one cell', () => {
+  const root = mount({
+    columns: [{ label: 'A' }, { label: 'B' }, { label: 'C' }],
+    rows: [['1', '2', '3']],
+    merges: [{ row: -1, column: 0, rowspan: 1, colspan: 3 }],
+  })
+  const headers = root.querySelectorAll('th')
+  expect(headers.length).toBe(1)
+  expect(headers[0]!.getAttribute('colspan')).toBe('3')
+  expect(headers[0]!.textContent!.trim()).toBe('A')
+})

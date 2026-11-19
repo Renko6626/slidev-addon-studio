@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { TableColumn } from '../shared/table'
+import type { TableColumn, TableMerge } from '../shared/table'
 import { computed } from 'vue'
-import { normaliseTable } from '../shared/table'
+import { normaliseTable, resolveTableGrid } from '../shared/table'
 
 const props = withDefaults(defineProps<{
   columns?: TableColumn[]
@@ -10,7 +10,10 @@ const props = withDefaults(defineProps<{
   border?: boolean
   striped?: boolean
   fontSize?: number
-}>(), { columns: () => [], rows: () => [], header: true, border: true, striped: false })
+  merges?: TableMerge[]
+  headerHeight?: number
+  rowHeights?: (number | null)[]
+}>(), { columns: () => [], rows: () => [], header: true, border: true, striped: false, merges: () => [], rowHeights: () => [] })
 
 /** Rows may arrive before columns when the source only declares `:rows`. */
 const table = computed(() => {
@@ -24,8 +27,25 @@ const table = computed(() => {
     border: props.border,
     striped: props.striped,
     fontSize: props.fontSize,
+    merges: props.merges,
+    headerHeight: props.headerHeight,
+    rowHeights: props.rowHeights,
   })
 })
+const grid = computed(() => resolveTableGrid(table.value))
+const headerCells = computed(() => table.value.header ? grid.value[0] ?? [] : [])
+const bodyRows = computed(() => table.value.header ? grid.value.slice(1) : grid.value)
+
+function rowStyle(row: number | null) {
+  const height = row === null ? table.value.headerHeight : table.value.rowHeights?.[row] ?? null
+  return height ? { height: `${height}px` } : undefined
+}
+
+function cellText(row: number, column: number) {
+  return row === -1
+    ? table.value.columns[column]?.label ?? ''
+    : table.value.rows[row]?.[column] ?? ''
+}
 </script>
 
 <template>
@@ -40,27 +60,33 @@ const table = computed(() => {
         <col v-for="(column, index) in table.columns" :key="index" :style="column.width ? { width: `${column.width}%` } : undefined">
       </colgroup>
       <thead v-if="table.header && table.columns.length">
-        <tr>
-          <th
-            v-for="(column, index) in table.columns"
-            :key="index"
-            :data-studio-table-cell="`-1,${index}`"
-            :style="{ textAlign: column.align }"
-          >
-            {{ column.label }}
-          </th>
+        <tr :style="rowStyle(null)">
+          <template v-for="cell in headerCells" :key="cell.column">
+            <th
+              v-if="!cell.covered"
+              :data-studio-table-cell="`-1,${cell.column}`"
+              :colspan="cell.colspan > 1 ? cell.colspan : undefined"
+              :rowspan="cell.rowspan > 1 ? cell.rowspan : undefined"
+              :style="{ textAlign: table.columns[cell.column]?.align }"
+            >
+              {{ cellText(-1, cell.column) }}
+            </th>
+          </template>
         </tr>
       </thead>
       <tbody>
-        <tr v-for="(row, rowIndex) in table.rows" :key="rowIndex">
-          <td
-            v-for="(cell, cellIndex) in row"
-            :key="cellIndex"
-            :data-studio-table-cell="`${rowIndex},${cellIndex}`"
-            :style="{ textAlign: table.columns[cellIndex]?.align ?? 'left' }"
-          >
-            {{ cell }}
-          </td>
+        <tr v-for="(row, rowIndex) in bodyRows" :key="rowIndex" :style="rowStyle(rowIndex)">
+          <template v-for="cell in row" :key="cell.column">
+            <td
+              v-if="!cell.covered"
+              :data-studio-table-cell="`${rowIndex},${cell.column}`"
+              :colspan="cell.colspan > 1 ? cell.colspan : undefined"
+              :rowspan="cell.rowspan > 1 ? cell.rowspan : undefined"
+              :style="{ textAlign: table.columns[cell.column]?.align ?? 'left' }"
+            >
+              {{ cellText(rowIndex, cell.column) }}
+            </td>
+          </template>
         </tr>
       </tbody>
     </table>
@@ -79,7 +105,7 @@ const table = computed(() => {
 
 <studio lang="yaml">
 propsMode: declared
-description: 纯文本单元格表格，列宽、对齐与表头在右侧编辑
+description: 纯文本单元格表格，可合并单元格并设置行列尺寸；列宽、对齐与表头在右侧编辑
 category: 内容
 snippet: >-
   <StudioTable :columns="[{ label: '列 1' }, { label: '列 2' }, { label: '列 3' }]" :rows="[['', '', ''], ['', '', '']]" />
@@ -95,5 +121,11 @@ props:
   striped:
     hidden: true
   fontSize:
+    hidden: true
+  merges:
+    hidden: true
+  headerHeight:
+    hidden: true
+  rowHeights:
     hidden: true
 </studio>

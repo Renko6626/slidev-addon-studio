@@ -1,8 +1,8 @@
-import type { TableColumn, TableData } from '../../shared/table'
+import type { TableColumn, TableData, TableMerge } from '../../shared/table'
 import type { SourceRange } from '../types'
 import { TABLE_DEFAULTS, normaliseTable } from '../../shared/table'
 import { decodeEntities } from './entities'
-import { formatStringMatrix, parsePrimitive, parseStringMatrix, quote, splitTopLevel } from './literals'
+import { formatStringMatrix, parseNullableNumberArray, parseObjectArray, parsePrimitive, parseStringMatrix, quote, splitTopLevel } from './literals'
 import { getBlock, replaceBlock } from './lines'
 import { findAttr, opensWithTag, parseAttrs, sameAttr, writeAttr } from './tags'
 
@@ -15,6 +15,7 @@ export interface TableReadResult {
 }
 
 const ALIGNMENTS = new Set(['left', 'center', 'right'])
+const MERGE_KEYS = new Set(['row', 'column', 'rowspan', 'colspan'])
 
 function defaults(): TableData {
   return { columns: [], rows: [], ...TABLE_DEFAULTS }
@@ -109,6 +110,70 @@ export function formatTableColumns(columns: TableColumn[], indent = '  '): strin
   return `[\n${rendered.map(column => `${indent}${column},`).join('\n')}\n]`
 }
 
+/** Reads the merge list strictly: bounds, direction and overlap all matter. */
+export function parseTableMerges(raw: string | null | undefined, rows: number, columns: number): TableMerge[] | null {
+  if (!raw)
+    return null
+  const entries = parseObjectArray(raw)
+  if (!entries)
+    return null
+
+  const merges: TableMerge[] = []
+  for (const entry of entries) {
+    if (Object.keys(entry).some(key => !MERGE_KEYS.has(key)))
+      return null
+    const row = entry.row
+    const column = entry.column
+    const rowspan = entry.rowspan ?? 1
+    const colspan = entry.colspan ?? 1
+    if (typeof row !== 'number' || !Number.isInteger(row) || row < -1)
+      return null
+    if (typeof column !== 'number' || !Number.isInteger(column) || column < 0 || column >= columns)
+      return null
+    if (typeof rowspan !== 'number' || !Number.isInteger(rowspan) || rowspan < 1)
+      return null
+    if (typeof colspan !== 'number' || !Number.isInteger(colspan) || colspan < 1)
+      return null
+    if (rowspan === 1 && colspan === 1)
+      return null
+    if (row === -1) {
+      if (rowspan !== 1 || column + colspan > columns)
+        return null
+    }
+    else if (row >= rows || row + rowspan > rows || column + colspan > columns) {
+      return null
+    }
+    const merge: TableMerge = { row, column, rowspan, colspan }
+    if (merges.some(other => merge.row < other.row + other.rowspan && other.row < merge.row + merge.rowspan
+      && merge.column < other.column + other.colspan && other.column < merge.column + merge.colspan))
+      return null
+    merges.push(merge)
+  }
+  return merges.sort((a, b) => a.row - b.row || a.column - b.column)
+}
+
+export function formatTableMerges(merges: TableMerge[], indent = '  '): string {
+  if (!merges.length)
+    return '[]'
+  const rendered = merges.map((merge) => {
+    const parts = [`row: ${merge.row}`, `column: ${merge.column}`]
+    if (merge.rowspan > 1)
+      parts.push(`rowspan: ${merge.rowspan}`)
+    if (merge.colspan > 1)
+      parts.push(`colspan: ${merge.colspan}`)
+    return `{ ${parts.join(', ')} }`
+  })
+  const inline = `[${rendered.join(', ')}]`
+  return inline.length <= 100 ? inline : `[\n${rendered.map(merge => `${indent}${merge},`).join('\n')}\n]`
+}
+
+function trimmedHeights(heights: (number | null)[] | undefined) {
+  const values = heights?.slice() ?? []
+  while (values.length && values[values.length - 1] === null)
+    values.pop()
+  return values
+}
+
 /** Reads the table data a StudioTable tag carries, without evaluating source. */
 export function readTable(content: string, range: SourceRange): TableReadResult {
   const block = getBlock(content, range)
@@ -125,14 +190,21 @@ export function readTable(content: string, range: SourceRange): TableReadResult 
   const attrs = parseAttrs(tag.attrs)
   const columnAttrs = attrs.filter(attr => sameAttr(attr.name, 'columns'))
   const rowAttrs = attrs.filter(attr => sameAttr(attr.name, 'rows'))
-  if (attrs.some(attr => attr.raw === 'v-bind') || columnAttrs.length > 1 || rowAttrs.length > 1)
+  const mergeAttrs = attrs.filter(attr => sameAttr(attr.name, 'merges'))
+  const heightAttrs = attrs.filter(attr => sameAttr(attr.name, 'rowHeights'))
+  const headerHeightAttrs = attrs.filter(attr => sameAttr(attr.name, 'headerHeight'))
+  const duplicated = [columnAttrs, rowAttrs, mergeAttrs, heightAttrs, headerHeightAttrs].some(list => list.length > 1)
+  if (attrs.some(attr => attr.raw === 'v-bind') || duplicated)
     return { table: normaliseTable({ ...defaults(), ...style }), explicit: true, unparsed: true }
 
   const columnsAttr = columnAttrs[0] ?? null
   const rowsAttr = rowAttrs[0] ?? null
+  const mergeAttr = mergeAttrs[0] ?? null
+  const heightAttr = heightAttrs[0] ?? null
+  const headerHeightAttr = headerHeightAttrs[0] ?? null
   const explicit = !!columnsAttr || !!rowsAttr
   if (!explicit)
-    return { table: normaliseTable({ ...defaults(), ...style }), explicit: false, unparsed: false }
+    return { table: normaliseTable({ ...defaults(), ...style }), explicit: false, unparsed: !!mergeAttr || !!heightAttr || !!headerHeightAttr }
 
   let unparsed = false
   let columns: TableColumn[] | undefined
@@ -174,11 +246,59 @@ export function readTable(content: string, range: SourceRange): TableReadResult 
   if (tableRows.some(row => row.length > tableColumns.length))
     return { table: normaliseTable({ ...defaults(), ...style }), explicit, unparsed: true }
 
+  let merges: TableMerge[] | undefined
+  if (mergeAttr) {
+    if (!mergeAttr.bound || mergeAttr.value === null) {
+      unparsed = true
+    }
+    else {
+      const parsed = parseTableMerges(decodeAttr(mergeAttr.value), tableRows.length, tableColumns.length)
+      if (parsed)
+        merges = parsed
+      else
+        unparsed = true
+    }
+  }
+
+  let rowHeights: (number | null)[] | undefined
+  if (heightAttr) {
+    if (!heightAttr.bound || heightAttr.value === null) {
+      unparsed = true
+    }
+    else {
+      const parsed = parseNullableNumberArray(decodeAttr(heightAttr.value))
+      if (!parsed || parsed.length > tableRows.length || parsed.some(value => value !== null && (!(value > 0) || !Number.isFinite(value))))
+        unparsed = true
+      else if (parsed.some(value => value !== null))
+        rowHeights = parsed
+    }
+  }
+
+  let headerHeight: number | undefined
+  if (headerHeightAttr) {
+    if (!headerHeightAttr.bound || headerHeightAttr.value === null) {
+      unparsed = true
+    }
+    else {
+      const value = Number(decodeAttr(headerHeightAttr.value))
+      if (Number.isFinite(value) && value > 0)
+        headerHeight = value
+      else
+        unparsed = true
+    }
+  }
+
+  if (unparsed)
+    return { table: normaliseTable({ ...defaults(), ...style }), explicit, unparsed: true }
+
   return {
     table: normaliseTable({
       columns: tableColumns,
       rows: tableRows,
       ...style,
+      merges,
+      headerHeight,
+      rowHeights,
     }),
     explicit: true,
     unparsed: false,
@@ -195,7 +315,15 @@ export function writeTable(content: string, range: SourceRange, table: TableData
   const data = normaliseTable(table)
   let next = writeAttr(block, 'columns', attrValue(formatTableColumns(data.columns)), { bound: true })
   next = writeAttr(next, 'rows', attrValue(formatStringMatrix(data.rows)), { bound: true })
+  next = writeAttr(next, 'merges', data.merges?.length ? attrValue(formatTableMerges(data.merges)) : null, { bound: true })
+  const heights = trimmedHeights(data.rowHeights)
+  next = writeAttr(next, 'row-heights', heights.length ? attrValue(formatHeightList(heights)) : null, { bound: true })
+  next = writeAttr(next, 'header-height', data.headerHeight ? String(data.headerHeight) : null, { bound: true })
   return replaceBlock(content, range, next)
+}
+
+function formatHeightList(heights: (number | null)[]) {
+  return `[${heights.map(height => height === null ? 'null' : String(height)).join(', ')}]`
 }
 
 export interface TableStylePatch {

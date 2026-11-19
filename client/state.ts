@@ -1,6 +1,7 @@
 import type { ComponentFieldTarget } from './component-fields'
 import type { TableCellPosition } from './md/table-cell'
 import type { StudioTarget } from './types'
+import type { TableRect } from '../shared/table'
 import { useLocalStorage } from '@vueuse/core'
 import { computed, ref, shallowRef, watch } from 'vue'
 import { editorOpenStorageKey } from '../shared/editor-mode'
@@ -41,13 +42,17 @@ watch(selection, target => {
 }, { flush: 'sync' })
 /** The table cell last clicked or edited, shared by the canvas, ribbon and sidebar. */
 export const tableCell = shallowRef<TableCellPosition | null>(null)
+/** A rectangle of cells picked with Shift+click, used for merging. */
+export const tableRange = shallowRef<TableRect | null>(null)
 export const tableEditing = ref(false)
 /** One-shot request from the table ribbon or sidebar to edit a cell. */
 export const tableEditRequest = shallowRef<TableCellPosition | null>(null)
 watch(selection, (target, previous) => {
   if (!target || target.tag !== 'StudioTable'
-    || (previous?.tag === 'StudioTable' && previous.range?.[0] !== target.range?.[0]))
+    || (previous?.tag === 'StudioTable' && previous.range?.[0] !== target.range?.[0])) {
     tableCell.value = null
+    tableRange.value = null
+  }
 }, { flush: 'sync' })
 export const marquee = shallowRef<{ left: number, top: number, width: number, height: number } | null>(null)
 /**
@@ -98,4 +103,4 @@ export function clearSelection() {
 // A single place to look when something in the editor is not behaving: the
 // live state is on `window.__studio__` while the dev server is running.
 if (typeof window !== 'undefined')
-  (window as any).__studio__ = { studioOpen, activePanel, selection, hovered, busy, lastError, editing, missed, tableCell, tableEditing }
+  (window as any).__studio__ = { studioOpen, activePanel, selection, hovered, busy, lastError, editing, missed, tableCell, tableRange, tableEditing }

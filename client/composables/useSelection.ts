@@ -120,6 +120,9 @@ export function useSelection(
     if (isStudioChrome(event.target)) {
       if (event.shiftKey && event.target instanceof Element && event.target.closest('.studio-move')) {
         const target = throughChrome(event.clientX, event.clientY)
+        // A selected table owns Shift+click: it picks a rectangle of cells.
+        if (target?.tag === 'StudioTable' && selection.value?.el === target.el)
+          return
         if (target && isMultiSelectable(target, content())) {
           event.preventDefault(); event.stopPropagation(); toggleTarget(target)
         }

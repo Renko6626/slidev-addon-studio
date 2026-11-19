@@ -175,6 +175,33 @@ export function formatStringMatrix(rows: string[][], indent = '  '): string {
   return `[\n${rendered.map(row => `${indent}${row},`).join('\n')}\n]`
 }
 
+/** Reads a list of numbers where `null` means "no explicit value". */
+export function parseNullableNumberArray(raw: string | null | undefined): (number | null)[] | null {
+  if (!raw)
+    return null
+
+  const text = raw.trim()
+  if (!text.startsWith('[') || !text.endsWith(']'))
+    return null
+
+  const body = text.slice(1, -1).trim()
+  if (!body)
+    return []
+
+  const values: (number | null)[] = []
+  for (const item of splitTopLevel(body)) {
+    if (item === 'null') {
+      values.push(null)
+      continue
+    }
+    const parsed = parsePrimitive(item)
+    if (typeof parsed !== 'number' || !Number.isFinite(parsed))
+      return null
+    values.push(parsed)
+  }
+  return values
+}
+
 /** Whether a prop's declared type is an array. */
 export function isArrayType(type: string | undefined) {
   const value = (type ?? '').trim().toLowerCase()

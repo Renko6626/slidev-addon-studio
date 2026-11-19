@@ -131,10 +131,20 @@
   Tab and Shift+Tab move between cells, and Tab after the last cell appends a
   row. The sidebar holds the current column's properties rather than a data
   grid, so large tables rely on canvas zoom and the contextual Table tab.
-  Merged cells, rich-text cells, drag column resizing and conversion back to
-  Markdown are not provided. Existing Markdown tables stay source-editable and
-  convert one way in the inspector; inline formatting is flattened to text. A
-  positioned table sizes itself from its rows unless a height is set.
+  Shift-click picks a cell rectangle for merging; merges are stored in a
+  separate `merges` prop and keep the top-left content, clearing the other
+  cells. Rows and columns inserted inside a merge extend it, deletion shrinks
+  it, and moving a row or column that intersects a merge is refused. Row
+  heights and column widths are written as props; the row height acts as a
+  minimum, so long content still grows the row. The last body row's bottom edge
+  is not a drag handle (use the sidebar). Column boundaries are measured on a
+  row no merge splits; when every row is merged the range highlight still
+  works, but column widths are edited in the sidebar instead of by dragging.
+  A header merge stays in the source when the header is hidden and returns when
+  it is shown. Rich-text cells and conversion back to Markdown are not
+  provided. Existing Markdown tables stay source-editable and convert one way
+  in the inspector; inline formatting is flattened to text. A positioned table
+  sizes itself from its rows unless a height is set.
 - Studio text boxes support character-level fonts, sizes, colours and marks,
   paragraph alignment/spacing and lists. Automatic height and fixed size are
   available; fixed boxes support vertical alignment and all eight resize handles.

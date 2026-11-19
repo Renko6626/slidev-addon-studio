@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import type { TableAlign, TableColumn, TableData } from '../../../shared/table'
 import type { TableStylePatch } from '../../md/table'
-import { addColumn, addRow, moveColumn, removeColumn } from '../../../shared/table'
+import { addColumn, addRow, mergeAt, mergeTableRange, moveColumn, removeColumn, splitTableMerge, withRowHeight } from '../../../shared/table'
 import { computed } from 'vue'
 import { editSource } from '../../actions'
 import { useStudio } from '../../context'
 import { action, t } from '../../i18n'
 import { readTable, writeTable, writeTableStyle } from '../../md/table'
-import { clampTableCell, defaultTableCell } from '../../md/table-cell'
-import { busy, editing, selection, tableCell, tableEditRequest } from '../../state'
+import { clampTableCell, defaultTableCell, tableRectIsFree } from '../../md/table-cell'
+import { busy, editing, selection, tableCell, tableEditRequest, tableRange } from '../../state'
 import StudioIcon from './StudioIcon.vue'
 
 const ALIGNMENTS: { value: TableAlign, icon: string, label: 'alignLeft' | 'alignCenter' | 'alignRight' }[] = [
@@ -25,6 +25,32 @@ const unparsed = computed(() => !!state.value?.unparsed)
 const locked = computed(() => busy.value || editing.value)
 const selected = computed(() => Math.min(tableCell.value?.column ?? 0, Math.max(0, (table.value?.columns.length ?? 1) - 1)))
 const current = computed(() => table.value?.columns[selected.value] ?? null)
+const cell = computed(() => tableCell.value)
+const rowHeight = computed(() => {
+  if (!table.value || !cell.value)
+    return null
+  return cell.value.row === null ? table.value.headerHeight ?? null : table.value.rowHeights?.[cell.value.row] ?? null
+})
+const canMerge = computed(() => {
+  const rect = tableRange.value
+  const data = table.value
+  if (!data || !rect)
+    return false
+  if (rect.rowStart === rect.rowEnd && rect.columnStart === rect.columnEnd)
+    return false
+  return tableRectIsFree(data, rect)
+})
+const canSplit = computed(() => {
+  if (!table.value || !cell.value)
+    return false
+  return !!mergeAt(table.value, cell.value.row ?? -1, cell.value.column)
+})
+function columnInSpan(index: number) {
+  return table.value?.merges?.some(merge => index >= merge.column && index < merge.column + merge.colspan) ?? false
+}
+const canMoveLeft = computed(() => selected.value > 0 && !columnInSpan(selected.value) && !columnInSpan(selected.value - 1))
+const canMoveRight = computed(() => !!table.value && selected.value < table.value.columns.length - 1
+  && !columnInSpan(selected.value) && !columnInSpan(selected.value + 1))
 
 async function commit(next: TableData) {
   if (locked.value || !range.value)
@@ -36,6 +62,40 @@ async function commitStyle(patch: TableStylePatch) {
   if (locked.value || !range.value)
     return
   await studio.commit(writeTableStyle(studio.content(), range.value, patch), action('actionTableEdit'))
+}
+
+function setRowHeight(raw: string) {
+  if (!table.value || !cell.value)
+    return
+  if (!raw.trim()) {
+    void commit(withRowHeight(table.value, cell.value.row, null))
+    return
+  }
+  const height = Number(raw)
+  if (Number.isFinite(height) && height >= 8)
+    void commit(withRowHeight(table.value, cell.value.row, height))
+}
+
+async function mergeSelected() {
+  if (!table.value || !tableRange.value)
+    return
+  const rect = tableRange.value
+  const next = mergeTableRange(table.value, rect)
+  if (next === table.value)
+    return
+  tableRange.value = null
+  await commit(next)
+  tableCell.value = { row: rect.rowStart === -1 ? null : rect.rowStart, column: rect.columnStart }
+}
+
+async function splitSelected() {
+  if (!table.value || !cell.value)
+    return
+  const next = splitTableMerge(table.value, cell.value.row ?? -1, cell.value.column)
+  if (next === table.value)
+    return
+  await commit(next)
+  tableCell.value = clampTableCell(next, cell.value)
 }
 
 function updateColumn(index: number, patch: Partial<TableColumn>) {
@@ -94,9 +154,12 @@ function moveSelected(direction: -1 | 1) {
   if (!table.value)
     return
   const target = selected.value + direction
-  if (target < 0 || target >= table.value.columns.length)
+  if (target < 0 || target >= table.value.columns.length || columnInSpan(selected.value) || columnInSpan(target))
     return
-  void commit(moveColumn(table.value, selected.value, direction))
+  const next = moveColumn(table.value, selected.value, direction)
+  if (next === table.value)
+    return
+  void commit(next)
   tableCell.value = { row: tableCell.value?.row ?? null, column: target }
 }
 
@@ -132,6 +195,15 @@ function editCell() {
         </button>
         <button type="button" class="studio-button" :disabled="locked || !table.columns.length" @click="appendRow">
           <StudioIcon name="plus" :size="13" /> {{ t('tableAddRow') }}
+        </button>
+      </div>
+
+      <div class="studio-table-toolbar">
+        <button type="button" class="studio-button" :disabled="locked || !canMerge" :title="t('tableMergeHint')" @click="mergeSelected">
+          <StudioIcon name="components" :size="13" /> {{ t('tableMerge') }}
+        </button>
+        <button type="button" class="studio-button" :disabled="locked || !canSplit" @click="splitSelected">
+          <StudioIcon name="flow" :size="13" /> {{ t('tableSplit') }}
         </button>
       </div>
 
@@ -178,10 +250,27 @@ function editCell() {
           <span>%</span>
         </label>
         <div class="studio-table-columnbar__actions">
-          <button type="button" class="studio-icon-button" :disabled="locked || selected === 0" :title="t('tableMoveColumnLeft')" :aria-label="t('tableMoveColumnLeft')" @click="moveSelected(-1)"><StudioIcon name="back" :size="12" /></button>
-          <button type="button" class="studio-icon-button" :disabled="locked || selected === table.columns.length - 1" :title="t('tableMoveColumnRight')" :aria-label="t('tableMoveColumnRight')" @click="moveSelected(1)"><StudioIcon name="back" :size="12" style="transform: scaleX(-1)" /></button>
+          <button type="button" class="studio-icon-button" :disabled="locked || !canMoveLeft" :title="t('tableMoveColumnLeft')" :aria-label="t('tableMoveColumnLeft')" @click="moveSelected(-1)"><StudioIcon name="back" :size="12" /></button>
+          <button type="button" class="studio-icon-button" :disabled="locked || !canMoveRight" :title="t('tableMoveColumnRight')" :aria-label="t('tableMoveColumnRight')" @click="moveSelected(1)"><StudioIcon name="back" :size="12" style="transform: scaleX(-1)" /></button>
           <button type="button" class="studio-icon-button" :disabled="locked" :title="t('tableRemoveColumn')" :aria-label="t('tableRemoveColumn')" @click="removeSelectedColumn"><StudioIcon name="trash" :size="12" /></button>
         </div>
+      </div>
+
+      <div v-if="cell" class="studio-table-rowbar">
+        <span class="studio-table-rowbar__title">{{ cell.row === null ? t('tableHeaderHeight') : t('tableRow', { index: cell.row + 1 }) }}</span>
+        <label class="studio-table-width" :title="t('tableRowHeight')">
+          <input
+            class="studio-table-width-input"
+            type="number"
+            min="8"
+            :value="rowHeight ?? ''"
+            :placeholder="t('auto')"
+            :aria-label="t('tableRowHeight')"
+            :disabled="locked"
+            @change="setRowHeight(($event.target as HTMLInputElement).value)"
+          >
+          <span>px</span>
+        </label>
       </div>
 
       <p class="studio-hint">{{ t('tableCellHint') }}</p>
@@ -209,4 +298,7 @@ function editCell() {
 .studio-table-width { display: flex; align-items: center; gap: 2px; }
 .studio-table-width-input { flex: 0 0 54px; width: 54px; padding: 2px 4px; font-size: 11px; }
 .studio-table-width span { color: var(--studio-text-dim); font-size: 10px; }
+.studio-table-rowbar { display: flex; align-items: center; gap: 6px; padding: 5px 6px; background: var(--studio-bg-soft); border: 1px solid var(--studio-border); border-radius: 6px; color: var(--studio-text-dim); font-size: 12px; }
+.studio-table-rowbar__title { white-space: nowrap; }
+.studio-table-rowbar .studio-table-width { margin-left: auto; }
 </style>

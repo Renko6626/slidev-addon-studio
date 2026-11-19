@@ -18,14 +18,14 @@ import { canRedo, canUndo, lastAction, useStudioHistory } from '../composables/u
 import { appendElement, createTextElement, patchElementStyle } from '../md/elements'
 import { createInteractionButton, createQuizPage, listQuestions, readInteraction } from '../md/interactions'
 import { DEFAULT_TABLE_SNIPPET } from '../../shared/table'
-import { addColumn, addRow, removeColumn, removeRow } from '../../shared/table'
+import { addColumn, addRow, mergeAt, mergeTableRange, removeColumn, removeRow, splitTableMerge } from '../../shared/table'
 import { readTable, writeTable, writeTableStyle } from '../md/table'
-import { clampTableCell, defaultTableCell } from '../md/table-cell'
+import { clampTableCell, defaultTableCell, tableRectIsFree } from '../md/table-cell'
 import { imageLibraryRequest, imagePending, useImageInsertion } from '../composables/useImageInsertion'
 import ShapePicker from './parts/ShapePicker.vue'
 import ArrangeSelection from './parts/ArrangeSelection.vue'
 import TextElementFields from './parts/TextElementFields.vue'
-import { activePanel, busy, clearSelection, editing, gridEnabled, inspectorVisible, library, notesVisible, outlineEnabled, ribbonTab, selectAllOnEdit, selection, selectedTargets, slidesVisible, snapEnabled, studioOpen, reportError, tableCell, tableEditing, tableEditRequest } from '../state'
+import { activePanel, busy, clearSelection, editing, gridEnabled, inspectorVisible, library, notesVisible, outlineEnabled, ribbonTab, selectAllOnEdit, selection, selectedTargets, slidesVisible, snapEnabled, studioOpen, reportError, tableCell, tableEditing, tableEditRequest, tableRange } from '../state'
 import PanelTransition from './panels/PanelTransition.vue'
 import StudioIcon from './parts/StudioIcon.vue'
 
@@ -204,6 +204,45 @@ function addTableColumnEnd() {
   const next = addColumn(active.table, at, { label: t('tableColumn', { index: at + 1 }) })
   return commitTable(next, { row: active.position.row, column: at })
 }
+
+const mergeReady = computed(() => {
+  const active = activeTable()
+  const rect = tableRange.value
+  if (!active || !rect)
+    return false
+  if (rect.rowStart === rect.rowEnd && rect.columnStart === rect.columnEnd)
+    return false
+  return tableRectIsFree(active.table, rect)
+})
+
+const splitReady = computed(() => {
+  const active = activeTable()
+  const position = active?.position
+  return !!active && !!position && !!mergeAt(active.table, position.row ?? -1, position.column)
+})
+
+async function mergeTableCells() {
+  const active = activeTable()
+  const rect = tableRange.value
+  if (!active || !rect || locked.value)
+    return
+  const next = mergeTableRange(active.table, rect)
+  if (next === active.table)
+    return
+  tableRange.value = null
+  await commitTable(next, { row: rect.rowStart === -1 ? null : rect.rowStart, column: rect.columnStart })
+}
+
+async function splitTableCell() {
+  const active = activeTable()
+  if (!active?.position || locked.value)
+    return
+  const next = splitTableMerge(active.table, active.position.row ?? -1, active.position.column)
+  if (next === active.table)
+    return
+  await commitTable(next, clampTableCell(next, active.position))
+}
+
 async function insertQuiz(mode: 'single' | 'multiple') {
   if (locked.value) return
   const page = createQuizPage(mode, { width: studio.canvas.slideWidth.value, height: studio.canvas.slideHeight.value }, {
@@ -305,6 +344,10 @@ const groups = computed<Group[]>(() => {
           { label: 'insertColumnRight', icon: 'plus', run: () => insertTableColumn('right'), disabled: tableLocked || !position },
           { label: 'tableDeleteColumn', icon: 'trash', run: deleteTableColumn, disabled: tableLocked || !position },
           { label: 'tableAddColumn', icon: 'plus', run: addTableColumnEnd, disabled: tableLocked || !position },
+        ] },
+        { label: 'tableMergeGroup', commands: [
+          { label: 'tableMerge', icon: 'components', run: mergeTableCells, disabled: tableLocked || !mergeReady.value },
+          { label: 'tableSplit', icon: 'flow', run: splitTableCell, disabled: tableLocked || !splitReady.value },
         ] },
         { label: 'tableCellGroup', commands: [
           { label: 'tableEditCell', icon: 'edit', run: editTableCell, disabled: tableLocked || !position },
