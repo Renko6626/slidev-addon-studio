@@ -4,10 +4,12 @@ import { afterEach, expect, it } from 'vitest'
 import { createApp, h } from 'vue'
 import type { App, Component } from 'vue'
 import * as tableApi from '../shared/table'
+import * as tableHtmlApi from '../shared/table-html'
 import { loadVueComponent } from './sfc'
 
 const Table: Component = loadVueComponent(resolve(process.cwd(), 'components/StudioTable.vue'), {
   '../shared/table': tableApi,
+  '../shared/table-html': tableHtmlApi,
 })
 const apps: App[] = []
 
@@ -95,4 +97,17 @@ it('renders a merged header as one cell', () => {
   expect(headers.length).toBe(1)
   expect(headers[0]!.getAttribute('colspan')).toBe('3')
   expect(headers[0]!.textContent!.trim()).toBe('A')
+})
+
+it('renders rich cells with sanitised inline HTML', () => {
+  const root = mount({
+    columns: [{ label: '<em>Head</em>' }],
+    rows: [['<strong>bold</strong><script>bad()</script><span style="color: #ff0000">red</span>']],
+    rich: true,
+  })
+  expect(root.querySelector('th em')!.textContent).toBe('Head')
+  expect(root.querySelector('td strong')!.textContent).toBe('bold')
+  expect(root.querySelector('td script')).toBeNull()
+  expect(root.querySelector('td span[style*="color"]')!.textContent).toBe('red')
+  expect(root.querySelector('td')!.textContent).toContain('red')
 })

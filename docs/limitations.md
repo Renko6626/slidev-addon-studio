@@ -141,10 +141,16 @@
   row no merge splits; when every row is merged the range highlight still
   works, but column widths are edited in the sidebar instead of by dragging.
   A header merge stays in the source when the header is hidden and returns when
-  it is shown. Rich-text cells and conversion back to Markdown are not
-  provided. Existing Markdown tables stay source-editable and convert one way
-  in the inspector; inline formatting is flattened to text. A positioned table
-  sizes itself from its rows unless a height is set.
+  it is shown. The optional rich mode stores an inline HTML subset
+  (`strong/em/u/s/code/a/span/br`, with colour, background, font size and a
+  few text styles) in the same props; the Home tab formats it and pastes as
+  plain text with soft breaks. Cell backgrounds, cell borders, vertical
+  alignment and cell-level alignment are not panel controls: give the table a
+  `class` and let agent CSS handle them, since Studio preserves unknown
+  attributes. Cell HTML outside the subset stops visual editing and falls back
+  to source. Markdown table conversion still flattens inline formatting, and a
+  `StudioTable` cannot be converted back to Markdown. A positioned table sizes
+  itself from its rows unless a height is set.
 - Studio text boxes support character-level fonts, sizes, colours and marks,
   paragraph alignment/spacing and lists. Automatic height and fixed size are
   available; fixed boxes support vertical alignment and all eight resize handles.

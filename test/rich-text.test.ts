@@ -415,3 +415,26 @@ it('saves a single Markdown list item as a paragraph after toggling the list off
   applyTextCommand(e, 'bulletList')
   expect(writeEditableText(source, read, e.getHTML()).content).toBe('one')
 })
+
+it('builds an inline editor without block lists and with hard breaks', () => {
+  const e = createTextEditor('<p>a</p>', {}, 'inline')
+  editors.push(e)
+  expect(e.schema.nodes.bulletList).toBeUndefined()
+  expect(e.schema.nodes.orderedList).toBeUndefined()
+  e.commands.selectAll()
+  e.commands.setHardBreak()
+  expect(e.getHTML()).toContain('<br>')
+})
+
+it('applies background colour and links', () => {
+  const e = editor('<p>a</p>')
+  e.commands.selectAll()
+  applyTextCommand(e, 'backgroundColor', '#ffff00')
+  expect(e.getHTML()).toContain('background-color')
+  e.commands.selectAll()
+  applyTextCommand(e, 'link', 'https://example.com')
+  expect(e.getHTML()).toContain('href="https://example.com"')
+  e.commands.selectAll()
+  applyTextCommand(e, 'unlink')
+  expect(e.getHTML()).not.toContain('<a')
+})

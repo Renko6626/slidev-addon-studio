@@ -2,8 +2,11 @@
 import type { TableCellPosition } from '../md/table-cell'
 import type { TableData } from '../../shared/table'
 import type { SourceRange } from '../types'
+import type { Editor } from '@tiptap/core'
+import type { Node as TextNode } from '@tiptap/pm/model'
 import { useRafFn } from '@vueuse/core'
 import { addRow, clearColumnWidths, resizeColumnWidths, withRowHeight } from '../../shared/table'
+import { editorHTMLToCell } from '../../shared/table-html'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useStudio } from '../context'
 import { action, t } from '../i18n'
@@ -11,7 +14,10 @@ import { endOfBlock } from '../md/lines'
 import { readTable, writeTable } from '../md/table'
 import { clampTableCell, defaultTableCell, nextTableCell, tableCellValue, tableRectBetween, withTableCellValue } from '../md/table-cell'
 import { opensWithTag } from '../md/tags'
-import { busy, reportError, selection, tableCell, tableEditRequest, tableEditing, tableRange } from '../state'
+import { busy, reportError, ribbonTab, selection, tableCell, tableEditRequest, tableEditing, tableRange } from '../state'
+import { tableCellDefaults, tableCellEditor, tableCellRevision } from '../table-cell-text'
+import { createTextEditor } from '../text/editor'
+import type { TextDefaults } from '../text/editor'
 
 interface EditorRect {
   left: number
@@ -34,6 +40,11 @@ const draft = ref('')
 const cell = ref<HTMLElement | null>(null)
 const textarea = ref<HTMLTextAreaElement | null>(null)
 const rect = ref<EditorRect | null>(null)
+const richEditing = ref(false)
+const richHost = ref<HTMLElement | null>(null)
+const richEditor = shallowRef<Editor | null>(null)
+let richOriginalDoc: TextNode | null = null
+let richStopKeys: (() => void) | null = null
 let frame = 0
 let moving = false
 let closing = false
@@ -439,6 +450,116 @@ function sourceTable(): TableData | null {
   return read.unparsed ? null : read.table
 }
 
+function cellDefaults(): TextDefaults {
+  const target = cell.value?.isConnected ? cell.value : active.value ? findCell(active.value) : null
+  if (!target)
+    return {}
+  const style = getComputedStyle(target)
+  const fontSize = Number.parseFloat(style.fontSize) || 16
+  return {
+    fontFamily: style.fontFamily || 'sans-serif',
+    fontSize,
+    color: style.color || '#000000',
+    align: style.textAlign === 'start' ? 'left' : style.textAlign || 'left',
+    lineHeight: style.lineHeight === 'normal' ? '1.35' : String(Math.round((Number.parseFloat(style.lineHeight) / fontSize || 1.35) * 100) / 100),
+  }
+}
+
+function richValue(): string | null {
+  return richEditor.value ? editorHTMLToCell(richEditor.value.getHTML()) : null
+}
+
+function richChanged() {
+  return !!richEditor.value && !!richOriginalDoc && !richEditor.value.state.doc.eq(richOriginalDoc)
+}
+
+function destroyRichEditor() {
+  richStopKeys?.()
+  richStopKeys = null
+  richEditor.value?.destroy()
+  richEditor.value = null
+  richOriginalDoc = null
+  tableCellEditor.value = null
+  tableCellDefaults.value = {}
+}
+
+function richKeydown(instance: Editor, event: KeyboardEvent) {
+  if (event.isComposing || instance.view.composing)
+    return false
+  if (event.key === 'Tab') {
+    event.preventDefault()
+    void move(event.shiftKey ? -1 : 1)
+    return true
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    void close(false)
+    return true
+  }
+  if (event.key === 'Enter') {
+    event.preventDefault()
+    instance.commands.setHardBreak()
+    return true
+  }
+  return false
+}
+
+function richPaste(instance: Editor, event: ClipboardEvent) {
+  const text = event.clipboardData?.getData('text/plain')
+  if (text === undefined)
+    return false
+  event.preventDefault()
+  if (!text)
+    return true
+  const nodes: any[] = []
+  text.replace(/\r\n?/g, '\n').split('\n').forEach((line, index) => {
+    if (index)
+      nodes.push({ type: 'hardBreak' })
+    if (line)
+      nodes.push({ type: 'text', text: line })
+  })
+  instance.chain().focus().insertContent(nodes).run()
+  return true
+}
+
+function createRichEditor(value: string) {
+  const host = richHost.value
+  if (!host)
+    return
+  host.replaceChildren()
+  const holder: { editor: Editor | null } = { editor: null }
+  const instance = createTextEditor(`<p>${value}</p>`, {
+    element: host,
+    editorProps: {
+      attributes: { class: 'studio-rich-editor studio-table-rich-editor', style: 'outline:none;white-space:pre-wrap;min-height:1em;font:inherit;color:inherit;' },
+      handleKeyDown: (_view, event) => holder.editor ? richKeydown(holder.editor, event) : false,
+      handlePaste: (_view, event) => holder.editor ? richPaste(holder.editor, event) : false,
+    },
+    onTransaction: () => tableCellRevision.value++,
+  }, 'inline')
+  holder.editor = instance
+  richEditor.value = instance
+  richOriginalDoc = instance.state.doc
+  tableCellEditor.value = instance
+  tableCellDefaults.value = cellDefaults()
+  // Keep Slidev's navigation shortcuts away from the cell editor.
+  const stop = (event: Event) => event.stopPropagation()
+  instance.view.dom.addEventListener('keydown', stop)
+  richStopKeys = () => instance.view.dom.removeEventListener('keydown', stop)
+}
+
+/** The rich host only exists once a rectangle is known, so measure first. */
+async function openRichEditor(value: string) {
+  updateRect()
+  if (!rect.value) {
+    await nextTick()
+    updateRect()
+  }
+  await nextTick()
+  createRichEditor(value)
+  richEditor.value?.commands.focus('end', { scrollIntoView: false })
+}
+
 function findCell(position: TableCellPosition): HTMLElement | null {
   const roots = [session?.root, selection.value?.el].filter((root): root is HTMLElement => !!root && root.isConnected)
   for (const root of roots) {
@@ -520,6 +641,10 @@ function tick() {
 }
 
 function focusEditor() {
+  if (richEditing.value) {
+    richEditor.value?.commands.focus('end', { scrollIntoView: false })
+    return
+  }
   const input = textarea.value
   if (!input)
     return
@@ -553,12 +678,19 @@ async function start(position: TableCellPosition, element?: HTMLElement) {
   active.value = target
   tableCell.value = target
   tableRange.value = null
+  richEditing.value = !!table.rich
   draft.value = tableCellValue(table, target)
   cell.value = element ?? findCell(target)
   needsFocus = true
   waitingSince = 0
   tableEditing.value = true
-  await nextTick()
+  if (richEditing.value) {
+    ribbonTab.value = 'home'
+    await openRichEditor(draft.value)
+  }
+  else {
+    await nextTick()
+  }
   openFrame()
 }
 
@@ -566,9 +698,13 @@ async function commitDraft(table: TableData): Promise<TableData | null> {
   const range = currentRange()
   if (!active.value || !range)
     return null
-  if (tableCellValue(table, active.value) === draft.value)
+  const value = richEditing.value ? richValue() : draft.value
+  if (value === null)
     return table
-  const next = withTableCellValue(table, active.value, draft.value)
+  const changed = richEditing.value ? richChanged() : tableCellValue(table, active.value) !== draft.value
+  if (!changed || tableCellValue(table, active.value) === value)
+    return table
+  const next = withTableCellValue(table, active.value, value)
   await studio.commit(writeTable(studio.content(), range, next), action('actionTableEdit'))
   return next
 }
@@ -584,7 +720,13 @@ async function move(direction: -1 | 1) {
   moving = true
   try {
     const next = nextTableCell(table, active.value, direction)
-    let nextTable = withTableCellValue(table, active.value, draft.value)
+    const value = richEditing.value ? richValue() : draft.value
+    if (value === null) {
+      await close(false)
+      return
+    }
+    const changed = richEditing.value ? richChanged() : tableCellValue(table, active.value) !== draft.value
+    let nextTable = withTableCellValue(table, active.value, value)
     let target: TableCellPosition | null = null
     if (next === 'append-row') {
       nextTable = addRow(nextTable)
@@ -593,7 +735,7 @@ async function move(direction: -1 | 1) {
     else if (next) {
       target = next
     }
-    if (tableCellValue(table, active.value) !== draft.value || next === 'append-row')
+    if (changed || next === 'append-row')
       await studio.commit(writeTable(studio.content(), range, nextTable), action('actionTableEdit'))
     if (!target) {
       await close(false)
@@ -601,6 +743,8 @@ async function move(direction: -1 | 1) {
     }
     active.value = target
     tableCell.value = target
+    destroyRichEditor()
+    richEditing.value = !!nextTable.rich
     draft.value = tableCellValue(nextTable, target)
     cell.value = null
     rect.value = null
@@ -608,6 +752,8 @@ async function move(direction: -1 | 1) {
     waitingSince = 0
     suppressBlur = true
     await nextTick()
+    if (richEditing.value)
+      await openRichEditor(draft.value)
     if (!frame)
       openFrame()
     else
@@ -631,6 +777,8 @@ function close(save: boolean): Promise<void> {
       }
       tableEditing.value = false
       active.value = null
+      destroyRichEditor()
+      richEditing.value = false
       cell.value = null
       rect.value = null
       needsFocus = false
@@ -717,6 +865,9 @@ function pointerDown(event: PointerEvent) {
   const target = event.target instanceof Element ? event.target : null
   if (target?.closest('.studio-table-resize'))
     return
+  // The Home-tab format controls must not close the rich cell they act on.
+  if (tableEditing.value && richEditing.value && target?.closest('[data-studio-text-controls]'))
+    return
   if (tableEditing.value && !target?.closest('.studio-table-cell-editor'))
     void close(true)
   const found = hit(event)
@@ -758,7 +909,7 @@ function doubleClick(event: MouseEvent) {
 }
 
 function blur() {
-  if (moving || closing || suppressBlur || !tableEditing.value)
+  if (moving || closing || suppressBlur || !tableEditing.value || richEditing.value)
     return
   void close(true)
 }
@@ -789,6 +940,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   void close(true)
+  destroyRichEditor()
   unlistenDrag()
   cancelAnimationFrame(frame)
   document.removeEventListener('pointerdown', pointerDown, true)
@@ -822,7 +974,7 @@ onBeforeUnmount(() => {
     <div v-else-if="guide?.axis === 'y'" class="studio-table-guide studio-table-guide--row" :style="{ top: `${guide.at}px`, left: `${measure.left}px`, width: `${measure.width}px` }" />
   </template>
   <textarea
-    v-if="tableEditing && rect"
+    v-if="tableEditing && rect && !richEditing"
     ref="textarea"
     v-model="draft"
     class="studio-table-cell-editor"
@@ -831,6 +983,13 @@ onBeforeUnmount(() => {
     spellcheck="false"
     @keydown="keydown"
     @blur="blur"
+  />
+  <div
+    v-else-if="tableEditing && rect && richEditing"
+    ref="richHost"
+    class="studio-table-cell-editor studio-table-cell-editor--rich"
+    :style="editorStyle"
+    :aria-label="t('tableCellEditor')"
   />
 </template>
 
@@ -881,4 +1040,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 0 0 3px var(--studio-accent-soft), var(--studio-shadow);
   white-space: pre-wrap;
 }
+.studio-table-cell-editor--rich { cursor: text; }
+.studio-table-rich-editor { margin: 0; }
 </style>

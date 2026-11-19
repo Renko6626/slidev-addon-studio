@@ -13,6 +13,7 @@ import { readEditableText, writeEditableText, editableTextTarget } from '../text
 import type { EditableTextSource } from '../text/source'
 import { applyTextCommand, createTextEditor, prepareTextHTML, readTextFormat, selectTextWord, pasteText } from '../text/editor'
 import type { TextCommand, TextDefaults } from '../text/editor'
+import { tableCellDefaults, tableCellEditor, tableCellRevision } from '../table-cell-text'
 
 interface ComponentTextSource {
   kind: 'component'
@@ -25,7 +26,10 @@ type TextSource = EditableTextSource | ComponentTextSource
 
 /** Text boxes and native prose share commands, selection and editing history. */
 export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> & Partial<Pick<StudioContext, 'selectInserted' | 'no'>>) {
-  const editor = shallowRef<Editor | null>(null)
+  const textEditor = shallowRef<Editor | null>(null)
+  /** The formatting surface in use: a text box, or the rich cell being edited. */
+  const activeEditor = computed(() => textEditor.value ?? tableCellEditor.value)
+  const cellActive = computed(() => !textEditor.value && !!tableCellEditor.value)
   const revision = ref(0)
   const pasteMode = ref<'source' | 'match' | 'plain'>('source')
   const activeDefaults = shallowRef<TextDefaults | null>(null)
@@ -38,8 +42,9 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
     return activeSource.value ?? (target ? readEditableText(studio.content(), target) : null)
   })
   const sourceHTML = computed(() => textSource.value?.html ?? null)
-  const supported = computed(() => textSource.value !== null)
+  const supported = computed(() => textSource.value !== null || !!tableCellEditor.value)
   const defaults = computed<TextDefaults>(() => {
+    if (cellActive.value) return tableCellDefaults.value
     if (activeDefaults.value) return activeDefaults.value
     const el = activeSource.value?.kind === 'component' ? activeSource.value.field.element : selection.value?.el
     if (!el) return {}
@@ -56,7 +61,8 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
   })
   const format = computed(() => {
     revision.value
-    if (editor.value) return readTextFormat(editor.value.state, defaults.value)
+    tableCellRevision.value
+    if (activeEditor.value) return readTextFormat(activeEditor.value.state, defaults.value)
     if (!supported.value) return null
     const temporary = createTextEditor(sourceHTML.value!)
     try {
@@ -67,16 +73,26 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
   })
   const scope = computed(() => {
     revision.value
-    return !editor.value ? 'textScopeBox' : editor.value.state.selection.empty ? 'textScopeTyping' : 'textScopeSelection'
+    tableCellRevision.value
+    if (!activeEditor.value) return 'textScopeBox'
+    return activeEditor.value.state.selection.empty ? 'textScopeTyping' : 'textScopeSelection'
   })
-  const canUndo = computed(() => { revision.value; return editor.value?.can().undo() ?? false })
-  const canRedo = computed(() => { revision.value; return editor.value?.can().redo() ?? false })
+  const canUndo = computed(() => {
+    revision.value
+    tableCellRevision.value
+    return activeEditor.value?.can().undo() ?? false
+  })
+  const canRedo = computed(() => {
+    revision.value
+    tableCellRevision.value
+    return activeEditor.value?.can().redo() ?? false
+  })
 
   function stop() {
     stopKeys?.()
     stopKeys = null
-    editor.value?.destroy()
-    editor.value = null
+    textEditor.value?.destroy()
+    textEditor.value = null
     originalDoc = null
     activeDefaults.value = null
     activeSource.value = null
@@ -125,7 +141,7 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
       },
       onTransaction: () => revision.value++,
     })
-    editor.value = instance
+    textEditor.value = instance
     originalDoc = instance.state.doc
     // Let ProseMirror handle the key first, then keep it away from Slidev.
     const stopPropagation = (event: Event) => event.stopPropagation()
@@ -144,8 +160,8 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
   async function apply(html?: string, source = textSource.value, label = action('actionEditText')) {
     if (!source) return
     if (html === undefined) {
-      if (!editor.value || !originalDoc || originalDoc.eq(editor.value.state.doc)) return
-      html = editor.value.getHTML()
+      if (!textEditor.value || !originalDoc || originalDoc.eq(textEditor.value.state.doc)) return
+      html = textEditor.value.getHTML()
     }
     if (source.kind === 'component') {
       const { field, block, no } = source
@@ -167,7 +183,7 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
 
   async function run(command: TextCommand, value?: string) {
     if (busy.value) return
-    const active = editor.value
+    const active = activeEditor.value
     if (active) {
       applyTextCommand(active, command, value, defaults.value)
       active.commands.focus(undefined, { scrollIntoView: false })
@@ -187,21 +203,29 @@ export function useTextEditor(studio: Pick<StudioContext, 'content' | 'commit'> 
     finally { temporary.destroy() }
   }
 
-  function undo() { editor.value?.commands.undo(); editor.value?.commands.focus(undefined, { scrollIntoView: false }) }
-  function redo() { editor.value?.commands.redo(); editor.value?.commands.focus(undefined, { scrollIntoView: false }) }
+  function undo() {
+    activeEditor.value?.commands.undo()
+    activeEditor.value?.commands.focus(undefined, { scrollIntoView: false })
+  }
+
+  function redo() {
+    activeEditor.value?.commands.redo()
+    activeEditor.value?.commands.focus(undefined, { scrollIntoView: false })
+  }
+
   onScopeDispose(stop)
   return {
-    pasteMode, editor, supported, format, scope, canUndo, canRedo, start, stop, run, apply, undo, redo,
+    pasteMode, editor: activeEditor, cellActive, supported, format, scope, canUndo, canRedo, start, stop, run, apply, undo, redo,
     draft: () => {
-      if (!editor.value || !textSource.value) return null
+      if (!textEditor.value || !textSource.value) return null
       const content = studio.content()
       const source = textSource.value
-      if (source.kind === 'component') return editor.value.getHTML()
-      const result = writeEditableText(content, source, editor.value.getHTML())
+      if (source.kind === 'component') return textEditor.value.getHTML()
+      const result = writeEditableText(content, source, textEditor.value.getHTML())
       const addedLines = result.content.split('\n').length - content.split('\n').length
       return getBlock(result.content, [source.range[0], source.range[1] + addedLines])
     },
-    html: () => editor.value?.getHTML() ?? '',
-    changed: () => !!editor.value && !!originalDoc && !originalDoc.eq(editor.value.state.doc),
+    html: () => textEditor.value?.getHTML() ?? '',
+    changed: () => !!textEditor.value && !!originalDoc && !originalDoc.eq(textEditor.value.state.doc),
   }
 }

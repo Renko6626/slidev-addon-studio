@@ -9,8 +9,9 @@ import type { EditorState } from '@tiptap/pm/state'
 import { closeHistory } from '@tiptap/pm/history'
 
 export type TextCommand = 'bold' | 'italic' | 'underline' | 'strike' | 'clear'
-  | 'fontFamily' | 'fontSize' | 'color' | 'align' | 'lineHeight'
+  | 'fontFamily' | 'fontSize' | 'color' | 'backgroundColor' | 'align' | 'lineHeight'
   | 'bulletList' | 'orderedList' | 'indent' | 'outdent' | 'spaceBefore' | 'spaceAfter'
+  | 'link' | 'unlink'
 type Toggle = boolean | 'mixed'
 export interface TextDefaults {
   fontFamily?: string
@@ -27,6 +28,8 @@ export interface TextFormat {
   fontFamily: string | null
   fontSize: number | null
   color: string | null
+  backgroundColor: string | null
+  link: string | null
   bold: Toggle
   italic: Toggle
   underline: Toggle
@@ -39,7 +42,7 @@ export interface TextFormat {
   orderedList: Toggle
 }
 
-const fontStyles = ['font-family', 'font-size', 'color', 'font-weight', 'font-style', 'text-decoration']
+const fontStyles = ['font-family', 'font-size', 'color', 'background-color', 'font-weight', 'font-style', 'text-decoration']
 const inlineTags = new Set(['span', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'code', 'a', 'br'])
 
 /** Check the authored HTML, before a schema has a chance to discard attributes. */
@@ -111,7 +114,7 @@ export function prepareTextHTML(html: string): string | null {
 const StudioTextStyle = TextStyle.extend({
   addAttributes() {
     return Object.fromEntries([
-      ['fontWeight', 'font-weight'], ['fontStyle', 'font-style'],
+      ['fontWeight', 'font-weight'], ['fontStyle', 'font-style'], ['backgroundColor', 'background-color'],
     ].map(([name, css]) => [name, {
       default: null,
       parseHTML: (element: HTMLElement) => element.style.getPropertyValue(css) || null,
@@ -149,7 +152,7 @@ const ParagraphFormat = Extension.create({
   },
 })
 
-export function createTextEditor(html: string, options: Partial<EditorOptions> = {}): Editor {
+export function createTextEditor(html: string, options: Partial<EditorOptions> = {}, variant: 'block' | 'inline' = 'block'): Editor {
   const content = prepareTextHTML(html)
   if (content === null) throw new Error('Unsupported text-box HTML')
   return new Editor({
@@ -163,9 +166,13 @@ export function createTextEditor(html: string, options: Partial<EditorOptions> =
         heading: false, blockquote: false, codeBlock: false, horizontalRule: false,
         dropcursor: false, gapcursor: false, trailingNode: false,
         paragraph: { HTMLAttributes: { style: 'margin:0;min-height:1lh' } },
-        bulletList: { HTMLAttributes: { style: 'margin:0;padding-left:1.5em;list-style-type:disc' }, keepMarks: true },
-        orderedList: { HTMLAttributes: { style: 'margin:0;padding-left:1.5em;list-style-type:decimal' }, keepMarks: true },
-        listItem: { HTMLAttributes: { style: 'margin:0' } },
+        ...(variant === 'inline'
+          ? { bulletList: false, orderedList: false, listItem: false }
+          : {
+              bulletList: { HTMLAttributes: { style: 'margin:0;padding-left:1.5em;list-style-type:disc' }, keepMarks: true },
+              orderedList: { HTMLAttributes: { style: 'margin:0;padding-left:1.5em;list-style-type:decimal' }, keepMarks: true },
+              listItem: { HTMLAttributes: { style: 'margin:0' } },
+            }),
         link: { openOnClick: false, autolink: false, HTMLAttributes: { target: null, rel: null, class: null } },
       }),
       StudioTextStyle, Color, FontFamily, FontSize,
@@ -224,6 +231,8 @@ export function readTextFormat(state: EditorState, defaults: TextDefaults = {}):
     fontFamily: common(styles.map(style => String(style.fontFamily || defaults.fontFamily || 'sans-serif').replace(/["']/g, ''))),
     fontSize: common(styles.map(style => fontPixels(style.fontSize, defaults.fontSize ?? 28))),
     color: common(styles.map(style => style.color || defaults.color || '#000000')),
+    backgroundColor: common(styles.map(style => String(style.backgroundColor || ''))) || null,
+    link: common(marks.map(run => String(run.find(mark => mark.type.name === 'link')?.attrs.href || ''))) || null,
     bold: toggle(styles.map((style, i) => has('bold', i) || (style.fontWeight ? /^(bold|[6-9]00)$/.test(style.fontWeight) : !!defaults.bold))),
     italic: toggle(styles.map((style, i) => has('italic', i) || (style.fontStyle ? style.fontStyle === 'italic' : !!defaults.italic))),
     underline: toggle(styles.map((style, i) => has('underline', i) || (style.textDecoration ? style.textDecoration.includes('underline') : !!defaults.underline))),
@@ -259,6 +268,13 @@ export function applyTextCommand(editor: Editor, command: TextCommand, value?: s
       break
     }
     case 'color': if (value?.trim()) result = editor.commands.setColor(value.trim()); break
+    case 'backgroundColor': result = editor.chain().setMark('textStyle', { backgroundColor: value?.trim() || null }).run(); break
+    case 'link':
+      result = value?.trim()
+        ? editor.chain().setLink({ href: value.trim() }).run()
+        : editor.chain().unsetLink().run()
+      break
+    case 'unlink': result = editor.chain().unsetLink().run(); break
     case 'align': if (value) result = editor.commands.setTextAlign(value); break
     case 'lineHeight': if (value && Number(value) > 0 && Number(value) <= 10) result = editor.commands.updateAttributes('paragraph', { lineHeight: value }); break
     case 'spaceBefore': case 'spaceAfter': {

@@ -9,7 +9,7 @@ import StudioField from './StudioField.vue'
 import StudioIcon from './StudioIcon.vue'
 import FontPicker from './FontPicker.vue'
 
-defineProps<{ group: 'font' | 'paragraph' }>()
+defineProps<{ group: 'font' | 'paragraph', compact?: boolean }>()
 const { text } = useStudio()
 const { editor, format, supported, scope } = text
 const disabled = computed(() => busy.value || !supported.value || (editing.value && !editor.value))
@@ -49,12 +49,18 @@ function resizeFont(direction: number) {
   run('fontSize', String(next))
 }
 function run(command: TextCommand, value?: string) { void text.run(command, value) }
+function setLink() {
+  const href = window.prompt(t('linkPrompt'), format.value?.link ?? '')
+  if (href === null)
+    return
+  run(href.trim() ? 'link' : 'unlink', href.trim())
+}
 </script>
 
 <template>
   <fieldset class="studio-element-fields studio-rich-fields" :disabled="disabled" data-studio-text-controls @mousedown="keepTextFocus" @keydown="fieldKey" @focusin="rememberField" :title="hint" :aria-label="t(group === 'font' ? 'fontGroup' : 'paragraphGroup')">
     <div v-if="group === 'font'" class="studio-rich-fields__font">
-      <StudioField :label="t('fontFamily')">
+      <StudioField v-if="!compact" :label="t('fontFamily')">
         <FontPicker :value="format?.fontFamily ?? null" :placeholder="emptyLabel" :disabled="disabled" @change="run('fontFamily', $event)" />
       </StudioField>
       <StudioField :label="t('fontSizePx')">
@@ -62,8 +68,10 @@ function run(command: TextCommand, value?: string) { void text.run(command, valu
         <datalist :id="sizeId"><option v-for="size in sizes" :key="size" :value="size" /></datalist>
       </StudioField>
       <StudioField :label="t('textColor')"><ColorSwatch :value="format?.color ?? ''" :placeholder="!format || format.color === null ? emptyLabel : undefined" @change="run('color', $event)" /></StudioField>
+      <StudioField v-if="compact" :label="t('textBackground')"><ColorSwatch :value="format?.backgroundColor ?? ''" :placeholder="emptyLabel" @change="run('backgroundColor', $event)" /></StudioField>
       <div class="studio-text-buttons" role="group" :aria-label="t('textFormat')">
         <button v-for="mark in marks" :key="mark.id" class="studio-icon-button" :aria-pressed="format?.[mark.id] ?? false" :title="t(mark.label)" @click="run(mark.id)"><StudioIcon :name="mark.id" /></button>
+        <button class="studio-icon-button" :aria-pressed="!!format?.link" :title="t('link')" @click="setLink"><StudioIcon name="link" /></button>
         <button class="studio-icon-button" :title="t('clearTextFormat')" @click="run('clear')"><StudioIcon name="clear-format" /></button>
         <button class="studio-icon-button" :title="t('decreaseFontSize')" :aria-label="t('decreaseFontSize')" @click="resizeFont(-1)">A−</button>
         <button class="studio-icon-button" :title="t('increaseFontSize')" :aria-label="t('increaseFontSize')" @click="resizeFont(1)">A+</button>

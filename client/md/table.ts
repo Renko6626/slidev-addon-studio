@@ -1,6 +1,7 @@
 import type { TableColumn, TableData, TableMerge } from '../../shared/table'
 import type { SourceRange } from '../types'
 import { TABLE_DEFAULTS, normaliseTable } from '../../shared/table'
+import { validateCellHTML } from '../../shared/table-html'
 import { decodeEntities } from './entities'
 import { formatStringMatrix, parseNullableNumberArray, parseObjectArray, parsePrimitive, parseStringMatrix, quote, splitTopLevel } from './literals'
 import { getBlock, replaceBlock } from './lines'
@@ -193,7 +194,8 @@ export function readTable(content: string, range: SourceRange): TableReadResult 
   const mergeAttrs = attrs.filter(attr => sameAttr(attr.name, 'merges'))
   const heightAttrs = attrs.filter(attr => sameAttr(attr.name, 'rowHeights'))
   const headerHeightAttrs = attrs.filter(attr => sameAttr(attr.name, 'headerHeight'))
-  const duplicated = [columnAttrs, rowAttrs, mergeAttrs, heightAttrs, headerHeightAttrs].some(list => list.length > 1)
+  const richAttrs = attrs.filter(attr => sameAttr(attr.name, 'rich'))
+  const duplicated = [columnAttrs, rowAttrs, mergeAttrs, heightAttrs, headerHeightAttrs, richAttrs].some(list => list.length > 1)
   if (attrs.some(attr => attr.raw === 'v-bind') || duplicated)
     return { table: normaliseTable({ ...defaults(), ...style }), explicit: true, unparsed: true }
 
@@ -202,9 +204,10 @@ export function readTable(content: string, range: SourceRange): TableReadResult 
   const mergeAttr = mergeAttrs[0] ?? null
   const heightAttr = heightAttrs[0] ?? null
   const headerHeightAttr = headerHeightAttrs[0] ?? null
+  const richAttr = richAttrs[0] ?? null
   const explicit = !!columnsAttr || !!rowsAttr
   if (!explicit)
-    return { table: normaliseTable({ ...defaults(), ...style }), explicit: false, unparsed: !!mergeAttr || !!heightAttr || !!headerHeightAttr }
+    return { table: normaliseTable({ ...defaults(), ...style }), explicit: false, unparsed: !!mergeAttr || !!heightAttr || !!headerHeightAttr || !!richAttr }
 
   let unparsed = false
   let columns: TableColumn[] | undefined
@@ -288,6 +291,25 @@ export function readTable(content: string, range: SourceRange): TableReadResult 
     }
   }
 
+  let rich = false
+  if (richAttr) {
+    if (richAttr.value === null)
+      rich = true
+    else if (richAttr.value === 'true')
+      rich = true
+    else if (richAttr.value === 'false')
+      rich = false
+    else
+      unparsed = true
+  }
+  // Unsupported cell markup keeps the source authoritative: the visual editor
+  // cannot promise to preserve it on the next write.
+  if (!unparsed && rich && typeof document !== 'undefined') {
+    const cells = [...tableColumns.map(column => column.label), ...tableRows.flat()]
+    if (cells.some(cell => !validateCellHTML(cell)))
+      unparsed = true
+  }
+
   if (unparsed)
     return { table: normaliseTable({ ...defaults(), ...style }), explicit, unparsed: true }
 
@@ -296,6 +318,7 @@ export function readTable(content: string, range: SourceRange): TableReadResult 
       columns: tableColumns,
       rows: tableRows,
       ...style,
+      rich,
       merges,
       headerHeight,
       rowHeights,
@@ -315,6 +338,7 @@ export function writeTable(content: string, range: SourceRange, table: TableData
   const data = normaliseTable(table)
   let next = writeAttr(block, 'columns', attrValue(formatTableColumns(data.columns)), { bound: true })
   next = writeAttr(next, 'rows', attrValue(formatStringMatrix(data.rows)), { bound: true })
+  next = writeAttr(next, 'rich', data.rich ? true : null)
   next = writeAttr(next, 'merges', data.merges?.length ? attrValue(formatTableMerges(data.merges)) : null, { bound: true })
   const heights = trimmedHeights(data.rowHeights)
   next = writeAttr(next, 'row-heights', heights.length ? attrValue(formatHeightList(heights)) : null, { bound: true })
@@ -377,6 +401,8 @@ export function tableSnippet(table: TableData): string {
     props.push('  striped')
   if (data.fontSize)
     props.push(`  :font-size="${data.fontSize}"`)
+  if (data.rich)
+    props.push('  rich')
   return `<StudioTable\n${props.join('\n')}\n/>`
 }
 

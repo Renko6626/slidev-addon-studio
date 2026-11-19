@@ -7,8 +7,9 @@ import { editSource } from '../../actions'
 import { useStudio } from '../../context'
 import { action, t } from '../../i18n'
 import { readTable, writeTable, writeTableStyle } from '../../md/table'
+import { tableWithRich } from '../../md/table-rich'
 import { clampTableCell, defaultTableCell, tableRectIsFree } from '../../md/table-cell'
-import { busy, editing, selection, tableCell, tableEditRequest, tableRange } from '../../state'
+import { busy, editing, selection, tableCell, tableEditRequest, tableEditing, tableRange } from '../../state'
 import StudioIcon from './StudioIcon.vue'
 
 const ALIGNMENTS: { value: TableAlign, icon: string, label: 'alignLeft' | 'alignCenter' | 'alignRight' }[] = [
@@ -74,6 +75,12 @@ function setRowHeight(raw: string) {
   const height = Number(raw)
   if (Number.isFinite(height) && height >= 8)
     void commit(withRowHeight(table.value, cell.value.row, height))
+}
+
+function setRich(rich: boolean) {
+  if (!table.value)
+    return
+  void commit(tableWithRich(table.value, rich))
 }
 
 async function mergeSelected() {
@@ -211,6 +218,7 @@ function editCell() {
         <label><input type="checkbox" :checked="table.header" :disabled="locked" @change="commitStyle({ header: ($event.target as HTMLInputElement).checked })"> {{ t('tableHeader') }}</label>
         <label><input type="checkbox" :checked="table.border" :disabled="locked" @change="commitStyle({ border: ($event.target as HTMLInputElement).checked })"> {{ t('tableBorder') }}</label>
         <label><input type="checkbox" :checked="table.striped" :disabled="locked" @change="commitStyle({ striped: ($event.target as HTMLInputElement).checked })"> {{ t('tableStriped') }}</label>
+        <label :title="t('tableRichHint')"><input type="checkbox" :checked="table.rich" :disabled="locked || tableEditing" @change="setRich(($event.target as HTMLInputElement).checked)"> {{ t('tableRich') }}</label>
         <label class="studio-table-style__size">
           <span>{{ t('tableFontSize') }}</span>
           <input class="studio-table-size-input" type="number" min="1" :value="table.fontSize ?? ''" :placeholder="t('auto')" :disabled="locked" @change="setFontSize(($event.target as HTMLInputElement).value)">

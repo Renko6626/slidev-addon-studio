@@ -32,6 +32,8 @@ export interface TableData {
   border: boolean
   striped: boolean
   fontSize?: number
+  /** Cells and labels hold the inline HTML subset; false/omitted is plain text. */
+  rich?: boolean
   merges?: TableMerge[]
   /** Explicit header row height in CSS pixels. */
   headerHeight?: number
@@ -119,6 +121,7 @@ export function normaliseTable(table: TableData): TableData {
     border: table.border,
     striped: table.striped,
     ...(positiveNumber(table.fontSize) !== undefined ? { fontSize: table.fontSize } : {}),
+    ...(table.rich ? { rich: true } : {}),
     ...(merges.length ? { merges } : {}),
     ...(headerHeight !== undefined ? { headerHeight } : {}),
     ...(rowHeights ? { rowHeights } : {}),

@@ -282,3 +282,36 @@ Besides `columns` and `rows`, it reads three optional size/shape props:
 stay in `rows` as empty strings. `row-heights` is indexed by body row and
 `null` means automatic. Studio writes these props only when they carry a value,
 so a table that never used them stays as short as before.
+
+Add the `rich` flag to let labels and cells hold inline HTML:
+
+```html
+<StudioTable rich :columns="[{ label: '项' }]" :rows="[['<strong>粗体</strong>']]" />
+```
+
+The subset is `strong/em/u/s/code/a/span/br` with colour, background colour,
+font size and a few text styles. Text outside the subset is escaped; markup
+outside it makes the visual editor fall back to source editing, so the table is
+never silently rewritten.
+
+### Styling a table from code
+
+`StudioTable` renders ordinary semantic markup, and Studio only rewrites the
+props above: a `class`, `style` or `v-drag` written by an agent is preserved.
+That is the intended place for one-off presentation polish, which the panel
+does not need to model:
+
+```html
+<StudioTable class="pricing-table" v-drag="[120,160,720,_]" ... />
+```
+
+```css
+.pricing-table th { background: linear-gradient(135deg, #1f2937, #4f8aff); color: white; }
+.pricing-table tbody tr:nth-child(3) { background: #fff7cc; }
+```
+
+Stable hooks are `.studio-table`, `.studio-table--border`,
+`.studio-table--striped`, `.studio-table-cell-content`, `thead`, `tbody`, `th`,
+`td`, and the inline tags produced by rich cells. Class names inside cell HTML
+are not part of the editor subset; style cells with table classes, `nth-child`
+or a wrapper component instead.

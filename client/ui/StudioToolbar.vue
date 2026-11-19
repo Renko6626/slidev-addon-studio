@@ -20,6 +20,7 @@ import { createInteractionButton, createQuizPage, listQuestions, readInteraction
 import { DEFAULT_TABLE_SNIPPET } from '../../shared/table'
 import { addColumn, addRow, mergeAt, mergeTableRange, removeColumn, removeRow, splitTableMerge } from '../../shared/table'
 import { readTable, writeTable, writeTableStyle } from '../md/table'
+import { tableWithRich } from '../md/table-rich'
 import { clampTableCell, defaultTableCell, tableRectIsFree } from '../md/table-cell'
 import { imageLibraryRequest, imagePending, useImageInsertion } from '../composables/useImageInsertion'
 import ShapePicker from './parts/ShapePicker.vue'
@@ -243,6 +244,16 @@ async function splitTableCell() {
   await commitTable(next, clampTableCell(next, active.position))
 }
 
+async function toggleTableRich() {
+  const active = activeTable()
+  if (!active || locked.value)
+    return
+  const next = tableWithRich(active.table, !active.table.rich)
+  if (next === active.table)
+    return
+  await commitTable(next, active.position)
+}
+
 async function insertQuiz(mode: 'single' | 'multiple') {
   if (locked.value) return
   const page = createQuizPage(mode, { width: studio.canvas.slideWidth.value, height: studio.canvas.slideHeight.value }, {
@@ -277,10 +288,10 @@ const groups = computed<Group[]>(() => {
         { label: 'duplicateSlide', icon: 'copy', run: () => deck.duplicate(studio.no()), hint: 'deckReloadHint' },
         { label: 'deleteSlide', icon: 'trash', run: () => deck.remove(studio.no()), disabled: studio.no() === 1, hint: studio.no() === 1 ? 'firstSlideProtected' : 'deckReloadHint' },
       ] },
-      ...(studio.text.supported.value && selectedTargets.value.length <= 1 ? [
+      ...(studio.text.supported.value && selectedTargets.value.length <= 1 ? ([
         { label: 'fontGroup', text: 'font', commands: [] },
-        { label: 'paragraphGroup', text: 'paragraph', commands: [] },
-      ] as const satisfies readonly Group[] : []),
+        ...(!studio.text.cellActive.value ? [{ label: 'paragraphGroup', text: 'paragraph', commands: [] }] : []),
+      ] as Group[]) : []),
       { label: 'editingGroup', commands: [
         { label: 'editTextCommand', icon: 'edit', run: editText, disabled: selectedTargets.value.length > 1 || !target || target.el.hasAttribute('data-studio-question-control') || (target.element === 'image' || target.element === 'shape') || (!mapped.value && !target.prop) },
         { label: 'duplicateObject', icon: 'copy', run: () => target && duplicateBlock(studio, target), disabled: !reorderable.value },
@@ -359,6 +370,7 @@ const groups = computed<Group[]>(() => {
           { label: 'tableHeader', icon: 'layout', run: () => toggleTableStyle('header'), pressed: !!current?.table.header, disabled: tableLocked },
           { label: 'tableBorder', icon: 'grid', run: () => toggleTableStyle('border'), pressed: !!current?.table.border, disabled: tableLocked },
           { label: 'tableStriped', icon: 'list', run: () => toggleTableStyle('striped'), pressed: !!current?.table.striped, disabled: tableLocked },
+          { label: 'tableRich', icon: 'edit', run: toggleTableRich, pressed: !!current?.table.rich, disabled: tableLocked, hint: 'tableRichHint' },
         ] },
       ]
     }
@@ -410,7 +422,7 @@ const groups = computed<Group[]>(() => {
       <fieldset v-if="ribbonTab === 'transition'" class="studio-transition-quick" :disabled="locked"><PanelTransition /></fieldset>
       <div v-if="selectedTargets.length > 1 && (ribbonTab === 'home' || ribbonTab === 'object')" class="studio-command-group"><ArrangeSelection /></div>
       <div v-for="group in groups" :key="group.label" class="studio-command-group">
-        <fieldset v-if="group.text" class="studio-multi-text-fields" :disabled="selectedTargets.length > 1"><TextElementFields :group="group.text" /></fieldset>
+        <fieldset v-if="group.text" class="studio-multi-text-fields" :disabled="selectedTargets.length > 1"><TextElementFields :group="group.text" :compact="studio.text.cellActive.value" /></fieldset>
         <div v-else class="studio-command-group__buttons">
           <button
             v-for="command in group.commands" :key="command.label" class="studio-command"
