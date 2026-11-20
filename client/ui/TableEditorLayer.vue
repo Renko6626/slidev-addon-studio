@@ -10,11 +10,10 @@ import { editorHTMLToCell } from '../../shared/table-html'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useStudio } from '../context'
 import { action, t } from '../i18n'
-import { endOfBlock } from '../md/lines'
+import { endOfBlock, getBlock, toLines } from '../md/lines'
 import { readTable, writeTable } from '../md/table'
 import { clampTableCell, defaultTableCell, nextTableCell, tableCellValue, tableRectBetween, withTableCellValue } from '../md/table-cell'
-import { opensWithTag } from '../md/tags'
-import { busy, reportError, ribbonTab, selection, tableCell, tableEditRequest, tableEditing, tableRange } from '../state'
+import { busy, editing, reportError, ribbonTab, selection, selectedTargets, tableCell, tableEditRequest, tableEditing, tableRange } from '../state'
 import { tableCellDefaults, tableCellEditor, tableCellRevision } from '../table-cell-text'
 import { createTextEditor } from '../text/editor'
 import type { TextDefaults } from '../text/editor'
@@ -46,13 +45,11 @@ const richEditor = shallowRef<Editor | null>(null)
 let richOriginalDoc: TextNode | null = null
 let richStopKeys: (() => void) | null = null
 let frame = 0
-let moving = false
-let closing = false
 let needsFocus = false
 let waitingSince = 0
-let suppressBlur = false
 let lastClick: { key: string, time: number, root: HTMLElement } | null = null
-let session: { start: number, root: HTMLElement } | null = null
+let session: { no: number, start: number, root: HTMLElement, block: string } | null = null
+let movePromise: Promise<void> | null = null
 let closePromise: Promise<void> | null = null
 
 const editorStyle = computed(() => rect.value && {
@@ -216,7 +213,9 @@ function sameMeasure(a: TableMeasure | null, b: TableMeasure | null) {
 
 let measuredAt = 0
 useRafFn(() => {
-  if (drag.value || tableEditing.value) {
+  if (drag.value)
+    return
+  if (tableEditing.value) {
     if (measure.value)
       measure.value = null
     return
@@ -274,7 +273,7 @@ function unlistenDrag() {
 }
 
 function startColumnResize(event: PointerEvent, boundary: number) {
-  if (busy.value)
+  if (event.button !== 0 || busy.value || drag.value || !sourceTable())
     return
   const current = measure.value
   if (!current?.exactColumns || boundary < 0 || boundary >= current.columns.length - 1)
@@ -298,7 +297,7 @@ function startColumnResize(event: PointerEvent, boundary: number) {
 }
 
 function startRowResize(event: PointerEvent, row: MeasuredRow) {
-  if (busy.value)
+  if (event.button !== 0 || busy.value || drag.value || !sourceTable())
     return
   const current = measure.value
   if (!current)
@@ -365,7 +364,7 @@ async function dragEnd() {
   }
   const range = currentRange()
   const table = sourceTable()
-  if (!range || !table) {
+  if (!range || !table || busy.value) {
     restoreDrag(current)
     return
   }
@@ -428,18 +427,21 @@ async function resetColumnWidths(boundary: number) {
 }
 
 
-/** The table block keeps its start line while cells and rows are edited. */
+/** Keep the draft tied to the original source across saves and render updates. */
 function sessionRange(): SourceRange | null {
-  if (!session)
+  if (!session || session.no !== studio.no())
     return null
-  const lines = studio.content().split('\n')
+  const lines = toLines(studio.content())
   const end = endOfBlock(lines, session.start)
   const block = lines.slice(session.start, end).join('\n')
-  return opensWithTag(block)?.name === 'StudioTable' ? [session.start, end] : null
+  return block === session.block ? [session.start, end] : null
 }
 
 function currentRange(): SourceRange | null {
-  return session ? sessionRange() : selection.value?.range ?? null
+  if (session)
+    return sessionRange()
+  const target = selection.value
+  return target?.tag === 'StudioTable' && target.no === studio.no() ? target.range : null
 }
 
 function sourceTable(): TableData | null {
@@ -448,6 +450,16 @@ function sourceTable(): TableData | null {
     return null
   const read = readTable(studio.content(), range)
   return read.unparsed ? null : read.table
+}
+
+async function commitCellTable(range: SourceRange, table: TableData) {
+  const current = session
+  const next = writeTable(studio.content(), range, table)
+  await studio.commit(next, action('actionTableEdit'))
+  if (current) {
+    const lines = toLines(next)
+    current.block = lines.slice(current.start, endOfBlock(lines, current.start)).join('\n')
+  }
 }
 
 function cellDefaults(): TextDefaults {
@@ -488,12 +500,17 @@ function richKeydown(instance: Editor, event: KeyboardEvent) {
     return false
   if (event.key === 'Tab') {
     event.preventDefault()
-    void move(event.shiftKey ? -1 : 1)
+    void move(event.shiftKey ? -1 : 1).catch(reportError)
     return true
   }
   if (event.key === 'Escape') {
     event.preventDefault()
-    void close(false)
+    void close(false).catch(reportError)
+    return true
+  }
+  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+    event.preventDefault()
+    void close(true).catch(reportError)
     return true
   }
   if (event.key === 'Enter') {
@@ -548,20 +565,10 @@ function createRichEditor(value: string) {
   richStopKeys = () => instance.view.dom.removeEventListener('keydown', stop)
 }
 
-/** The rich host only exists once a rectangle is known, so measure first. */
-async function openRichEditor(value: string) {
-  updateRect()
-  if (!rect.value) {
-    await nextTick()
-    updateRect()
-  }
-  await nextTick()
-  createRichEditor(value)
-  richEditor.value?.commands.focus('end', { scrollIntoView: false })
-}
-
 function findCell(position: TableCellPosition): HTMLElement | null {
-  const roots = [session?.root, selection.value?.el].filter((root): root is HTMLElement => !!root && root.isConnected)
+  const target = selection.value
+  const rebound = target && session && target.no === session.no && target.range?.[0] === session.start ? target.el : null
+  const roots = [session?.root, rebound].filter((root): root is HTMLElement => !!root && root.isConnected)
   for (const root of roots) {
     const found = root.querySelector<HTMLElement>(`[data-studio-table-cell="${position.row ?? -1},${position.column}"]`)
     if (found?.isConnected)
@@ -593,21 +600,12 @@ function updateRect() {
   if (!tableEditing.value || !active.value)
     return
   const target = cell.value?.isConnected ? cell.value : findCell(active.value)
-  if (!target || !target.isConnected) {
-    rect.value = null
+  const box = target?.getBoundingClientRect()
+  if (!target || !box?.width || !box.height) {
     if (!waitingSince)
       waitingSince = performance.now()
     if (performance.now() - waitingSince > 1500)
-      void close(false)
-    return
-  }
-  const box = target.getBoundingClientRect()
-  if (!box.width || !box.height) {
-    rect.value = null
-    if (!waitingSince)
-      waitingSince = performance.now()
-    if (performance.now() - waitingSince > 1500)
-      void close(false)
+      void close(false).catch(reportError)
     return
   }
   waitingSince = 0
@@ -630,7 +628,14 @@ function updateRect() {
   }
   if (needsFocus) {
     needsFocus = false
-    void nextTick(() => focusEditor())
+    const position = active.value
+    void nextTick(() => {
+      if (!tableEditing.value || active.value !== position)
+        return
+      if (richEditing.value)
+        createRichEditor(draft.value)
+      focusEditor()
+    }).catch(reportError)
   }
 }
 
@@ -648,7 +653,6 @@ function focusEditor() {
   const input = textarea.value
   if (!input)
     return
-  suppressBlur = false
   input.focus()
   input.setSelectionRange(input.value.length, input.value.length)
 }
@@ -661,11 +665,13 @@ function openFrame() {
 async function start(position: TableCellPosition, element?: HTMLElement) {
   if (closePromise)
     await closePromise
-  if (tableEditing.value)
+  if (tableEditing.value || editing.value || busy.value || selectedTargets.value.length !== 1)
     return
-  const range = selection.value?.range
-  const root = selection.value?.el
-  if (!range || !root)
+  const selected = selection.value
+  if (selected?.tag !== 'StudioTable' || !selected.range || selected.no !== studio.no())
+    return
+  const { range, el: root, no } = selected
+  if (element && !root.contains(element))
     return
   const read = readTable(studio.content(), range)
   if (read.unparsed)
@@ -674,7 +680,7 @@ async function start(position: TableCellPosition, element?: HTMLElement) {
   const target = clampTableCell(table, position) ?? defaultTableCell(table)
   if (!target)
     return
-  session = { start: range[0], root }
+  session = { no, start: range[0], root, block: getBlock(studio.content(), range) }
   active.value = target
   tableCell.value = target
   tableRange.value = null
@@ -684,49 +690,34 @@ async function start(position: TableCellPosition, element?: HTMLElement) {
   needsFocus = true
   waitingSince = 0
   tableEditing.value = true
-  if (richEditing.value) {
+  if (richEditing.value)
     ribbonTab.value = 'home'
-    await openRichEditor(draft.value)
-  }
-  else {
-    await nextTick()
-  }
   openFrame()
 }
 
-async function commitDraft(table: TableData): Promise<TableData | null> {
-  const range = currentRange()
-  if (!active.value || !range)
-    return null
+function tableWithDraft(table: TableData) {
+  if (!active.value || (richEditing.value && !richChanged()))
+    return table
   const value = richEditing.value ? richValue() : draft.value
-  if (value === null)
-    return table
-  const changed = richEditing.value ? richChanged() : tableCellValue(table, active.value) !== draft.value
-  if (!changed || tableCellValue(table, active.value) === value)
-    return table
-  const next = withTableCellValue(table, active.value, value)
-  await studio.commit(writeTable(studio.content(), range, next), action('actionTableEdit'))
-  return next
+  return value === null || tableCellValue(table, active.value) === value
+    ? table
+    : withTableCellValue(table, active.value, value)
 }
 
 async function move(direction: -1 | 1) {
-  if (!active.value || moving || closing || closePromise)
+  if (!active.value || movePromise || closePromise || busy.value)
     return
-  tableRange.value = null
   const range = currentRange()
   const table = sourceTable()
-  if (!table || !range)
+  if (!table || !range) {
+    finish()
     return
-  moving = true
-  try {
-    const next = nextTableCell(table, active.value, direction)
-    const value = richEditing.value ? richValue() : draft.value
-    if (value === null) {
-      await close(false)
-      return
-    }
-    const changed = richEditing.value ? richChanged() : tableCellValue(table, active.value) !== draft.value
-    let nextTable = withTableCellValue(table, active.value, value)
+  }
+  const current = active.value
+  const task = (async () => {
+    tableRange.value = null
+    const next = nextTableCell(table, current, direction)
+    let nextTable = tableWithDraft(table)
     let target: TableCellPosition | null = null
     if (next === 'append-row') {
       nextTable = addRow(nextTable)
@@ -735,10 +726,10 @@ async function move(direction: -1 | 1) {
     else if (next) {
       target = next
     }
-    if (changed || next === 'append-row')
-      await studio.commit(writeTable(studio.content(), range, nextTable), action('actionTableEdit'))
-    if (!target) {
-      await close(false)
+    if (nextTable !== table)
+      await commitCellTable(range, nextTable)
+    if (!target || !sessionRange()) {
+      finish()
       return
     }
     active.value = target
@@ -750,52 +741,53 @@ async function move(direction: -1 | 1) {
     rect.value = null
     needsFocus = true
     waitingSince = 0
-    suppressBlur = true
     await nextTick()
-    if (richEditing.value)
-      await openRichEditor(draft.value)
-    if (!frame)
-      openFrame()
-    else
-      requestAnimationFrame(tick)
+  })()
+  movePromise = task
+  try {
+    await task
   }
   finally {
-    moving = false
+    movePromise = null
   }
+}
+
+function finish() {
+  tableEditing.value = false
+  active.value = null
+  destroyRichEditor()
+  richEditing.value = false
+  cell.value = null
+  rect.value = null
+  needsFocus = false
+  session = null
+  cancelAnimationFrame(frame)
+  frame = 0
 }
 
 function close(save: boolean): Promise<void> {
   if (closePromise)
     return closePromise
   const task = (async () => {
-    closing = true
-    try {
-      if (save) {
-        const table = sourceTable()
-        if (table)
-          await commitDraft(table)
+    if (movePromise)
+      await movePromise
+    if (save && active.value) {
+      const range = currentRange()
+      const table = sourceTable()
+      if (range && table) {
+        const next = tableWithDraft(table)
+        if (next !== table)
+          await commitCellTable(range, next)
       }
-      tableEditing.value = false
-      active.value = null
-      destroyRichEditor()
-      richEditing.value = false
-      cell.value = null
-      rect.value = null
-      needsFocus = false
-      suppressBlur = false
-      session = null
-      cancelAnimationFrame(frame)
-      frame = 0
     }
-    finally {
-      closing = false
-    }
+    finish()
   })()
   closePromise = task
-  void task.finally(() => {
+  const clear = () => {
     if (closePromise === task)
       closePromise = null
-  })
+  }
+  void task.then(clear, clear)
   return task
 }
 
@@ -809,12 +801,16 @@ function keydown(event: KeyboardEvent) {
     return
   if (event.key === 'Tab') {
     event.preventDefault()
-    void move(event.shiftKey ? -1 : 1)
+    void move(event.shiftKey ? -1 : 1).catch(reportError)
     return
   }
   if (event.key === 'Escape') {
     event.preventDefault()
-    void close(false)
+    void close(false).catch(reportError)
+  }
+  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+    event.preventDefault()
+    void close(true).catch(reportError)
   }
 }
 
@@ -822,7 +818,7 @@ function cellInfo(cellEl: HTMLElement) {
   if (cellEl.closest('.studio-filmstrip'))
     return null
   const root = cellEl.closest<HTMLElement>('[data-studio-table]')
-  if (!root)
+  if (!root || root !== selection.value?.el || selectedTargets.value.length !== 1)
     return null
   const [rawRow, rawColumn] = (cellEl.dataset.studioTableCell ?? '').split(',').map(Number)
   if (!Number.isFinite(rawRow) || !Number.isFinite(rawColumn))
@@ -838,7 +834,7 @@ function hit(event: Event) {
 
   // A selected object carries a transparent move surface above the canvas, so
   // the event target is that surface rather than the cell under the pointer.
-  if (event instanceof MouseEvent) {
+  if (target?.closest('.studio-move') && event instanceof MouseEvent) {
     for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
       const cellEl = element.closest<HTMLElement>('[data-studio-table-cell]')
       if (cellEl) {
@@ -852,7 +848,7 @@ function hit(event: Event) {
 }
 
 function click(event: MouseEvent) {
-  if (event.shiftKey || (event.target instanceof Element && event.target.closest('.studio-table-resize')))
+  if (editing.value || event.shiftKey || (event.target instanceof Element && event.target.closest('.studio-table-resize')))
     return
   const found = hit(event)
   if (found)
@@ -860,7 +856,7 @@ function click(event: MouseEvent) {
 }
 
 function pointerDown(event: PointerEvent) {
-  if (event.button !== 0 || moving || drag.value)
+  if (event.button !== 0 || editing.value || movePromise || drag.value)
     return
   const target = event.target instanceof Element ? event.target : null
   if (target?.closest('.studio-table-resize'))
@@ -869,7 +865,7 @@ function pointerDown(event: PointerEvent) {
   if (tableEditing.value && richEditing.value && target?.closest('[data-studio-text-controls]'))
     return
   if (tableEditing.value && !target?.closest('.studio-table-cell-editor'))
-    void close(true)
+    void close(true).catch(reportError)
   const found = hit(event)
   if (!found)
     return
@@ -890,7 +886,7 @@ function pointerDown(event: PointerEvent) {
     if (selection.value?.el === found.root) {
       event.preventDefault()
       event.stopPropagation()
-      void start(found.position, found.cell)
+      void start(found.position, found.cell).catch(reportError)
     }
     return
   }
@@ -905,13 +901,13 @@ function doubleClick(event: MouseEvent) {
     return
   event.preventDefault()
   event.stopPropagation()
-  void start(found.position, found.cell)
+  void start(found.position, found.cell).catch(reportError)
 }
 
 function blur() {
-  if (moving || closing || suppressBlur || !tableEditing.value || richEditing.value)
+  if (movePromise || closePromise || !tableEditing.value || richEditing.value)
     return
-  void close(true)
+  void close(true).catch(reportError)
 }
 
 watch(tableEditRequest, (position) => {
@@ -921,12 +917,14 @@ watch(tableEditRequest, (position) => {
   const table = sourceTable()
   const target = table ? clampTableCell(table, position) ?? defaultTableCell(table) : null
   if (target)
-    void start(target)
+    void start(target).catch(reportError)
 })
 
-watch(selection, (target) => {
-  if (tableEditing.value && (!target || target.tag !== 'StudioTable'))
-    void close(true)
+watch(selection, (target, previous) => {
+  if (drag.value && target?.el !== previous?.el)
+    dragCancel()
+  if (session && (target?.tag !== 'StudioTable' || target.no !== session.no || target.range?.[0] !== session.start))
+    void close(true).catch(reportError)
 })
 
 defineExpose({ apply })
@@ -939,9 +937,9 @@ onMounted(() => {
   document.addEventListener('dblclick', doubleClick, true)
 })
 onBeforeUnmount(() => {
-  void close(true)
+  void close(true).catch(reportError)
   destroyRichEditor()
-  unlistenDrag()
+  dragCancel()
   cancelAnimationFrame(frame)
   document.removeEventListener('pointerdown', pointerDown, true)
   document.removeEventListener('click', click, true)
@@ -981,7 +979,7 @@ onBeforeUnmount(() => {
     :style="editorStyle"
     :aria-label="t('tableCellEditor')"
     spellcheck="false"
-    @keydown="keydown"
+    @keydown.stop="keydown"
     @blur="blur"
   />
   <div

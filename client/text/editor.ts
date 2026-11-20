@@ -46,8 +46,8 @@ const fontStyles = ['font-family', 'font-size', 'color', 'background-color', 'fo
 const inlineTags = new Set(['span', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'code', 'a', 'br'])
 
 /** Check the authored HTML, before a schema has a chance to discard attributes. */
-export function prepareTextHTML(html: string): string | null {
-  if (html.includes('{{')) return null
+export function prepareTextHTML(html: string, variant: 'block' | 'inline' = 'block'): string | null {
+  if (variant === 'block' && html.includes('{{')) return null
   const root = document.createElement('div')
   root.innerHTML = html
   const walk = document.createTreeWalker(root, NodeFilter.SHOW_COMMENT)
@@ -153,7 +153,7 @@ const ParagraphFormat = Extension.create({
 })
 
 export function createTextEditor(html: string, options: Partial<EditorOptions> = {}, variant: 'block' | 'inline' = 'block'): Editor {
-  const content = prepareTextHTML(html)
+  const content = prepareTextHTML(html, variant)
   if (content === null) throw new Error('Unsupported text-box HTML')
   return new Editor({
     element: document.createElement('div'),

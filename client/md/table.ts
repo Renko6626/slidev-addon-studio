@@ -1,9 +1,10 @@
 import type { TableColumn, TableData, TableMerge } from '../../shared/table'
 import type { SourceRange } from '../types'
+import type { Attr } from './tags'
 import { TABLE_DEFAULTS, normaliseTable } from '../../shared/table'
 import { validateCellHTML } from '../../shared/table-html'
 import { decodeEntities } from './entities'
-import { formatStringMatrix, parseNullableNumberArray, parseObjectArray, parsePrimitive, parseStringMatrix, quote, splitTopLevel } from './literals'
+import { formatStringMatrix, parseNullableNumberArray, parseObjectArray, parsePrimitive, parseStringLiteral, parseStringMatrix, quote, splitTopLevel } from './literals'
 import { getBlock, replaceBlock } from './lines'
 import { findAttr, opensWithTag, parseAttrs, sameAttr, writeAttr } from './tags'
 
@@ -23,16 +24,23 @@ function defaults(): TableData {
 }
 
 function decodeAttr(value: string) {
-  return decodeEntities(value)
+  const decoded = decodeEntities(value)
+  if (!decoded.includes('&') || typeof document === 'undefined')
+    return decoded
+  // Use HTML attribute decoding for references outside Studio's own output.
+  const template = document.createElement('template')
+  template.innerHTML = `<span data-value="${value.replace(/"/g, '&quot;')}"></span>`
+  return template.content.firstElementChild!.getAttribute('data-value')!
 }
 
-function readFlag(block: string, name: string, fallback: boolean) {
-  const attr = findAttr(block, name)
+function readFlag(attr: Attr | undefined, fallback: boolean): boolean | undefined {
   if (!attr)
     return fallback
-  if (attr.value === null)
+  // Bare and static attributes are truthy in the rendered table.
+  if (!attr.bound)
     return true
-  return attr.value !== 'false'
+  const value = decodeAttr(attr.value ?? '').trim()
+  return value === 'true' ? true : value === 'false' ? false : undefined
 }
 
 function readNumber(block: string, name: string) {
@@ -66,20 +74,21 @@ export function parseTableColumns(raw: string | null | undefined): TableColumn[]
       if (separator === -1)
         return null
       const key = pair.slice(0, separator).trim().replace(/^['"`]|['"`]$/g, '')
-      const value = parsePrimitive(pair.slice(separator + 1).trim())
-      if (value === undefined)
-        return null
+      const raw = pair.slice(separator + 1).trim()
       if (key === 'label') {
-        if (typeof value !== 'string')
+        const value = parseStringLiteral(raw)
+        if (value === undefined)
           return null
         column.label = value
       }
       else if (key === 'align') {
-        if (typeof value !== 'string' || !ALIGNMENTS.has(value))
+        const value = parseStringLiteral(raw)
+        if (value === undefined || !ALIGNMENTS.has(value))
           return null
         column.align = value as TableColumn['align']
       }
       else if (key === 'width') {
+        const value = parsePrimitive(raw)
         if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0)
           return null
         column.width = value
@@ -182,21 +191,23 @@ export function readTable(content: string, range: SourceRange): TableReadResult 
   if (!tag || tag.name !== 'StudioTable')
     return { table: normaliseTable(defaults()), explicit: false, unparsed: false }
 
+  const attrs = parseAttrs(tag.attrs)
+  const headerAttrs = attrs.filter(attr => sameAttr(attr.name, 'header'))
+  const header = readFlag(headerAttrs[0], true)
   const style = {
-    header: readFlag(block, 'header', true),
-    border: readFlag(block, 'border', true),
-    striped: readFlag(block, 'striped', false),
+    header: header ?? TABLE_DEFAULTS.header,
+    border: readFlag(attrs.find(attr => sameAttr(attr.name, 'border')), true) ?? TABLE_DEFAULTS.border,
+    striped: readFlag(attrs.find(attr => sameAttr(attr.name, 'striped')), false) ?? TABLE_DEFAULTS.striped,
     fontSize: readNumber(block, 'fontSize'),
   }
-  const attrs = parseAttrs(tag.attrs)
   const columnAttrs = attrs.filter(attr => sameAttr(attr.name, 'columns'))
   const rowAttrs = attrs.filter(attr => sameAttr(attr.name, 'rows'))
   const mergeAttrs = attrs.filter(attr => sameAttr(attr.name, 'merges'))
   const heightAttrs = attrs.filter(attr => sameAttr(attr.name, 'rowHeights'))
   const headerHeightAttrs = attrs.filter(attr => sameAttr(attr.name, 'headerHeight'))
   const richAttrs = attrs.filter(attr => sameAttr(attr.name, 'rich'))
-  const duplicated = [columnAttrs, rowAttrs, mergeAttrs, heightAttrs, headerHeightAttrs, richAttrs].some(list => list.length > 1)
-  if (attrs.some(attr => attr.raw === 'v-bind') || duplicated)
+  const duplicated = [columnAttrs, rowAttrs, mergeAttrs, heightAttrs, headerHeightAttrs, richAttrs, headerAttrs].some(list => list.length > 1)
+  if (attrs.some(attr => attr.name === 'v-bind' || (attr.bound && attr.name.startsWith('['))) || duplicated || header === undefined)
     return { table: normaliseTable({ ...defaults(), ...style }), explicit: true, unparsed: true }
 
   const columnsAttr = columnAttrs[0] ?? null
@@ -243,7 +254,7 @@ export function readTable(content: string, range: SourceRange): TableReadResult 
     return { table: normaliseTable({ ...defaults(), ...style }), explicit, unparsed: true }
 
   const tableRows = rows ?? []
-  const tableColumns = columns ?? Array.from({ length: tableRows.reduce((most, row) => Math.max(most, row.length), 0) }, () => ({ label: '' }))
+  const tableColumns = columns?.length ? columns : Array.from({ length: tableRows.reduce((most, row) => Math.max(most, row.length), 0) }, () => ({ label: '' }))
   // A row wider than its columns cannot be represented without dropping cells.
   // Leave it to source editing rather than silently truncating it on the next write.
   if (tableRows.some(row => row.length > tableColumns.length))
@@ -291,17 +302,9 @@ export function readTable(content: string, range: SourceRange): TableReadResult 
     }
   }
 
-  let rich = false
-  if (richAttr) {
-    if (richAttr.value === null)
-      rich = true
-    else if (richAttr.value === 'true')
-      rich = true
-    else if (richAttr.value === 'false')
-      rich = false
-    else
-      unparsed = true
-  }
+  const rich = readFlag(richAttr ?? undefined, false)
+  if (rich === undefined)
+    unparsed = true
   // Unsupported cell markup keeps the source authoritative: the visual editor
   // cannot promise to preserve it on the next write.
   if (!unparsed && rich && typeof document !== 'undefined') {
@@ -336,10 +339,11 @@ export function writeTable(content: string, range: SourceRange, table: TableData
     return content
 
   const data = normaliseTable(table)
-  let next = writeAttr(block, 'columns', attrValue(formatTableColumns(data.columns)), { bound: true })
-  next = writeAttr(next, 'rows', attrValue(formatStringMatrix(data.rows)), { bound: true })
+  const indent = block.slice(block.lastIndexOf('\n', tag.start - 1) + 1, tag.start)
+  let next = writeAttr(block, 'columns', attrValue(formatTableColumns(data.columns), indent), { bound: true })
+  next = writeAttr(next, 'rows', attrValue(formatStringMatrix(data.rows), indent), { bound: true })
   next = writeAttr(next, 'rich', data.rich ? true : null)
-  next = writeAttr(next, 'merges', data.merges?.length ? attrValue(formatTableMerges(data.merges)) : null, { bound: true })
+  next = writeAttr(next, 'merges', data.merges?.length ? attrValue(formatTableMerges(data.merges), indent) : null, { bound: true })
   const heights = trimmedHeights(data.rowHeights)
   next = writeAttr(next, 'row-heights', heights.length ? attrValue(formatHeightList(heights)) : null, { bound: true })
   next = writeAttr(next, 'header-height', data.headerHeight ? String(data.headerHeight) : null, { bound: true })
@@ -380,10 +384,10 @@ export function writeTableStyle(content: string, range: SourceRange, patch: Tabl
   return replaceBlock(content, range, next)
 }
 
-function attrValue(value: string) {
+function attrValue(value: string, indent = '') {
   // Newlines are structural here: one column or row per line. Only markup
-  // characters are encoded; a literal newline in a cell is escaped by quote().
-  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+  // characters are encoded, and continuation lines stay in the Markdown block.
+  return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/\n/g, `\n${indent}`)
 }
 
 /** Markup inserted by the palette, the toolbar and the Markdown importer. */
@@ -403,6 +407,13 @@ export function tableSnippet(table: TableData): string {
     props.push(`  :font-size="${data.fontSize}"`)
   if (data.rich)
     props.push('  rich')
+  if (data.merges?.length)
+    props.push(`  :merges="${attrValue(formatTableMerges(data.merges))}"`)
+  const heights = trimmedHeights(data.rowHeights)
+  if (heights.length)
+    props.push(`  :row-heights="${formatHeightList(heights)}"`)
+  if (data.headerHeight)
+    props.push(`  :header-height="${data.headerHeight}"`)
   return `<StudioTable\n${props.join('\n')}\n/>`
 }
 

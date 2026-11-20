@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { expect, it } from 'vitest'
 import type { SourceRange } from '../client/types'
 import type { TableData } from '../shared/table'
@@ -87,6 +88,49 @@ it('reports unreadable props instead of rewriting them', () => {
   }
 })
 
+it('leaves interpolated strings and sparse table data to source editing', () => {
+  const cases = [
+    ':rows="[[`Total: ${total}`]]"',
+    ':rows="[[, \'second\']]"',
+    ':rows="[, [\'second\']]"',
+    ':columns="[, { label: \'B\' }]"',
+    ':rows="[[\'first\'], [\'second\']]" :row-heights="[, 40]"',
+    ':rows="[[\'first\']]" :[prop]="customValue"',
+  ]
+  for (const attrs of cases)
+    expect(readTable(`<StudioTable ${attrs} />`, [0, 1]).unparsed, attrs).toBe(true)
+})
+
+it('keeps escaped characters in untouched labels and cells when editing another cell', () => {
+  const content = String.raw`<StudioTable :columns="[{ label: '\u9879\u{76EE}' }, { label: 'B' }]" :rows="[['\x41\u{1F600}', 'old']]" />`
+  const before = readTable(content, [0, 1])
+  expect(before.unparsed).toBe(false)
+  const edited = withTableCellValue(before.table, { row: 0, column: 1 }, 'new')
+  const { read } = roundTrip(content, edited)
+  expect(read.unparsed).toBe(false)
+  expect(read.table.columns[0].label).toBe('项目')
+  expect(read.table.rows).toEqual([['A😀', 'new']])
+})
+
+it('decodes authored HTML character references in bound table props once', () => {
+  const content = '<StudioTable :columns="[{ label: \'A&nbsp;B\' }, { label: \'C\' }]" :rows="[[\'&#x4E2D; &amp;nbsp;\', \'old\']]" />'
+  const before = readTable(content, [0, 1])
+  expect(before.unparsed).toBe(false)
+  const edited = withTableCellValue(before.table, { row: 0, column: 1 }, 'new')
+  const { read } = roundTrip(content, edited)
+  expect(read.table.columns[0].label).toBe('A\u00a0B')
+  expect(read.table.rows).toEqual([['中 &nbsp;', 'new']])
+})
+
+it('reads Boolean props using the same empty and bound values as the component', () => {
+  const content = '<StudioTable :rows="[[\'cell\']]" header="" rich="" :border=" false " />'
+  const { table, unparsed } = readTable(content, [0, 1])
+  expect(unparsed).toBe(false)
+  expect(table).toMatchObject({ header: true, rich: true, border: false })
+  for (const attrs of [':header="showHeader"', ':rich', ':rich="false" rich'])
+    expect(readTable(`<StudioTable :rows="[['cell']]" ${attrs} />`, [0, 1]).unparsed, attrs).toBe(true)
+})
+
 it('parses and formats columns without losing empty labels', () => {
   const columns = [
     { label: '' },
@@ -129,6 +173,17 @@ it('the default and imported snippets parse back', () => {
   }
 })
 
+it('includes the configured merges and sizes in a newly written snippet', () => {
+  const table = normaliseTable({
+    ...gridTable(),
+    merges: [{ row: 0, column: 1, rowspan: 2, colspan: 1 }],
+    headerHeight: 44,
+    rowHeights: [null, 56],
+  })
+  const content = tableSnippet(table)
+  expect(readTable(content, rangeOf(content))).toMatchObject({ table, unparsed: false })
+})
+
 it('writes one column and row per line, not encoded newlines', () => {
   const next = writeTable('<StudioTable :columns="[]" :rows="[]" />', [0, 1], {
     columns: [{ label: 'A' }, { label: 'B' }],
@@ -140,6 +195,23 @@ it('writes one column and row per line, not encoded newlines', () => {
   expect(next).toContain(':columns="[\n')
   expect(next).toContain(':rows="[\n')
   expect(next).not.toContain('&#10;')
+})
+
+it('keeps a table inside its Markdown list item when writing column widths', () => {
+  const table = gridTable()
+  const indent = '  '
+  const block = tableSnippet(table).replace(/^/gm, indent)
+  const content = `- Item\n\n${block}\n\n  # Neighbor`
+  const { next, read } = roundTrip(content, {
+    ...table,
+    columns: table.columns.map((column, index) => index === 0 ? { ...column, width: 40 } : column),
+  })
+  const [start, end] = rangeOf(next)
+  const lines = next.split('\n')
+  expect(lines.slice(0, start)).toEqual(['- Item', ''])
+  expect(lines.slice(start, end).every(line => line.startsWith(indent))).toBe(true)
+  expect(lines.slice(end)).toEqual(['', '  # Neighbor'])
+  expect(read).toMatchObject({ unparsed: false, table: { columns: [{ label: 'A', width: 40 }, { label: 'B' }, { label: 'C' }], rows: table.rows } })
 })
 
 it('writes presentation props without touching the data', () => {

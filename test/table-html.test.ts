@@ -19,6 +19,9 @@ it('rejects markup the editor cannot preserve', () => {
     '<a href="javascript:alert(1)">x</a>',
     '<!-- note -->',
     '<b style="color: red">x</b>',
+    '<a href="https://example.com" style="color: red">x</a>',
+    '<span style="font-size: 20px"><span style="font-size: 50%">x</span></span>',
+    '<span style="text-decoration: overline">x</span>',
   ])
     expect(validateCellHTML(html), html).toBe(false)
 })
@@ -37,6 +40,7 @@ it('cleans unsupported markup for rendering', () => {
 it('converts plain text and rich HTML both ways', () => {
   expect(cellHTMLFromText('a < b & c\n2')).toBe('a &lt; b &amp; c<br>2')
   expect(flattenCellHTML('a &lt; b &amp; c<br>2')).toBe('a < b & c\n2')
+  expect(flattenCellHTML(cellHTMLFromText('a\u00a0b'))).toBe('a\u00a0b')
   expect(escapeCellText('a<b')).toBe('a&lt;b')
 })
 

@@ -27,6 +27,12 @@ function rendered(html: string) {
   return el
 }
 
+it('opens literal braces in an inline table cell', () => {
+  const e = createTextEditor('<p>Literal {{ value }}</p>', {}, 'inline')
+  editors.push(e)
+  expect(e.getText()).toBe('Literal {{ value }}')
+})
+
 it('removes bold only from the selected words and supports undo and redo', () => {
   const e = editor('<p><strong>hello world</strong></p>')
   e.commands.setTextSelection({ from: 1, to: 6 })

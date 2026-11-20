@@ -7,7 +7,7 @@ export interface MarkdownTableImport {
   flattened: boolean
 }
 
-const DELIMITER = /^:?-{3,}:?$/
+const DELIMITER = /^:?-+:?$/
 
 /** Removes inline Markdown so a cell keeps its content, not its syntax. */
 export function flattenInlineMarkdown(text: string): string {
@@ -44,27 +44,24 @@ function splitRow(line: string): string[] {
   }
   cells.push(current)
 
-  if (text.startsWith('|'))
+  if (cells[0] === '')
     cells.shift()
-  if (cells.length && text[text.length - 1] === '|' && !escaped(text, text.length - 1))
+  if (cells.at(-1) === '')
     cells.pop()
   return cells.map(cell => cell.trim())
 }
 
-function escaped(text: string, index: number) {
-  let backslashes = 0
-  for (let i = index - 1; i >= 0 && text[i] === '\\'; i--)
-    backslashes += 1
-  return backslashes % 2 === 1
-}
-
 /**
- * Reads a GFM table block. Header alignment comes from the delimiter row; body
- * rows are padded or truncated to the header width, as GFM renders them.
+ * Reads the source range of a rendered Markdown table. Header alignment comes
+ * from the delimiter row; body rows are padded or truncated to the header width.
  */
 export function parseMarkdownTable(block: string): MarkdownTableImport | null {
-  const lines = block.split('\n').map(line => line.trim())
-  if (lines.length < 2)
+  const lines = block.trimEnd().split('\n').map(line => line.trim())
+  if (lines.length < 2 || !lines[0].includes('|'))
+    return null
+  // The first line can also open a list item or blockquote. A component cannot
+  // replace that line without changing its surrounding Markdown.
+  if (/^(?:>|(?:[-+*]|\d{1,9}[.)])\s)/.test(lines[0]))
     return null
 
   const header = splitRow(lines[0])
@@ -88,8 +85,8 @@ export function parseMarkdownTable(block: string): MarkdownTableImport | null {
 
   const rows: string[][] = []
   for (const line of lines.slice(2)) {
-    if (!line || !line.includes('|'))
-      break
+    if (!line)
+      return null
     const cells = splitRow(line)
     const row = columns.map((_, index) => {
       const raw = cells[index] ?? ''

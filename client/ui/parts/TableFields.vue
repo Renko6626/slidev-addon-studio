@@ -23,10 +23,10 @@ const range = computed(() => selection.value?.range)
 const state = computed(() => range.value ? readTable(studio.content(), range.value) : null)
 const table = computed(() => state.value?.table ?? null)
 const unparsed = computed(() => !!state.value?.unparsed)
-const locked = computed(() => busy.value || editing.value)
-const selected = computed(() => Math.min(tableCell.value?.column ?? 0, Math.max(0, (table.value?.columns.length ?? 1) - 1)))
+const locked = computed(() => busy.value || editing.value || tableEditing.value)
+const cell = computed(() => table.value && tableCell.value ? clampTableCell(table.value, tableCell.value) : null)
+const selected = computed(() => cell.value?.column ?? Math.min(tableCell.value?.column ?? 0, Math.max(0, (table.value?.columns.length ?? 1) - 1)))
 const current = computed(() => table.value?.columns[selected.value] ?? null)
-const cell = computed(() => tableCell.value)
 const rowHeight = computed(() => {
   if (!table.value || !cell.value)
     return null
@@ -150,7 +150,7 @@ async function appendRow() {
 }
 
 async function removeSelectedColumn() {
-  if (!table.value)
+  if (!table.value || table.value.columns.length <= 1)
     return
   const next = removeColumn(table.value, selected.value)
   await commit(next)
@@ -218,7 +218,7 @@ function editCell() {
         <label><input type="checkbox" :checked="table.header" :disabled="locked" @change="commitStyle({ header: ($event.target as HTMLInputElement).checked })"> {{ t('tableHeader') }}</label>
         <label><input type="checkbox" :checked="table.border" :disabled="locked" @change="commitStyle({ border: ($event.target as HTMLInputElement).checked })"> {{ t('tableBorder') }}</label>
         <label><input type="checkbox" :checked="table.striped" :disabled="locked" @change="commitStyle({ striped: ($event.target as HTMLInputElement).checked })"> {{ t('tableStriped') }}</label>
-        <label :title="t('tableRichHint')"><input type="checkbox" :checked="table.rich" :disabled="locked || tableEditing" @change="setRich(($event.target as HTMLInputElement).checked)"> {{ t('tableRich') }}</label>
+        <label :title="t('tableRichHint')"><input type="checkbox" :checked="table.rich" :disabled="locked" @change="setRich(($event.target as HTMLInputElement).checked)"> {{ t('tableRich') }}</label>
         <label class="studio-table-style__size">
           <span>{{ t('tableFontSize') }}</span>
           <input class="studio-table-size-input" type="number" min="1" :value="table.fontSize ?? ''" :placeholder="t('auto')" :disabled="locked" @change="setFontSize(($event.target as HTMLInputElement).value)">
@@ -260,7 +260,7 @@ function editCell() {
         <div class="studio-table-columnbar__actions">
           <button type="button" class="studio-icon-button" :disabled="locked || !canMoveLeft" :title="t('tableMoveColumnLeft')" :aria-label="t('tableMoveColumnLeft')" @click="moveSelected(-1)"><StudioIcon name="back" :size="12" /></button>
           <button type="button" class="studio-icon-button" :disabled="locked || !canMoveRight" :title="t('tableMoveColumnRight')" :aria-label="t('tableMoveColumnRight')" @click="moveSelected(1)"><StudioIcon name="back" :size="12" style="transform: scaleX(-1)" /></button>
-          <button type="button" class="studio-icon-button" :disabled="locked" :title="t('tableRemoveColumn')" :aria-label="t('tableRemoveColumn')" @click="removeSelectedColumn"><StudioIcon name="trash" :size="12" /></button>
+          <button type="button" class="studio-icon-button" :disabled="locked || table.columns.length <= 1" :title="t('tableRemoveColumn')" :aria-label="t('tableRemoveColumn')" @click="removeSelectedColumn"><StudioIcon name="trash" :size="12" /></button>
         </div>
       </div>
 

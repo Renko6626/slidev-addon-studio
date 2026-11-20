@@ -33,26 +33,41 @@ it('pads missing cells and rejects malformed tables', () => {
   expect(parsed.rows).toEqual([['1', '']])
   expect(parseMarkdownTable('| A |\n| --- |\n| 1 | 2 | 3 |')!.rows).toEqual([['1']])
   expect(parseMarkdownTable('| A | B |\n| --- |')).toBeNull()
+  expect(parseMarkdownTable('- | A | B |\n  | --- | --- |\n  only')).toBeNull()
   expect(parseMarkdownTable('plain text')).toBeNull()
 })
 
-it('converts the selected Markdown table in one commit', async () => {
-  let content = `${markdown}\n\nNeighbor`
+it('preserves a trailing escaped pipe after consecutive backslashes', () => {
+  const source = String.raw`| A | B |
+| --- | --- |
+value \\|`
+  expect(parseMarkdownTable(source)?.rows).toEqual([['value |', '']])
+})
+
+it.each([
+  { before: 'Before', after: '# Neighbor', indent: '' },
+  { before: '- Before', after: '  # Neighbor', indent: '  ' },
+])('converts the selected Markdown table in one commit after $before', async ({ before, after, indent }) => {
+  const body = markdown.replace('| :--- | ---: |', '| :- | -: |').replace('| **电压** | 3.3 |', '**电压**')
+  let content = `${before}\n${body.replace(/^/gm, indent)}\n${after}`
   let writes = 0
+  let selectedRange: StudioTarget['range'] = null
   const studio = {
     content: () => content,
     no: () => 1,
     commit: async (next: string) => { content = next; writes++ },
-    selectInserted: async () => true,
+    selectInserted: async (_tag: string, range: StudioTarget['range']) => { selectedRange = range; return true },
   } as unknown as StudioContext
-  const target = { kind: 'table', range: [0, 4], nested: false, positioned: false, no: 1, el: {} as HTMLElement, label: 'Table' } as unknown as StudioTarget
+  const target = { kind: 'table', range: [1, 5], nested: false, positioned: false, no: 1, el: {} as HTMLElement, label: 'Table' } as unknown as StudioTarget
   await importMarkdownTable(studio, target)
   expect(writes).toBe(1)
-  expect(content).toContain('<StudioTable')
-  expect(content).toContain('Neighbor')
+  expect(content.startsWith(`${before}\n\n${indent}<StudioTable\n`)).toBe(true)
+  expect(content.endsWith(`\n${indent}/>\n\n${after}`)).toBe(true)
   const lines = content.split('\n')
-  const table = readTable(content, [0, endOfBlock(lines, 0)])
+  const range: NonNullable<StudioTarget['range']> = [2, endOfBlock(lines, 2)]
+  expect(selectedRange).toEqual(range)
+  const table = readTable(content, range)
   expect(table.unparsed).toBe(false)
   expect(table.table.columns.map(column => column.label)).toEqual(['项目', '数值'])
-  expect(table.table.rows).toEqual([['电压', '3.3'], ['电流 | 峰值', '0.2']])
+  expect(table.table.rows).toEqual([['电压', ''], ['电流 | 峰值', '0.2']])
 })

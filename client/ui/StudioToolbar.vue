@@ -46,7 +46,7 @@ const redoEnabled = computed(() => textActive.value ? studio.text.canRedo.value 
 function undo() { return textActive.value ? studio.text.undo() : history.undo() }
 function redo() { return textActive.value ? studio.text.redo() : history.redo() }
 const title = computed(() => configs.title || configs.slidesTitle || 'Slidev Studio')
-const locked = computed(() => busy.value || editing.value || imagePending.value)
+const locked = computed(() => busy.value || editing.value || tableEditing.value || imagePending.value)
 const mapped = computed(() => !!selection.value?.range)
 const reorderable = computed(() => !!selection.value?.range && canReorder(selection.value))
 const quizQuestions = computed(() => listQuestions(studio.content()).filter((item, _index, all) => item.value.question && item.value.mode && item.value.options?.length
@@ -60,7 +60,7 @@ async function openFile() {
   if (ribbonTab.value === 'file') { ribbonTab.value = 'home'; return }
   if (imagePending.value || projectSaving.value) return
   await studio.save()
-  if (editing.value) return
+  if (editing.value || tableEditing.value) return
   clearSelection()
   library.value = null
   ribbonTab.value = 'file'
@@ -154,7 +154,7 @@ function insertTableColumn(side: 'left' | 'right') {
 
 function deleteTableColumn() {
   const active = activeTable()
-  if (!active?.position)
+  if (!active?.position || active.table.columns.length <= 1)
     return
   const next = removeColumn(active.table, active.position.column)
   return commitTable(next, clampTableCell(next, { row: active.position.row, column: active.position.column }))
@@ -191,7 +191,7 @@ function toggleTableStyle(key: 'header' | 'border' | 'striped') {
 
 function addTableRowEnd() {
   const active = activeTable()
-  if (!active)
+  if (!active?.table.columns.length)
     return
   const next = addRow(active.table)
   return commitTable(next, { row: next.rows.length - 1, column: 0 })
@@ -199,11 +199,11 @@ function addTableRowEnd() {
 
 function addTableColumnEnd() {
   const active = activeTable()
-  if (!active?.position)
+  if (!active)
     return
   const at = active.table.columns.length
   const next = addColumn(active.table, at, { label: t('tableColumn', { index: at + 1 }) })
-  return commitTable(next, { row: active.position.row, column: at })
+  return commitTable(next, clampTableCell(next, { row: active.position?.row ?? null, column: at }))
 }
 
 const mergeReady = computed(() => {
@@ -340,7 +340,7 @@ const groups = computed<Group[]>(() => {
     ]
     case 'table': {
       const current = activeTable()
-      const tableLocked = locked.value || tableEditing.value || !current
+      const tableLocked = locked.value || !current
       const position = current?.position ?? null
       const column = position && current ? current.table.columns[position.column] : null
       return [
@@ -348,13 +348,13 @@ const groups = computed<Group[]>(() => {
           { label: 'insertRowAbove', icon: 'plus', run: () => insertTableRow('above'), disabled: tableLocked || !position },
           { label: 'insertRowBelow', icon: 'plus', run: () => insertTableRow('below'), disabled: tableLocked || !position },
           { label: 'tableDeleteRow', icon: 'trash', run: deleteTableRow, disabled: tableLocked || !position || position.row === null },
-          { label: 'tableAddRow', icon: 'plus', run: addTableRowEnd, disabled: tableLocked },
+          { label: 'tableAddRow', icon: 'plus', run: addTableRowEnd, disabled: tableLocked || !current?.table.columns.length },
         ] },
         { label: 'tableColumnsGroup', commands: [
           { label: 'insertColumnLeft', icon: 'plus', run: () => insertTableColumn('left'), disabled: tableLocked || !position },
           { label: 'insertColumnRight', icon: 'plus', run: () => insertTableColumn('right'), disabled: tableLocked || !position },
-          { label: 'tableDeleteColumn', icon: 'trash', run: deleteTableColumn, disabled: tableLocked || !position },
-          { label: 'tableAddColumn', icon: 'plus', run: addTableColumnEnd, disabled: tableLocked || !position },
+          { label: 'tableDeleteColumn', icon: 'trash', run: deleteTableColumn, disabled: tableLocked || !position || (current?.table.columns.length ?? 0) <= 1 },
+          { label: 'tableAddColumn', icon: 'plus', run: addTableColumnEnd, disabled: tableLocked },
         ] },
         { label: 'tableMergeGroup', commands: [
           { label: 'tableMerge', icon: 'components', run: mergeTableCells, disabled: tableLocked || !mergeReady.value },

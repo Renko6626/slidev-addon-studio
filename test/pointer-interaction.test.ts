@@ -149,6 +149,15 @@ it('hands a second click on the same text object to inline editing without movin
   expect(s.writes()).toBe(0)
 })
 
+it('leaves StudioTable double-clicks to the cell editor', () => {
+  const s = setup('<StudioTable :rows="[[\'A\']]" />')
+  s.pointer('pointerdown')
+  s.pointer('pointerup')
+  s.pointer('pointerdown')
+  expect(selection.value?.tag).toBe('StudioTable')
+  expect(editing.value).toBe(false)
+})
+
 it.each(['other object', 'blank'] as const)('does not let an older reselect overwrite a later choice: %s', async (choice) => {
   const s = setup()
   s.select.select(s.first)

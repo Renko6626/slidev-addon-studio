@@ -12,6 +12,7 @@ const DROP_TAGS = new Set(['script', 'style', 'iframe', 'object', 'embed', 'temp
 const STYLE_KEYS = new Set(['color', 'background-color', 'font-size', 'font-weight', 'font-style', 'text-decoration', 'text-decoration-line'])
 const LINK_ATTRS = new Set(['href', 'target', 'rel', 'style'])
 const SPAN_ATTRS = new Set(['style'])
+const NO_ATTRS = new Set<string>()
 
 function safeColor(value: string) {
   return /^#[0-9a-f]{3,8}$/i.test(value)
@@ -38,23 +39,45 @@ function safeStyle(key: string, value: string) {
 }
 
 function safeHref(value: string) {
-  const text = value.trim()
-  if (!text)
+  if (!value.trim())
     return false
-  if (/^[a-z][a-z0-9+.-]*:/i.test(text))
-    return /^(?:https?|mailto):/i.test(text)
-  return true
+  try {
+    return ['https:', 'http:', 'mailto:'].includes(new URL(value, 'https://example.invalid').protocol)
+  }
+  catch {
+    return false
+  }
 }
 
 function cleanStyle(element: HTMLElement, strict: boolean) {
+  const style = element.style
+  if (strict) {
+    const authored = element.getAttribute('style') ?? ''
+    for (const [, name] of authored.matchAll(/(?:^|;)\s*([\w-]+)\s*:/g)) {
+      if (!style.getPropertyValue(name.toLowerCase()))
+        return false
+    }
+    // Tiptap reads these as marks and flattens nested text styles.
+    if (element.tagName !== 'SPAN' || style.textDecorationLine
+      || (style.textDecoration && !/^(underline|line-through)( (underline|line-through))?$/.test(style.textDecoration)))
+      return false
+    if (style.fontSize && /(?:em|%)$/.test(style.fontSize) && !style.fontSize.endsWith('rem')) {
+      for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+        if (parent.style.fontSize)
+          return false
+      }
+    }
+  }
   const keys: string[] = []
-  for (let index = 0; index < element.style.length; index++)
-    keys.push(element.style.item(index))
+  for (let index = 0; index < style.length; index++)
+    keys.push(style.item(index))
   for (const key of keys) {
-    if (!STYLE_KEYS.has(key) || !safeStyle(key, element.style.getPropertyValue(key))) {
+    if (strict && style.getPropertyPriority(key))
+      return false
+    if (!STYLE_KEYS.has(key) || !safeStyle(key, style.getPropertyValue(key))) {
       if (strict)
         return false
-      element.style.removeProperty(key)
+      style.removeProperty(key)
     }
   }
   if (!element.getAttribute('style'))
@@ -76,7 +99,9 @@ function cleanElement(element: Element, strict: boolean) {
     element.replaceWith(...element.childNodes)
     return true
   }
-  const allowed = tag === 'a' ? LINK_ATTRS : tag === 'span' ? SPAN_ATTRS : new Set<string>()
+  const allowed = tag === 'a' ? LINK_ATTRS : tag === 'span' ? SPAN_ATTRS : NO_ATTRS
+  if (strict && tag === 'a' && !element.hasAttribute('href'))
+    return false
   for (const attr of [...element.attributes]) {
     const name = attr.name.toLowerCase()
     if (!allowed.has(name)) {
@@ -110,8 +135,9 @@ function clean(input: string, strict: boolean): string | null {
   if (typeof document === 'undefined')
     return strict ? null : escapeCellText(input)
 
-  const root = document.createElement('div')
-  root.innerHTML = input
+  const template = document.createElement('template')
+  template.innerHTML = input
+  const root = template.content
 
   const comments = document.createTreeWalker(root, NodeFilter.SHOW_COMMENT)
   if (comments.nextNode()) {
@@ -133,7 +159,7 @@ function clean(input: string, strict: boolean): string | null {
     if (!cleanElement(element, strict))
       return null
   }
-  return root.innerHTML
+  return template.innerHTML
 }
 
 export function escapeCellText(text: string) {
@@ -149,11 +175,11 @@ export function cellHTMLFromText(text: string) {
 export function flattenCellHTML(html: string) {
   if (typeof document === 'undefined')
     return html.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '')
-  const root = document.createElement('div')
-  root.innerHTML = html
-  for (const br of [...root.querySelectorAll('br')])
+  const template = document.createElement('template')
+  template.innerHTML = html
+  for (const br of [...template.content.querySelectorAll('br')])
     br.replaceWith('\n')
-  return (root.textContent ?? '').replace(/\u00a0/g, ' ')
+  return template.content.textContent ?? ''
 }
 
 /** Whether the editor can safely open this cell. */

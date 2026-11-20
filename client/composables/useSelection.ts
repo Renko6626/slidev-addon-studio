@@ -195,7 +195,7 @@ export function useSelection(
     // container.
     if (event.target instanceof Element && event.target.closest('.studio-move')) {
       const beneath = throughChrome(event.clientX, event.clientY) ?? selection.value
-      if (!beneath?.range && !beneath?.prop)
+      if ((!beneath?.range && !beneath?.prop) || beneath.tag === 'StudioTable')
         return
       event.preventDefault()
       selection.value = beneath
@@ -216,7 +216,7 @@ export function useSelection(
       return
 
     const target = targetFrom(event.target) ?? targetFromPoint(event.clientX, event.clientY)
-    if (!target?.range && !target?.prop)
+    if ((!target?.range && !target?.prop) || target.tag === 'StudioTable')
       return
     event.preventDefault()
     selection.value = target

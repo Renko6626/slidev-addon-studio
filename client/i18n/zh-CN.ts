@@ -650,7 +650,7 @@ export default {
   "actionQuizEdit": "编辑题目交互",
   "table": "表格",
   "tableEditHint": "双击单元格编辑文字；Shift+点击选择多个单元格后合并；结构和外观在这里设置。",
-  "tableCellHint": "Tab / Shift+Tab 切换单元格，Esc 结束编辑；拖动行列表线可调整尺寸；富文本单元格可在 Home tab 设置行内格式。",
+  "tableCellHint": "Tab / Shift+Tab 切换单元格，Ctrl/Cmd+Enter 应用修改，Esc 取消。拖动行列分隔线调整尺寸。富文本格式在「开始」选项卡设置。",
   "tableSizeSummary": "{columns} 列 × {rows} 行",
   "tableColumn": "第 {index} 列",
   "tableAlign": "对齐",

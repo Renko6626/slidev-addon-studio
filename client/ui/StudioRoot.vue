@@ -15,7 +15,7 @@ import { useSlideSource } from '../composables/useSlideSource'
 import { useTransformGizmo } from '../composables/useTransformGizmo'
 import { useTextEditor } from '../composables/useTextEditor'
 import { studioContext, studioKey } from '../context'
-import { activePanel, busy, dockWidth, editing, inspectorVisible, lastError, notesVisible, ribbonTab, selection, selectedTargets, slidesVisible, studioOpen } from '../state'
+import { activePanel, busy, dockWidth, editing, inspectorVisible, lastError, notesVisible, ribbonTab, selection, selectedTargets, slidesVisible, studioOpen, tableEditing } from '../state'
 import { imagePending } from '../composables/useImageInsertion'
 import { projectSaveStatus, projectWriteError, saveProject } from '../project-save'
 import { projectHost } from '../project-host'
@@ -160,7 +160,7 @@ onDomEvent<KeyboardEvent>(document, 'keydown', (event) => {
     if (event.key === 'Escape') { event.preventDefault(); ribbonTab.value = 'home' }
     return
   }
-  if (editing.value || busy.value) return
+  if (editing.value || tableEditing.value || busy.value) return
   const target = selection.value
   if (!target?.range)
     return
@@ -325,7 +325,7 @@ onScopeDispose(resetView)
           <StudioDock v-if="inspectorVisible" v-show="ribbonTab !== 'file'" />
           <footer class="studio-statusbar">
             <span>{{ t('pageProgress', { current: no, total: nav.total.value }) }}</span>
-            <span role="status" :class="{ 'studio-file-error': projectWriteError }">{{ t(projectSaveStatus(editing || !!notesEditor?.dirty)) }}</span>
+            <span role="status" :class="{ 'studio-file-error': projectWriteError }">{{ t(projectSaveStatus(editing || tableEditing || !!notesEditor?.dirty)) }}</span>
             <span class="studio-statusbar__spacer" />
             <button :aria-pressed="notesVisible" @click="notesVisible = !notesVisible">{{ t('presenterNotes') }}</button>
             <div class="studio-zoom" :title="t('canvasNavigationHint')">

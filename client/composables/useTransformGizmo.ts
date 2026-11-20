@@ -11,7 +11,7 @@ import { DRAG_WRAPPER_PADDING, readDrag, writeDrag } from '../md/drag'
 import { readElement } from '../md/elements'
 import { movePositions } from '../md/batch'
 import { boundsOf } from '../selection-geometry'
-import { busy, editing, gridEnabled, gridSize, snapEnabled } from '../state'
+import { busy, editing, gridEnabled, gridSize, snapEnabled, tableEditing } from '../state'
 import { snapBox } from './useSnapping'
 
 export type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
@@ -106,7 +106,7 @@ export function useTransformGizmo(context: {
     // Only the primary button drags. A right-click on the selection overlay
     // otherwise armed a gesture and swallowed the event that opens the context
     // menu, so the menu never appeared over the very thing it is about.
-    if (event.button !== 0 || busy.value || editing.value)
+    if (event.button !== 0 || busy.value || editing.value || tableEditing.value)
       return
 
     const current = context.getTarget()

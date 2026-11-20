@@ -2,7 +2,7 @@ import { action, t, targetLabel, targetName } from './i18n'
 import type { StudioContext } from './context'
 import type { SourceRange, StudioTarget } from './types'
 import { positionedUnit, readDrag, removeDrag, writeDrag } from './md/drag'
-import { duplicateListItem, getBlock, listItemUnit, moveBlock, moveListItem, removeBlock, replaceBlock } from './md/lines'
+import { duplicateListItem, getBlock, listItemUnit, moveBlock, moveListItem, removeBlock, replaceBlock, toLines } from './md/lines'
 import { captureBlock, insertCopiedBlock } from './md/clipboard'
 import { parseMarkdownTable } from './md/table-import'
 import { tableFromMarkdownTable, tableSnippet } from './md/table'
@@ -50,16 +50,24 @@ export function editSource() {
 /** Markdown tables are source-only; this replaces one with an editable object. */
 export async function importMarkdownTable(studio: StudioContext, target: StudioTarget) {
   if (busy.value || editing.value || target.kind !== 'table' || !target.range) return
-  const parsed = parseMarkdownTable(getBlock(studio.content(), target.range))
+  const content = studio.content()
+  const block = getBlock(content, target.range)
+  const parsed = parseMarkdownTable(block)
   if (!parsed) {
     reportError(new Error(t('tableImportFailed')))
     return
   }
   const no = studio.no()
   const table = tableFromMarkdownTable(parsed.columns, parsed.rows)
-  const snippet = tableSnippet(table)
-  const range: SourceRange = [target.range[0], target.range[0] + snippet.split('\n').length]
-  await studio.commit(replaceBlock(studio.content(), target.range, snippet), action('actionTableImport'))
+  const indent = block.match(/^[ \t]*/)?.[0] ?? ''
+  const snippet = tableSnippet(table).replace(/^/gm, indent)
+  // A component block can absorb a following Markdown block without a blank line.
+  const lines = toLines(content)
+  const before = lines[target.range[0] - 1]?.trim() ? '\n' : ''
+  const after = lines[target.range[1]]?.trim() ? '\n' : ''
+  const start = target.range[0] + Number(Boolean(before))
+  const range: SourceRange = [start, start + toLines(snippet).length]
+  await studio.commit(replaceBlock(content, target.range, before + snippet + after), action('actionTableImport'))
   if (studio.no() === no)
     await studio.selectInserted('StudioTable', range)
 }

@@ -648,7 +648,7 @@ export default {
   "actionQuizEdit": "Edit question interaction",
   "table": "Table",
   "tableEditHint": "Double-click a cell to edit its text. Shift-click to select several cells, then merge them. Structure and appearance are set here.",
-  "tableCellHint": "Tab and Shift+Tab move between cells. Esc finishes editing; drag a row or column line to resize. Rich cells take inline formatting from the Home tab.",
+  "tableCellHint": "Tab and Shift+Tab move between cells. Ctrl/Cmd+Enter applies the edit, and Esc cancels it. Drag a row or column line to resize. Format rich cells on the Home tab.",
   "tableSizeSummary": "{columns} columns × {rows} rows",
   "tableColumn": "Column {index}",
   "tableAlign": "Alignment",

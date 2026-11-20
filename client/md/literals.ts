@@ -115,15 +115,46 @@ export function parseStringLiteral(text: string): string | undefined {
     return undefined
 
   let result = ''
+  const template = delimiter === '`'
   for (let i = 1; i < value.length; i++) {
     const char = value[i]
     if (char === '\\') {
-      result += decodeEscape(value[i + 1] ?? '')
       i += 1
+      const escaped = value[i]
+      if (escaped === 'x' || escaped === 'u') {
+        const digits = value.slice(i + 1).match(escaped === 'x' ? /^[\da-f]{2}/i : /^(?:\{([\da-f]+)\}|([\da-f]{4}))/i)
+        if (!digits)
+          return undefined
+        const codePoint = Number.parseInt(digits[1] ?? digits[2] ?? digits[0], 16)
+        if (codePoint > 0x10FFFF)
+          return undefined
+        result += String.fromCodePoint(codePoint)
+        i += digits[0].length
+      }
+      else if (escaped === '\n' || escaped === '\r') {
+        if (escaped === '\r' && value[i + 1] === '\n')
+          i += 1
+      }
+      else if (escaped === undefined || (/\d/.test(escaped) && (escaped !== '0' || /\d/.test(value[i + 1] ?? '')))) {
+        return undefined
+      }
+      else {
+        result += decodeEscape(escaped)
+      }
       continue
     }
     if (char === delimiter)
       return i === value.length - 1 ? result : undefined
+    if (template && char === '$' && value[i + 1] === '{')
+      return undefined
+    if (char === '\n' || char === '\r') {
+      if (!template)
+        return undefined
+      if (char === '\r' && value[i + 1] === '\n')
+        i += 1
+      result += '\n'
+      continue
+    }
     result += char
   }
   return undefined
@@ -320,6 +351,8 @@ export function splitTopLevel(body: string): string[] {
     }
   }
 
-  parts.push(body.slice(start))
-  return parts.map(part => part.trim()).filter(Boolean)
+  const tail = body.slice(start).trim()
+  if (tail)
+    parts.push(tail)
+  return parts.map(part => part.trim())
 }
