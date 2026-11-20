@@ -10,7 +10,7 @@
   "devDependencies": {
     "@slidev/cli": "52.19.0",
     "@slidev/theme-default": "0.25.0",
-    "slidev-addon-studio": "npm:@renko_1055/slidev-addon-studio@0.4.0-renko.1",
+    "slidev-addon-studio": "npm:@renko_1055/slidev-addon-studio@0.5.4",
     "vue": "3.5.41",
     "pinia": "3.0.4",
     "markdown-it": "14.3.0"

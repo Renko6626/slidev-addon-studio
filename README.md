@@ -16,13 +16,10 @@ Git services and a workbench are not required.
 
 ## Version and installation
 
-Studio `0.5.3` is available on npm. The stable Windows desktop client is
-`0.5.2`. Existing projects keep their editor versions until explicitly upgraded.
+Studio addon `0.5.4` adds editable tables and a searchable font menu.
+The stable Windows x64 desktop client is `0.5.4`. Download the [lightweight or offline ZIP](https://github.com/Renko6626/slidev-addon-studio/releases/tag/desktop-v0.5.4), extract it to a writable folder, and run `Slidev Studio.exe`.
 
-[Download Windows x64 portable ZIP](https://github.com/Renko6626/slidev-addon-studio/releases/download/desktop-v0.5.2/Slidev-Studio-0.5.2-win32-x64-online.zip)
-or try the [Windows x64 0.5.4 prerelease](https://github.com/Renko6626/slidev-addon-studio/releases/tag/desktop-v0.5.4).
-Extract the entire ZIP to a writable folder and run `Slidev Studio.exe`.
-The lightweight ZIP downloads missing dependencies when needed. The full 0.5.4 ZIP includes the standard project's dependencies for offline use and can reuse them across projects on the same volume.
+Both desktop ZIPs include the Windows-tested addon `0.5.3`. In an existing project, use **File → Check Studio updates** to install addon `0.5.4`. From the welcome screen, download the update before creating a new project to start with the updated editor. The offline ZIP includes the dependencies for its bundled version.
 See [delivery and validation records](docs/status.md) for checks and limitations.
 
 To try the current source:
@@ -43,7 +40,7 @@ pnpm add -D "link:../slidev-addon-studio"
 To install the recorded published version:
 
 ```bash
-pnpm add -D slidev-addon-studio@npm:@renko_1055/slidev-addon-studio@0.5.3
+pnpm add -D slidev-addon-studio@npm:@renko_1055/slidev-addon-studio@0.5.4
 ```
 
 Keep the alias `slidev-addon-studio`; installing that name without the alias
