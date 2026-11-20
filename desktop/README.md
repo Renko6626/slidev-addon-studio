@@ -84,13 +84,7 @@ pnpm release:build --offline
 
 ## 验证范围
 
-客户端 0.5.2 已完成正式 npm 包打包、ZIP/ASAR 内容和 SHA256 校验，并已上传为正式 Release；远端资产摘要和客户端查新结果与本地一致。Windows 原生操作和实际更新仍未实机验证，具体发布与检查结果见[当前状态](../docs/status.md)。以下 Electron 启动记录属于此前版本。
-
-网页播放接入另已通过真实工程 CLI 构建及 ZIP 解包探针：导出前后编辑服务正常响应，静态路由、47 个脚本/样式的字节与 MIME、本地图片与音视频 206 Range 通过，默认备注探针未进入输出。此前临时 miniserve 试包已获用户 Windows 可用反馈；新桌面入口和正式接入产物仍待 Windows 实机试用。详细命令与产物记录见[当前状态](../docs/status.md)。
-
-已在 Linux 完成真实文件测试，并用 Electron 45.3.2 / 内置 Node 24.22.2 创建全新工程、安装依赖、运行安装脚本、启动 Slidev、保存及另存。安装脚本记录的执行程序确认为 Electron。已交叉打包 Windows ZIP 并检查 exe、生产依赖、pnpm JS、模板及当前 addon。
-
-没有 Windows/Wine 环境；Windows 原生对话框、node.cmd 实际执行、窗口关闭、剪贴板与 ZIP 解压启动仍需实机试用。Linux 探针不能替代 Windows 验收。未接入签名、安装器、Electron 自动更新或网站同步。Studio 手动包更新与 Electron 更新分别处理。GitHub Release 由本地命令手动上传，不在 CI 中构建或上传桌面包。
+客户端 0.5.4 完整版已通过 Windows x64 实机端到端验收，覆盖跨盘离线新建和复用依赖、编辑保存和重开、另存、工程 ZIP 原生导入、网页播放包导出和独立启动。用户人工试用未发现问题。实测数字、测试条件和源码检查见[当前状态](../docs/status.md#windows-x64-实机端到端验收)。
 
 桌面包随附一个明确版本的 Studio，其中包含人机协同 skill 与完整样例；新工程 AGENTS 指向随包技能。样例在项目安装后的 node_modules/slidev-addon-studio/examples/human-agent 中。
 
@@ -115,7 +109,7 @@ pnpm release:build --offline
 
 离线范围是标准工程的编辑与构建依赖。外链图片、网络字体、在线服务和 agent 新增的包不在这个承诺中。
 
-开发机在两个 ext4 卷上以 Windows x64 目标验证标准工程依赖安装。目标卷 store 占 503.98 MiB。首次准备耗时 19.38 秒，同卷另一目录新建工程耗时 3.57 秒，两次 pnpm 下载数均为 0。第二个工程独占 25.43 MiB，约为同机强制复制对照 544.30 MiB 的 4.67%。分别移除 Rolldown 的 Windows 绑定索引和二进制文件后，新建工程都能在离线安装时补回缺项。另在 Linux 原生工程实测另存、ZIP 导入、网页播放包与静态服务，以及更换 store 后安装自定义依赖。Windows 双 NTFS 卷的磁盘占用、耗时和桌面操作仍待实机验收。
+开发机在两个 ext4 卷上以 Windows x64 目标验证标准工程依赖安装。目标卷 store 占 503.98 MiB。首次准备耗时 19.38 秒，同卷另一目录新建工程耗时 3.57 秒，两次 pnpm 下载数均为 0。第二个工程独占 25.43 MiB，约为同机强制复制对照 544.30 MiB 的 4.67%。分别移除 Rolldown 的 Windows 绑定索引和二进制文件后，新建工程都能在离线安装时补回缺项。另在 Linux 原生工程实测另存、ZIP 导入、网页播放包与静态服务，以及更换 store 后安装自定义依赖。Windows 双 NTFS 卷上的结果见[实机验收](../docs/status.md#windows-x64-实机端到端验收)。
 
 构建并归档完整版：在仓库根目录运行 `pnpm release:build --offline`（`pnpm desktop:make:offline` 也可）。准备脚本在临时工程生成锁文件，以 supportedArchitectures 的 win32/x64 配置收集独立 store，并记录随附文件清单和基线标识。不复制开发机全局缓存。随包 pnpm 安装时会写入缓存元数据，因此软件目录必须可写。普通 `make` 生成不含完整依赖缓存的轻量包。选中较新的缓存 Studio 时，不复制旧离线锁文件；后续安装复用 store 并允许下载新增依赖。
 

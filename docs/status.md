@@ -5,7 +5,17 @@
 ## 桌面 0.5.4 预发布，2026-11-21
 
 - Windows x64 轻量版和完整版均随附 Studio 0.5.3。表格编辑功能已推送到 `main`，仍属于源码功能。稳定版为桌面 0.5.2。[下载 0.5.4 试用版](https://github.com/Renko6626/slidev-addon-studio/releases/tag/desktop-v0.5.4)
-- 本地全量测试通过 518 项，跳过 1 项可选 HTTP QA，类型检查通过。两个 ZIP 已核对归档完整性、Windows x64 可执行文件和内嵌桌面代码。使用从最终完整版 ZIP 解出的 pnpm 和缓存，在 Linux 上按 Windows x64 目标安装了 715 个包，下载数为 0。原生 Windows 双 NTFS 卷仍待试用。[客户端改动](releases/desktop-0.5.4.md)
+- 发布前在 Linux 通过全量测试 518 项，跳过 1 项可选 HTTP QA，类型检查通过。两个 ZIP 已核对归档完整性、Windows x64 可执行文件和内嵌桌面代码。从完整版 ZIP 解出的 pnpm 和缓存按 Windows x64 目标安装了 715 个包，下载数为 0。[客户端改动](releases/desktop-0.5.4.md)
+
+### Windows x64 实机端到端验收
+
+桌面 0.5.4 完整版（随附 Studio 0.5.3）在 Windows x64 的 C、D 两个 NTFS 卷上通过本轮端到端验收。用户人工试用未发现问题。
+
+- 在 C 盘解压经 SHA-256 核对的发布 ZIP，并从桌面界面在 D 盘的两个不同父目录新建标准工程。为测试进程指定 D 盘 pnpm store，通过不可达代理模拟外网不可用。两次离线安装各安装 715 个包，下载均为 0。首次向 D 盘补齐 24,187 个文件，第二次复用该缓存。`node.cmd` 实际运行 Electron 随附的 Node 24.22.2。
+- `fsutil hardlink list` 确认两个工程与 D 盘 store 共用同一个 Rolldown 原生文件。按 NTFS 文件 ID 去重后，第二个工程新增约 26.2 MiB 文件分配空间，约为同机强制复制对照 481.1 MiB 的 5.5%，达到低于 20% 的验收目标。
+- 中文文本编辑、保存关闭、直接重开、另存和工程 ZIP 原生导入均通过。副本和导入工程保留文稿、素材、锁文件以及 Studio tgz。工程 ZIP 排除了依赖目录、缓存和旧构建。
+- 桌面导出网页播放 ZIP 后，原编辑服务仍返回 HTTP 200，源工程备注和已有 `dist` 保留。播放包携带本地图片、音频和工程字体，未收录测试备注。关闭 Studio 后，解压的 `start.cmd` 使用空闲本机端口启动播放器，首页返回 HTTP 200。
+- Windows 源码专项测试通过 29 项。全量 `pnpm test --reporter=dot` 有 511 项通过、5 个路径断言失败、1 项跳过，另有 `source-context.test.ts` 因无法解析 `@slidev/parser` 未加载。`pnpm typecheck` 也报告无法解析该包。
 
 ## 0.5.3 发布，2026-11-18
 
@@ -61,7 +71,7 @@
 - ZIP 解压后使用同版本 Linux miniserve 验证 `/`、`/1`、`/2`、`/4`、47 个 JS/CSS 的字节和 MIME、SVG/MP4/WAV 字节及音视频 206 Range；唯一备注探针未进入输出脚本。
 - 正式链路样例 `Studio-Web-Playback-integrated-win-x64.zip` 为 2,600,285 字节，SHA-256 为 `ab1eecc9332f4a6840b7f23875d0ec635f91950e143e875eccec49a17afbaddb`，本地产物、校验与验证 JSON 保存在仓库同级的 `release/web-playback/integrated-2026-11-17/`。
 
-此前 miniserve 试包已收到用户 Windows 可用反馈。上述正式链路验证未在 Windows 执行；新桌面入口、原生保存对话框、完整桌面资源分发及新 ZIP 的 Windows 播放仍待实机试用。未执行浏览器自动交互。
+这轮探针在 Linux 执行。后续对新桌面入口、原生保存对话框和解压启动的验证见 [Windows x64 实机端到端验收](#windows-x64-实机端到端验收)。
 
 ## 文本框与工程字体验证，2026-11-17
 
@@ -105,6 +115,6 @@
 
 ## 尚待实际使用验证
 
-实际 PDF 打印、标签页采集和 PNG/PPTX 产物、Windows ZIP 导入、原生工程管理菜单及确认框、真实错误工程重新加载、网络更新与进程重启、输入法、原生剪贴板、文件选择、全屏和音视频解码仍需按实际场景试用。没有执行浏览器自动点击、填写或交互流程。
+实际 PDF 打印、标签页采集和 PNG/PPTX 产物、Windows 原生工程管理菜单及恢复确认框、真实错误工程重新加载、网络更新与进程重启、输入法、原生剪贴板、全屏和音视频解码仍需按实际场景试用。
 
 正常使用发现问题后，根据日志和工程文件修复；这些验收缺口不自动扩展为新的恢复系统或大范围自动化。验证命令与发布方式见[开发说明](development.md)及[桌面指南](../desktop/README.md)。
