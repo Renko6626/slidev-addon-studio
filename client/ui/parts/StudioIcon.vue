@@ -7,6 +7,8 @@
 const props = withDefaults(defineProps<{ name: string, size?: number }>(), { size: 16 })
 
 const paths: Record<string, string> = {
+  search: 'M17 10a7 7 0 11-14 0 7 7 0 0114 0zM15 15l6 6',
+  'chevron-down': 'M6 9l6 6 6-6',
   save: 'M4 3h13l4 4v14H3V3zM7 3v6h10V3M7 21v-8h10v8',
   file: 'M5 3h9l5 5v13H5zM14 3v6h5M8 13h8M8 17h6',
   folder: 'M3 6h7l2 2h9v12H3z',
@@ -34,6 +36,7 @@ const paths: Record<string, string> = {
   close: 'M6 6l12 12M18 6L6 18',
   magnet: 'M6 4v7a6 6 0 0012 0V4M6 9h5M13 9h5',
   grid: 'M3 9h18M3 15h18M9 3v18M15 3v18',
+  minus: 'M5 12h14',
   plus: 'M12 5v14M5 12h14',
   copy: 'M9 9h11v11H9zM4 15V4h11',
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',

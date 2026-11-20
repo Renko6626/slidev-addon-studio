@@ -932,7 +932,6 @@ html.slidev-studio-docked #slide-container { cursor: default; }
 .studio-rich-fields__font > .studio-text-buttons { grid-column: 1; grid-row: 2; }
 .studio-rich-fields .studio-field { margin: 0; }
 .studio-rich-fields .studio-field__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.studio-rich-fields .studio-font-name { min-width: 0; width: 100%; }
 .studio-rich-fields input[type="text"], .studio-rich-fields input[type="number"], .studio-rich-fields select { height: 28px; }
 .studio-rich-fields__paragraph { display: grid; grid-template-columns: auto 64px; align-items: center; gap: 6px 10px; }
 .studio-rich-fields__paragraph > .studio-text-buttons { grid-column: 1; }

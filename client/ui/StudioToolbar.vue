@@ -497,7 +497,7 @@ const groups = computed<Group[]>(() => {
       <div v-if="ribbonTab === 'insert'" class="studio-command-group"><ShapePicker /><span class="studio-command-group__label">{{ t('shapes') }}</span></div>
       <div v-if="ribbonTab === 'insert'" class="studio-command-group">
         <details ref="tableSizeMenu" class="studio-picture-menu" @toggle="positionTableSizeMenu">
-          <summary class="studio-command" :aria-label="t('table')"><StudioIcon name="grid" :size="20" /><span>{{ t('table') }} ▾</span></summary>
+          <summary class="studio-command" :aria-label="t('insertTable')"><StudioIcon name="grid" :size="20" /><span>{{ t('insertTable') }} ▾</span></summary>
           <form class="studio-picture-menu__items studio-table-size-menu" @submit.prevent="insertTable">
             <label>{{ t('tableColumnsGroup') }} <input v-model.number="insertTableColumns" type="number" min="1" :max="maxTableDimension" required :disabled="locked"></label>
             <label>{{ t('tableBodyRows') }} <input v-model.number="insertTableRows" type="number" min="0" :max="maxTableDimension" required :disabled="locked"></label>
