@@ -2,9 +2,10 @@
 
 按 2026-11-21 的仓库与发布结果整理。产品定位与约束见 [overall](overall.md)。
 
-## 桌面 0.5.4 预发布，2026-11-21
+## 桌面及 Studio addon 0.5.4，2026-11-21
 
-- Windows x64 轻量版和完整版均随附 Studio 0.5.3。表格编辑功能已推送到 `main`，仍属于源码功能。稳定版为桌面 0.5.2。[下载 0.5.4 试用版](https://github.com/Renko6626/slidev-addon-studio/releases/tag/desktop-v0.5.4)
+- 桌面客户端 0.5.4 已通过 Windows 实机验收并在 GitHub 设为 Latest。轻量和完整 ZIP 均随附验收时的 addon 0.5.3。客户端查新已识别 0.5.4。[正式版下载](https://github.com/Renko6626/slidev-addon-studio/releases/tag/desktop-v0.5.4)
+- 独立 addon 0.5.4 提供可编辑表格、系统字体搜索和导入。标签为 `v0.5.4`，对应 tgz 已附于同一 Release。发布候选通过 522 项测试，跳过 1 项可选 HTTP QA，TypeScript 与 Vue 类型检查通过。使用该 tgz 的全新工程已通过实际安装与 Slidev 网页构建。[编辑器改动](releases/0.5.4.md)
 - 发布前在 Linux 通过全量测试 518 项，跳过 1 项可选 HTTP QA，类型检查通过。两个 ZIP 已核对归档完整性、Windows x64 可执行文件和内嵌桌面代码。从完整版 ZIP 解出的 pnpm 和缓存按 Windows x64 目标安装了 715 个包，下载数为 0。[客户端改动](releases/desktop-0.5.4.md)
 
 ### Windows x64 实机端到端验收
