@@ -2,7 +2,7 @@
 
 Windows x64，分发 ZIP 直接使用 Electron 自带的 Node。用户无需安装 Node、pnpm、Docker 或工作台服务。轻量版随附 Studio，缺少的依赖安装时联网获取。完整版额外随附标准工程的 Windows x64 依赖缓存。两者采用同一安装和更新流程。
 
-Studio 与桌面壳可以独立更新。桌面稳定版 0.5.4 提供轻量版和完整版，均随附通过 Windows 验收的 Studio 0.5.3。已有工程可从“文件 → 检查 Studio 更新”安装 addon 0.5.4，使用可编辑表格和新版字体菜单。[下载桌面 0.5.4](https://github.com/Renko6626/slidev-addon-studio/releases/tag/desktop-v0.5.4)
+Studio 与桌面壳可以独立更新。桌面稳定版 0.5.4 提供轻量版和完整版，均随附通过 Windows 验收的 Studio 0.5.3。已有工程可从“文件 → 检查 Studio 更新”获取 npm 已发布的版本。正式版下载页另提供含可编辑表格与新版字体菜单的独立 addon 0.5.4 归档。[下载桌面 0.5.4](https://github.com/Renko6626/slidev-addon-studio/releases/tag/desktop-v0.5.4)
 
 ## 使用
 
