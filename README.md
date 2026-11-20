@@ -20,9 +20,9 @@ Studio `0.5.3` is available on npm. The stable Windows desktop client is
 `0.5.2`. Existing projects keep their editor versions until explicitly upgraded.
 
 [Download Windows x64 portable ZIP](https://github.com/Renko6626/slidev-addon-studio/releases/download/desktop-v0.5.2/Slidev-Studio-0.5.2-win32-x64-online.zip)
-or try the [Windows x64 0.5.3 prerelease](https://github.com/Renko6626/slidev-addon-studio/releases/tag/desktop-v0.5.3).
+or try the [Windows x64 0.5.4 prerelease](https://github.com/Renko6626/slidev-addon-studio/releases/tag/desktop-v0.5.4).
 Extract the entire ZIP to a writable folder and run `Slidev Studio.exe`.
-This lightweight package downloads missing project dependencies when needed.
+The lightweight ZIP downloads missing dependencies when needed. The full 0.5.4 ZIP includes the standard project's dependencies for offline use and can reuse them across projects on the same volume.
 See [delivery and validation records](docs/status.md) for checks and limitations.
 
 To try the current source:

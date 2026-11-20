@@ -1,6 +1,11 @@
 # Studio 当前状态
 
-按 2026-11-18 的仓库与发布结果整理。产品定位与约束见 [overall](overall.md)。
+按 2026-11-21 的仓库与发布结果整理。产品定位与约束见 [overall](overall.md)。
+
+## 桌面 0.5.4 预发布，2026-11-21
+
+- Windows x64 轻量版和完整版均随附 Studio 0.5.3。表格编辑功能已推送到 `main`，仍属于源码功能。稳定版为桌面 0.5.2。[下载 0.5.4 试用版](https://github.com/Renko6626/slidev-addon-studio/releases/tag/desktop-v0.5.4)
+- 本地全量测试通过 518 项，跳过 1 项可选 HTTP QA，类型检查通过。两个 ZIP 已核对归档完整性、Windows x64 可执行文件和内嵌桌面代码。使用从最终完整版 ZIP 解出的 pnpm 和缓存，在 Linux 上按 Windows x64 目标安装了 715 个包，下载数为 0。原生 Windows 双 NTFS 卷仍待试用。[客户端改动](releases/desktop-0.5.4.md)
 
 ## 0.5.3 发布，2026-11-18
 
