@@ -8,8 +8,8 @@ import { useStudio } from '../../context'
 import { action, t } from '../../i18n'
 import { readTable, writeTable, writeTableStyle } from '../../md/table'
 import { tableWithRich } from '../../md/table-rich'
-import { clampTableCell, defaultTableCell, tableRectIsFree } from '../../md/table-cell'
-import { busy, editing, selection, tableCell, tableEditRequest, tableEditing, tableRange } from '../../state'
+import { alignTableColumns, clampTableCell, defaultTableCell, tableRectIsFree, tableSelectionRect } from '../../md/table-cell'
+import { busy, editing, selection, selectedTargets, tableCell, tableEditRequest, tableEditing, tableRange } from '../../state'
 import StudioIcon from './StudioIcon.vue'
 
 const ALIGNMENTS: { value: TableAlign, icon: string, label: 'alignLeft' | 'alignCenter' | 'alignRight' }[] = [
@@ -19,7 +19,7 @@ const ALIGNMENTS: { value: TableAlign, icon: string, label: 'alignLeft' | 'align
 ]
 
 const studio = useStudio()
-const range = computed(() => selection.value?.range)
+const range = computed(() => selectedTargets.value.length === 1 && selection.value?.no === studio.no() ? selection.value.range : null)
 const state = computed(() => range.value ? readTable(studio.content(), range.value) : null)
 const table = computed(() => state.value?.table ?? null)
 const unparsed = computed(() => !!state.value?.unparsed)
@@ -27,6 +27,14 @@ const locked = computed(() => busy.value || editing.value || tableEditing.value)
 const cell = computed(() => table.value && tableCell.value ? clampTableCell(table.value, tableCell.value) : null)
 const selected = computed(() => cell.value?.column ?? Math.min(tableCell.value?.column ?? 0, Math.max(0, (table.value?.columns.length ?? 1) - 1)))
 const current = computed(() => table.value?.columns[selected.value] ?? null)
+const columnBounds = computed(() => {
+  const rect = table.value && tableSelectionRect(table.value, cell.value, tableRange.value)
+  return rect ?? { columnStart: selected.value, columnEnd: selected.value }
+})
+const alignmentColumns = computed(() => {
+  const bounds = columnBounds.value
+  return table.value ? table.value.columns.slice(bounds.columnStart, bounds.columnEnd + 1) : []
+})
 const rowHeight = computed(() => {
   if (!table.value || !cell.value)
     return null
@@ -62,7 +70,10 @@ async function commit(next: TableData) {
 async function commitStyle(patch: TableStylePatch) {
   if (locked.value || !range.value)
     return
+  const rect = tableRange.value
   await studio.commit(writeTableStyle(studio.content(), range.value, patch), action('actionTableEdit'))
+  if (patch.header === false && rect?.rowStart === -1 && tableRange.value === rect && table.value)
+    tableRange.value = tableSelectionRect({ ...table.value, header: false }, null, rect)
 }
 
 function setRowHeight(raw: string) {
@@ -111,6 +122,15 @@ function updateColumn(index: number, patch: Partial<TableColumn>) {
   void commit({ ...table.value, columns: table.value.columns.map((column, position) => position === index ? { ...column, ...patch } : column) })
 }
 
+function setAlignment(align: TableAlign) {
+  const bounds = columnBounds.value
+  if (!table.value)
+    return
+  const next = alignTableColumns(table.value, bounds.columnStart, bounds.columnEnd, align)
+  if (next !== table.value)
+    void commit(next)
+}
+
 function setWidth(raw: string) {
   if (!raw.trim()) {
     updateColumn(selected.value, { width: undefined })
@@ -138,6 +158,7 @@ async function appendColumn() {
     return
   const index = table.value.columns.length
   await commit(addColumn(table.value, index, { label: t('tableColumn', { index: index + 1 }) }))
+  tableRange.value = null
   tableCell.value = { row: tableCell.value?.row ?? null, column: index }
 }
 
@@ -146,6 +167,7 @@ async function appendRow() {
     return
   const next = addRow(table.value)
   await commit(next)
+  tableRange.value = null
   tableCell.value = { row: next.rows.length - 1, column: 0 }
 }
 
@@ -154,6 +176,7 @@ async function removeSelectedColumn() {
     return
   const next = removeColumn(table.value, selected.value)
   await commit(next)
+  tableRange.value = null
   tableCell.value = clampTableCell(next, tableCell.value ?? { row: null, column: selected.value })
 }
 
@@ -167,6 +190,7 @@ function moveSelected(direction: -1 | 1) {
   if (next === table.value)
     return
   void commit(next)
+  tableRange.value = null
   tableCell.value = { row: tableCell.value?.row ?? null, column: target }
 }
 
@@ -227,18 +251,18 @@ function editCell() {
       </div>
 
       <div v-if="current" class="studio-table-columnbar">
-        <span class="studio-table-columnbar__title">{{ t('tableColumn', { index: selected + 1 }) }}</span>
-        <div class="studio-table-align" role="group" :aria-label="t('tableAlign')">
+        <span class="studio-table-columnbar__title">{{ alignmentColumns.length > 1 ? t('tableColumnsGroup') : t('tableColumn', { index: selected + 1 }) }}</span>
+        <div class="studio-table-align" role="group" :aria-label="t('tableAlignColumns')">
           <button
             v-for="option in ALIGNMENTS"
             :key="option.value"
             type="button"
             class="studio-icon-button"
-            :aria-pressed="(current.align ?? 'left') === option.value"
+            :aria-pressed="alignmentColumns.length > 0 && alignmentColumns.every(column => (column.align ?? 'left') === option.value)"
             :title="t(option.label)"
             :aria-label="t(option.label)"
             :disabled="locked"
-            @click="updateColumn(selected, { align: option.value })"
+            @click="setAlignment(option.value)"
           >
             <StudioIcon :name="option.icon" :size="13" />
           </button>

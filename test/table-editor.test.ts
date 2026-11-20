@@ -24,7 +24,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-async function session(source: string, beforeCommit?: () => Promise<void>) {
+async function session(source: string, beforeCommit?: () => Promise<void>, edit = true) {
   const no = ref(1)
   const content = ref(source)
   const commit = vi.fn(async (next: string) => {
@@ -48,7 +48,8 @@ async function session(source: string, beforeCommit?: () => Promise<void>) {
   app = createApp(component)
   const layer = app.mount(host) as unknown as { apply: () => Promise<void> }
   state.selection.value = { el: root, no: 1, tag: 'StudioTable', range: [0, 1], kind: 'component', positioned: false, nested: false, label: 'Table' }
-  state.tableEditRequest.value = { row: 0, column: 0 }
+  if (edit)
+    state.tableEditRequest.value = { row: 0, column: 0 }
   await nextTick()
   return { root, host, layer, no, content, commit }
 }
@@ -95,4 +96,44 @@ it('waits for an in-flight Tab write when the document is saved', async () => {
   expect(s.commit).toHaveBeenCalledOnce()
   expect(tableSource.readTable(s.content.value, [0, s.content.value.split('\n').length]).table.rows).toEqual([['Edited'], ['']])
   expect(state.tableEditing.value).toBe(false)
+})
+
+it('extends with Shift-click and selects from the starting cell during Shift-drag', async () => {
+  const s = await session(`<StudioTable :columns="[{ label: 'A' }, { label: 'B' }]" :rows="[['a', 'b']]" />`, undefined, false)
+  s.root.innerHTML = '<table><thead><tr><th data-studio-table-cell="-1,0"></th><th data-studio-table-cell="-1,1"></th></tr></thead><tbody><tr><td data-studio-table-cell="0,0"></td><td data-studio-table-cell="0,1"></td></tr></tbody></table>'
+  const [header, nextHeader, first, second] = s.root.querySelectorAll('[data-studio-table-cell]')
+  const pointer = (target: EventTarget, name: string, shiftKey = false) => {
+    const event = new MouseEvent(name, { shiftKey, bubbles: true, cancelable: true, button: 0 })
+    Object.defineProperty(event, 'pointerId', { value: 1 })
+    target.dispatchEvent(event)
+    return event
+  }
+
+  pointer(header, 'pointerdown')
+  expect(pointer(second, 'pointerdown', true).defaultPrevented).toBe(true)
+  pointer(second, 'pointerup', true)
+  expect(state.tableRange.value).toEqual({ rowStart: -1, rowEnd: 0, columnStart: 0, columnEnd: 1 })
+
+  const moveSurface = document.createElement('div')
+  moveSurface.className = 'studio-move'
+  s.host.append(moveSurface)
+  const previous = Object.getOwnPropertyDescriptor(document, 'elementsFromPoint')
+  let pointedCell = first
+  Object.defineProperty(document, 'elementsFromPoint', { configurable: true, value: () => [moveSurface, pointedCell] })
+  try {
+    expect(pointer(moveSurface, 'pointerdown', true).defaultPrevented).toBe(true)
+    pointedCell = nextHeader
+    pointer(moveSurface, 'pointermove', true)
+    pointer(moveSurface, 'pointerup', true)
+    pointer(moveSurface, 'click')
+  }
+  finally {
+    if (previous)
+      Object.defineProperty(document, 'elementsFromPoint', previous)
+    else
+      Reflect.deleteProperty(document, 'elementsFromPoint')
+  }
+  expect(state.tableCell.value).toEqual({ row: 0, column: 0 })
+  expect(state.tableRange.value).toEqual({ rowStart: -1, rowEnd: 0, columnStart: 0, columnEnd: 1 })
+  expect(s.commit).not.toHaveBeenCalled()
 })

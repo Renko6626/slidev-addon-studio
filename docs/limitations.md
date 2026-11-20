@@ -131,10 +131,14 @@
   Tab and Shift+Tab move between cells, and Tab after the last cell appends a
   row. The sidebar holds the current column's properties rather than a data
   grid, so large tables rely on canvas zoom and the contextual Table tab.
-  Shift-click picks a cell rectangle for merging; merges are stored in a
-  separate `merges` prop and keep the top-left content, clearing the other
-  cells. Rows and columns inserted inside a merge extend it, deletion shrinks
-  it, and moving a row or column that intersects a merge is refused. Row
+  Shift-click and Shift-drag select rectangles, and the Table tab can select
+  whole rows or columns. Clearing the selection clears each affected merged
+  cell once. Alignment applies to the full columns the selection covers.
+  Clipboard ranges use plain text, and pasting stops if any destination cell
+  overlaps a merge. Merges are stored in a separate `merges` prop and keep the
+  top-left content, clearing the other cells. Rows and columns inserted inside
+  a merge extend it, deletion shrinks it, and moving a row or column that
+  intersects a merge is refused. Row
   heights and column widths are written as props; the row height acts as a
   minimum, so long content still grows the row. The last body row's bottom edge
   is not a drag handle (use the sidebar). Column boundaries are measured on a

@@ -42,14 +42,20 @@ watch(selection, target => {
 }, { flush: 'sync' })
 /** The table cell last clicked or edited, shared by the canvas, ribbon and sidebar. */
 export const tableCell = shallowRef<TableCellPosition | null>(null)
-/** A rectangle of cells picked with Shift+click, used for merging. */
+/** The selected table rectangle, using -1 for its visible header. */
 export const tableRange = shallowRef<TableRect | null>(null)
 export const tableEditing = ref(false)
 /** One-shot request from the table ribbon or sidebar to edit a cell. */
 export const tableEditRequest = shallowRef<TableCellPosition | null>(null)
 watch(selection, (target, previous) => {
   if (!target || target.tag !== 'StudioTable'
-    || (previous?.tag === 'StudioTable' && previous.range?.[0] !== target.range?.[0])) {
+    || previous?.tag !== 'StudioTable' || previous.no !== target.no || previous.range?.[0] !== target.range?.[0]) {
+    tableCell.value = null
+    tableRange.value = null
+  }
+}, { flush: 'sync' })
+watch(selectedTargets, (targets) => {
+  if (targets.length > 1) {
     tableCell.value = null
     tableRange.value = null
   }

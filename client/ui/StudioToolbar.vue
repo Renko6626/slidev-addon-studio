@@ -2,7 +2,7 @@
 import type { MessageKey } from '../i18n'
 import type { TableCellPosition } from '../md/table-cell'
 import type { PanelId, RibbonTab } from '../state'
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { configs } from '@slidev/client/env.ts'
 import { useNav } from '@slidev/client'
 import studioLogo from '../assets/studio.svg'
@@ -17,11 +17,11 @@ import { returnToActivity } from '../workspace'
 import { canRedo, canUndo, lastAction, useStudioHistory } from '../composables/useSlideSource'
 import { appendElement, createTextElement, patchElementStyle } from '../md/elements'
 import { createInteractionButton, createQuizPage, listQuestions, readInteraction } from '../md/interactions'
-import { DEFAULT_TABLE_SNIPPET } from '../../shared/table'
-import { addColumn, addRow, mergeAt, mergeTableRange, removeColumn, removeRow, splitTableMerge } from '../../shared/table'
-import { readTable, writeTable, writeTableStyle } from '../md/table'
+import type { TableAlign } from '../../shared/table'
+import { addColumn, addRow, canMoveRow, mergeAt, mergeTableRange, moveRow, removeColumn, removeRow, splitTableMerge, TABLE_DEFAULTS } from '../../shared/table'
+import { readTable, tableSnippet, writeTable, writeTableStyle } from '../md/table'
 import { tableWithRich } from '../md/table-rich'
-import { clampTableCell, defaultTableCell, tableRectIsFree } from '../md/table-cell'
+import { alignTableColumns, clampTableCell, clearTableContents, defaultTableCell, tableRectIsFree, tableSelectionRect } from '../md/table-cell'
 import { imageLibraryRequest, imagePending, useImageInsertion } from '../composables/useImageInsertion'
 import ShapePicker from './parts/ShapePicker.vue'
 import ArrangeSelection from './parts/ArrangeSelection.vue'
@@ -96,18 +96,47 @@ async function insertTextBox(heading = false) {
   selectAllOnEdit.value = true
   editing.value = true
 }
+const insertTableColumns = ref<number | string>(3)
+const insertTableRows = ref<number | string>(2)
+const tableSizeMenu = ref<HTMLDetailsElement | null>(null)
+const maxTableDimension = 100
+
 async function insertTable() {
-  if (locked.value) return
+  if (locked.value || typeof insertTableColumns.value !== 'number' || typeof insertTableRows.value !== 'number')
+    return
+  const columns = insertTableColumns.value
+  const rows = insertTableRows.value
+  if (!Number.isInteger(columns) || columns < 1 || columns > maxTableDimension
+    || !Number.isInteger(rows) || rows < 0 || rows > maxTableDimension)
+    return
+  tableSizeMenu.value?.removeAttribute('open')
   const no = studio.no()
-  const inserted = appendElement(studio.content(), DEFAULT_TABLE_SNIPPET)
+  const snippet = tableSnippet({
+    ...TABLE_DEFAULTS,
+    columns: Array.from({ length: columns }, (_, index) => ({ label: t('tableColumn', { index: index + 1 }) })),
+    rows: Array.from({ length: rows }, () => Array<string>(columns).fill('')),
+  })
+  const inserted = appendElement(studio.content(), snippet)
   await studio.commit(inserted.content, action('actionInsert', { name: { key: 'table' } }))
   if (studio.no() !== no || !await studio.selectInserted('StudioTable', inserted.range)) return
   panel('inspect')
 }
 
+function positionTableSizeMenu(event: Event) {
+  const menu = event.currentTarget as HTMLDetailsElement
+  if (!menu.open)
+    return
+  const form = menu.querySelector('form')
+  if (!form)
+    return
+  const { left, bottom } = menu.querySelector('summary')!.getBoundingClientRect()
+  form.style.left = `${Math.max(4, Math.min(left, window.innerWidth - form.offsetWidth - 4))}px`
+  form.style.top = `${bottom}px`
+}
+
 function activeTable() {
   const target = selection.value
-  if (!target?.range || target.tag !== 'StudioTable')
+  if (!target?.range || target.tag !== 'StudioTable' || target.no !== studio.no() || selectedTargets.value.length !== 1)
     return null
   const read = readTable(studio.content(), target.range)
   if (read.unparsed)
@@ -115,16 +144,22 @@ function activeTable() {
   const position = tableCell.value
     ? clampTableCell(read.table, tableCell.value)
     : defaultTableCell(read.table)
-  return { range: target.range, table: read.table, position }
+  const rect = tableSelectionRect(read.table, position, tableRange.value)
+  return { range: target.range, table: read.table, position, rect }
 }
 
 async function commitTable(next: ReturnType<typeof readTable>['table'], position?: TableCellPosition | null) {
   const active = activeTable()
   if (!active || locked.value)
     return
+  const no = studio.no()
   await studio.commit(writeTable(studio.content(), active.range, next), action('actionTableEdit'))
-  if (position !== undefined)
+  if (position !== undefined && studio.no() === no && selection.value?.no === no
+    && selection.value.range?.[0] === active.range[0] && selection.value.tag === 'StudioTable'
+    && selectedTargets.value.length === 1) {
     tableCell.value = position
+    tableRange.value = null
+  }
 }
 
 function insertTableRow(where: 'above' | 'below') {
@@ -168,25 +203,57 @@ function editTableCell() {
   tableEditRequest.value = active.position
 }
 
-function alignTableCell(align: 'left' | 'center' | 'right') {
+function alignSelectedColumns(align: TableAlign) {
   const active = activeTable()
-  if (!active?.position)
+  if (!active?.rect)
     return
-  const next = {
-    ...active.table,
-    columns: active.table.columns.map((column, index) => index === active.position!.column ? { ...column, align } : column),
-  }
-  return commitTable(next)
+  const next = alignTableColumns(active.table, active.rect.columnStart, active.rect.columnEnd, align)
+  if (next !== active.table)
+    return commitTable(next)
 }
 
-function toggleTableStyle(key: 'header' | 'border' | 'striped') {
+function selectTableAxis(axis: 'row' | 'column') {
+  const active = activeTable()
+  if (!active?.position || locked.value)
+    return
+  const { position, table } = active
+  const row = position.row ?? -1
+  tableCell.value = position
+  tableRange.value = axis === 'row'
+    ? { rowStart: row, rowEnd: row, columnStart: 0, columnEnd: table.columns.length - 1 }
+    : { rowStart: table.header ? -1 : 0, rowEnd: table.rows.length - 1, columnStart: position.column, columnEnd: position.column }
+}
+
+function clearSelectedCells() {
+  const active = activeTable()
+  if (!active?.rect || (!tableCell.value && !tableRange.value))
+    return
+  const next = clearTableContents(active.table, active.rect)
+  if (next !== active.table)
+    return commitTable(next)
+}
+
+function moveSelectedRow(direction: -1 | 1) {
+  const active = activeTable()
+  const position = active?.position
+  if (!active || !position || position.row === null)
+    return
+  const next = moveRow(active.table, position.row, direction)
+  if (next !== active.table)
+    return commitTable(next, { row: position.row + direction, column: position.column })
+}
+
+async function toggleTableStyle(key: 'header' | 'border' | 'striped') {
   const active = activeTable()
   if (!active || locked.value)
     return
-  return studio.commit(
+  const rect = tableRange.value
+  await studio.commit(
     writeTableStyle(studio.content(), active.range, { [key]: !active.table[key] }),
     action('actionTableEdit'),
   )
+  if (key === 'header' && active.table.header && rect?.rowStart === -1 && tableRange.value === rect)
+    tableRange.value = tableSelectionRect({ ...active.table, header: false }, null, rect)
 }
 
 function addTableRowEnd() {
@@ -302,7 +369,6 @@ const groups = computed<Group[]>(() => {
       { label: 'textGroup', commands: [
         { label: 'blockHeading', icon: 'h1', run: () => insertTextBox(true) },
         { label: 'textBox', icon: 'edit', run: () => insertTextBox() },
-        { label: 'table', icon: 'grid', run: insertTable },
       ] },
       { label: 'insertTab', commands: [
         { label: 'assets', icon: 'assets', run: () => openLibrary('assets'), pressed: library.value === 'assets' },
@@ -342,11 +408,16 @@ const groups = computed<Group[]>(() => {
       const current = activeTable()
       const tableLocked = locked.value || !current
       const position = current?.position ?? null
-      const column = position && current ? current.table.columns[position.column] : null
+      const rect = current?.rect
+      const columns = rect && current ? current.table.columns.slice(rect.columnStart, rect.columnEnd + 1) : []
+      const aligned = (align: TableAlign) => columns.length > 0 && columns.every(column => (column.align ?? 'left') === align)
+      const row = position?.row
       return [
         { label: 'tableRowsGroup', commands: [
           { label: 'insertRowAbove', icon: 'plus', run: () => insertTableRow('above'), disabled: tableLocked || !position },
           { label: 'insertRowBelow', icon: 'plus', run: () => insertTableRow('below'), disabled: tableLocked || !position },
+          { label: 'tableMoveRowUp', icon: 'up', run: () => moveSelectedRow(-1), disabled: tableLocked || row == null || !canMoveRow(current.table, row, -1) },
+          { label: 'tableMoveRowDown', icon: 'down', run: () => moveSelectedRow(1), disabled: tableLocked || row == null || !canMoveRow(current.table, row, 1) },
           { label: 'tableDeleteRow', icon: 'trash', run: deleteTableRow, disabled: tableLocked || !position || position.row === null },
           { label: 'tableAddRow', icon: 'plus', run: addTableRowEnd, disabled: tableLocked || !current?.table.columns.length },
         ] },
@@ -362,9 +433,14 @@ const groups = computed<Group[]>(() => {
         ] },
         { label: 'tableCellGroup', commands: [
           { label: 'tableEditCell', icon: 'edit', run: editTableCell, disabled: tableLocked || !position },
-          { label: 'alignLeft', icon: 'align-left', run: () => alignTableCell('left'), pressed: column?.align === 'left', disabled: tableLocked || !position },
-          { label: 'alignCenter', icon: 'align-center', run: () => alignTableCell('center'), pressed: column?.align === 'center', disabled: tableLocked || !position },
-          { label: 'alignRight', icon: 'align-right', run: () => alignTableCell('right'), pressed: column?.align === 'right', disabled: tableLocked || !position },
+          { label: 'tableSelectRow', icon: 'list', run: () => selectTableAxis('row'), disabled: tableLocked || !position },
+          { label: 'tableSelectColumn', icon: 'grid', run: () => selectTableAxis('column'), disabled: tableLocked || !position },
+          { label: 'tableClearContents', icon: 'clear-format', run: clearSelectedCells, disabled: tableLocked || !rect || (!tableCell.value && !tableRange.value) },
+        ] },
+        { label: 'tableAlignColumns', commands: [
+          { label: 'alignLeft', icon: 'align-left', run: () => alignSelectedColumns('left'), pressed: aligned('left'), disabled: tableLocked || !rect },
+          { label: 'alignCenter', icon: 'align-center', run: () => alignSelectedColumns('center'), pressed: aligned('center'), disabled: tableLocked || !rect },
+          { label: 'alignRight', icon: 'align-right', run: () => alignSelectedColumns('right'), pressed: aligned('right'), disabled: tableLocked || !rect },
         ] },
         { label: 'tableStyleGroup', commands: [
           { label: 'tableHeader', icon: 'layout', run: () => toggleTableStyle('header'), pressed: !!current?.table.header, disabled: tableLocked },
@@ -419,6 +495,17 @@ const groups = computed<Group[]>(() => {
         <span class="studio-command-group__label">{{ t('picture') }}</span>
       </div>
       <div v-if="ribbonTab === 'insert'" class="studio-command-group"><ShapePicker /><span class="studio-command-group__label">{{ t('shapes') }}</span></div>
+      <div v-if="ribbonTab === 'insert'" class="studio-command-group">
+        <details ref="tableSizeMenu" class="studio-picture-menu" @toggle="positionTableSizeMenu">
+          <summary class="studio-command" :aria-label="t('table')"><StudioIcon name="grid" :size="20" /><span>{{ t('table') }} ▾</span></summary>
+          <form class="studio-picture-menu__items studio-table-size-menu" @submit.prevent="insertTable">
+            <label>{{ t('tableColumnsGroup') }} <input v-model.number="insertTableColumns" type="number" min="1" :max="maxTableDimension" required :disabled="locked"></label>
+            <label>{{ t('tableBodyRows') }} <input v-model.number="insertTableRows" type="number" min="0" :max="maxTableDimension" required :disabled="locked"></label>
+            <button type="submit" :disabled="locked">{{ t('insertTable') }}</button>
+          </form>
+        </details>
+        <span class="studio-command-group__label">{{ t('table') }}</span>
+      </div>
       <fieldset v-if="ribbonTab === 'transition'" class="studio-transition-quick" :disabled="locked"><PanelTransition /></fieldset>
       <div v-if="selectedTargets.length > 1 && (ribbonTab === 'home' || ribbonTab === 'object')" class="studio-command-group"><ArrangeSelection /></div>
       <div v-for="group in groups" :key="group.label" class="studio-command-group">
@@ -434,3 +521,9 @@ const groups = computed<Group[]>(() => {
     </div>
   </header>
 </template>
+
+<style scoped>
+.studio-table-size-menu { display: grid; gap: 6px; padding: 8px; }
+.studio-table-size-menu label { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.studio-table-size-menu input { width: 4rem; }
+</style>

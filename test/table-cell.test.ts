@@ -1,6 +1,6 @@
 import { expect, it } from 'vitest'
 import type { TableData } from '../shared/table'
-import { anchorTableCell, clampTableCell, defaultTableCell, nextTableCell, tableCellSequence, tableCellValue, tableRectBetween, tableRectIsFree, withTableCellValue } from '../client/md/table-cell'
+import { alignTableColumns, anchorTableCell, clearTableContents, clampTableCell, defaultTableCell, nextTableCell, tableCellSequence, tableCellValue, tableRectBetween, tableRectIsFree, tableSelectionRect, withTableCellValue } from '../client/md/table-cell'
 
 const table: TableData = {
   columns: [{ label: 'A' }, { label: 'B' }],
@@ -73,10 +73,12 @@ it('skips covered cells in Tab order and clamps into the anchor', () => {
   expect(nextTableCell(merged, { row: 0, column: 0 }, 1)).toEqual({ row: 0, column: 2 })
 })
 
-it('builds merge rectangles only inside one region', () => {
+it('selects rectangles across the visible header and body', () => {
   expect(tableRectBetween(merged, { row: null, column: 0 }, { row: null, column: 2 }))
     .toEqual({ rowStart: -1, rowEnd: -1, columnStart: 0, columnEnd: 2 })
-  expect(tableRectBetween(merged, { row: null, column: 0 }, { row: 0, column: 1 })).toBeNull()
+  const acrossSections = tableRectBetween(merged, { row: null, column: 0 }, { row: 0, column: 2 })!
+  expect(acrossSections).toEqual({ rowStart: -1, rowEnd: 0, columnStart: 0, columnEnd: 2 })
+  expect(tableRectIsFree(table, acrossSections)).toBe(false)
   expect(tableRectBetween(merged, { row: 2, column: 0 }, { row: 0, column: 1 }))
     .toEqual({ rowStart: 0, rowEnd: 2, columnStart: 0, columnEnd: 0 })
   expect(tableRectBetween(merged, { row: 2, column: 0 }, { row: 0, column: 2 }))
@@ -102,4 +104,26 @@ it('treats a rectangle that only clips a merge anchor as unavailable', () => {
   }
   expect(tableRectIsFree(table, { rowStart: 0, rowEnd: 0, columnStart: 0, columnEnd: 1 })).toBe(false)
   expect(tableRectIsFree(table, { rowStart: 0, rowEnd: 0, columnStart: 0, columnEnd: 0 })).toBe(true)
+})
+
+it('clears intersecting merge anchors while preserving covered contents and styles', () => {
+  const original: TableData = { ...merged, rich: true, fontSize: 18, rowHeights: [40, null, null] }
+  const rect = { rowStart: -1, rowEnd: 1, columnStart: 1, columnEnd: 1 }
+  const cleared = clearTableContents(original, rect)
+  expect(cleared).toEqual({
+    ...original,
+    columns: [{ label: 'A' }, { label: '' }, { label: 'C' }],
+    rows: [['', '2', '3'], ['4', '5', '6'], ['7', '8', '9']],
+  })
+  expect(clearTableContents(cleared, rect)).toBe(cleared)
+  expect(original.rows).toBe(merged.rows)
+})
+
+it('clamps stale range bounds and aligns only the selected whole columns', () => {
+  const rect = tableSelectionRect({ ...merged, header: false }, null, { rowStart: -1, rowEnd: 10, columnStart: 1, columnEnd: 10 })!
+  expect(rect).toEqual({ rowStart: 0, rowEnd: 2, columnStart: 1, columnEnd: 2 })
+  const aligned = alignTableColumns(merged, rect.columnStart, rect.columnEnd, 'right')
+  expect(aligned.columns).toEqual([{ label: 'A' }, { label: 'B', align: 'right' }, { label: 'C', align: 'right' }])
+  expect(aligned.rows).toBe(merged.rows)
+  expect(aligned.merges).toBe(merged.merges)
 })

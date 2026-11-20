@@ -183,7 +183,7 @@ export function anchorOf(table: TableData, row: number, column: number): { row: 
   return merge ? { row: merge.row, column: merge.column } : { row, column }
 }
 
-function mergeIntersectsRect(merge: TableMerge, rect: TableRect) {
+export function mergeIntersectsRect(merge: TableMerge, rect: TableRect) {
   return merge.row < rect.rowEnd + 1 && rect.rowStart < merge.row + merge.rowspan
     && merge.column < rect.columnEnd + 1 && rect.columnStart < merge.column + merge.colspan
 }
@@ -334,14 +334,18 @@ function rowInsideMerge(table: TableData, row: number) {
   return (table.merges ?? []).some(merge => row >= merge.row && row < merge.row + merge.rowspan)
 }
 
+export function canMoveRow(table: TableData, index: number, direction: -1 | 1): boolean {
+  const target = index + direction
+  // Any merge touching either row would tear when the row moves.
+  return Number.isInteger(index) && index >= 0 && index < table.rows.length && target >= 0 && target < table.rows.length
+    && !rowInsideMerge(table, index) && !rowInsideMerge(table, target)
+}
+
 export function moveRow(table: TableData, index: number, direction: -1 | 1): TableData {
   const data = normaliseTable(table)
+  if (!canMoveRow(data, index, direction))
+    return table
   const target = index + direction
-  if (index < 0 || index >= data.rows.length || target < 0 || target >= data.rows.length)
-    return table
-  // Any merge touching either row would tear when the row moves.
-  if (rowInsideMerge(data, index) || rowInsideMerge(data, target))
-    return table
   const rows = data.rows.slice()
   const [row] = rows.splice(index, 1)
   rows.splice(target, 0, row!)

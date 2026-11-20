@@ -1,5 +1,5 @@
-import type { TableData, TableRect } from '../../shared/table'
-import { anchorOf, resolveTableGrid } from '../../shared/table'
+import type { TableAlign, TableData, TableRect } from '../../shared/table'
+import { anchorOf, mergeIntersectsRect, resolveTableGrid } from '../../shared/table'
 
 /** A header cell has no row; a body cell has a zero-based row. */
 export interface TableCellPosition {
@@ -89,18 +89,13 @@ export function clampTableCell(table: TableData, position: TableCellPosition): T
   return anchorTableCell(table, { row: Math.max(0, Math.min(position.row, table.rows.length - 1)), column })
 }
 
-/** The rectangle between two positions; only cells in the same region can mix. */
+/** The rectangle between two visible cell positions. */
 export function tableRectBetween(table: TableData, from: TableCellPosition, to: TableCellPosition): TableRect | null {
   if (from.column === to.column && from.row === to.row)
     return null
-  const header = from.row === null && to.row === null
-  if ((from.row === null) !== (to.row === null))
-    return null
-  if (!header && (from.row === null || to.row === null))
-    return null
   const a = anchorTableCell(table, from)
   const b = anchorTableCell(table, to)
-  if (a.row === null && !table.header)
+  if ((a.row === null || b.row === null) && !table.header)
     return null
   const rowStart = Math.min(storedRow(a.row), storedRow(b.row))
   const rowEnd = Math.max(storedRow(a.row), storedRow(b.row))
@@ -111,8 +106,59 @@ export function tableRectBetween(table: TableData, from: TableCellPosition, to: 
   return { rowStart, rowEnd, columnStart, columnEnd }
 }
 
-/** Whether the rectangle can be merged without touching an existing merge. */
+export function tableSelectionRect(table: TableData, position: TableCellPosition | null, range: TableRect | null): TableRect | null {
+  if (range) {
+    const rowStart = Math.max(table.header ? -1 : 0, range.rowStart)
+    const rowEnd = Math.min(table.rows.length - 1, range.rowEnd)
+    const columnStart = Math.max(0, range.columnStart)
+    const columnEnd = Math.min(table.columns.length - 1, range.columnEnd)
+    return rowStart <= rowEnd && columnStart <= columnEnd ? { rowStart, rowEnd, columnStart, columnEnd } : null
+  }
+  const cell = position && clampTableCell(table, position)
+  if (!cell)
+    return null
+  const row = storedRow(cell.row)
+  return { rowStart: row, rowEnd: row, columnStart: cell.column, columnEnd: cell.column }
+}
+
+export function clearTableContents(table: TableData, rect: TableRect): TableData {
+  const anchors = new Map<number, Set<number>>()
+  for (const cells of resolveTableGrid(table)) {
+    for (const cell of cells) {
+      if (cell.covered || cell.row > rect.rowEnd || cell.row + cell.rowspan <= rect.rowStart
+        || cell.column > rect.columnEnd || cell.column + cell.colspan <= rect.columnStart)
+        continue
+      const value = cell.row === -1 ? table.columns[cell.column]?.label : table.rows[cell.row]?.[cell.column]
+      if (!value)
+        continue
+      let columns = anchors.get(cell.row)
+      if (!columns) {
+        columns = new Set()
+        anchors.set(cell.row, columns)
+      }
+      columns.add(cell.column)
+    }
+  }
+  if (!anchors.size)
+    return table
+  return {
+    ...table,
+    columns: table.columns.map((column, index) => anchors.get(-1)?.has(index) ? { ...column, label: '' } : column),
+    rows: table.rows.map((row, index) => {
+      const columns = anchors.get(index)
+      return columns ? row.map((value, i) => columns.has(i) ? '' : value) : row
+    }),
+  }
+}
+
+export function alignTableColumns(table: TableData, start: number, end: number, align: TableAlign): TableData {
+  const columns = table.columns.map((column, index) => index >= start && index <= end && (column.align ?? 'left') !== align
+    ? { ...column, align }
+    : column)
+  return columns.some((column, index) => column !== table.columns[index]) ? { ...table, columns } : table
+}
+
+/** Whether the rectangle can be merged without crossing sections or touching another merge. */
 export function tableRectIsFree(table: TableData, rect: TableRect): boolean {
-  return !(table.merges ?? []).some(merge => merge.row < rect.rowEnd + 1 && rect.rowStart < merge.row + merge.rowspan
-    && merge.column < rect.columnEnd + 1 && rect.columnStart < merge.column + merge.colspan)
+  return !(rect.rowStart === -1 && rect.rowEnd >= 0) && !(table.merges ?? []).some(merge => mergeIntersectsRect(merge, rect))
 }

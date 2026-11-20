@@ -51,6 +51,8 @@ let lastClick: { key: string, time: number, root: HTMLElement } | null = null
 let session: { no: number, start: number, root: HTMLElement, block: string } | null = null
 let movePromise: Promise<void> | null = null
 let closePromise: Promise<void> | null = null
+let rangeDrag: { pointerId: number, root: HTMLElement, start: TableCellPosition, table: TableData, moved: boolean } | null = null
+let shiftGesture = false
 
 const editorStyle = computed(() => rect.value && {
   left: `${rect.value.left}px`,
@@ -236,8 +238,19 @@ const rowHandles = computed(() => measure.value?.rows.slice(0, -1).map(row => ({
 const rangeBox = computed(() => {
   const current = measure.value
   const range = tableRange.value
-  if (!current || !range)
+  if (!current || selectedTargets.value.length !== 1)
     return null
+  if (!range) {
+    const position = tableCell.value
+    const cell = position && current.table.querySelector(`[data-studio-table-cell="${position.row ?? -1},${position.column}"]`)
+    const bounds = cell?.getBoundingClientRect()
+    return bounds ? {
+      left: `${bounds.left}px`,
+      top: `${bounds.top}px`,
+      width: `${bounds.width}px`,
+      height: `${bounds.height}px`,
+    } : null
+  }
   const left = current.columns[range.columnStart]?.left
   const right = current.columns[range.columnEnd]?.right
   const top = current.rows.find(row => row.index === range.rowStart)?.top
@@ -834,21 +847,52 @@ function hit(event: Event) {
 
   // A selected object carries a transparent move surface above the canvas, so
   // the event target is that surface rather than the cell under the pointer.
-  if (target?.closest('.studio-move') && event instanceof MouseEvent) {
-    for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
-      const cellEl = element.closest<HTMLElement>('[data-studio-table-cell]')
-      if (cellEl) {
-        const found = cellInfo(cellEl)
-        if (found)
-          return found
-      }
+  return target?.closest('.studio-move') && event instanceof MouseEvent ? cellAtPoint(event) : null
+}
+
+function cellAtPoint(event: MouseEvent) {
+  for (const element of document.elementsFromPoint(event.clientX, event.clientY)) {
+    const cellEl = element.closest<HTMLElement>('[data-studio-table-cell]')
+    if (cellEl) {
+      const found = cellInfo(cellEl)
+      if (found)
+        return found
     }
   }
   return null
 }
 
+function moveRange(event: PointerEvent) {
+  const gesture = rangeDrag
+  if (!gesture || event.pointerId !== gesture.pointerId)
+    return
+  const found = hit(event) ?? cellAtPoint(event)
+  if (!found || found.root !== gesture.root)
+    return
+  const { start } = gesture
+  if (!gesture.moved && start.row === found.position.row && start.column === found.position.column)
+    return
+  gesture.moved = true
+  tableCell.value = start
+  tableRange.value = tableRectBetween(gesture.table, start, found.position)
+}
+
+function endRange(event?: PointerEvent) {
+  if (event && event.pointerId !== rangeDrag?.pointerId)
+    return
+  rangeDrag = null
+  window.removeEventListener('pointermove', moveRange, true)
+  window.removeEventListener('pointerup', endRange, true)
+  window.removeEventListener('pointercancel', endRange, true)
+  window.removeEventListener('blur', cancelRange, true)
+}
+
+function cancelRange() {
+  endRange()
+}
+
 function click(event: MouseEvent) {
-  if (editing.value || event.shiftKey || (event.target instanceof Element && event.target.closest('.studio-table-resize')))
+  if (editing.value || shiftGesture || event.shiftKey || (event.target instanceof Element && event.target.closest('.studio-table-resize')))
     return
   const found = hit(event)
   if (found)
@@ -856,8 +900,9 @@ function click(event: MouseEvent) {
 }
 
 function pointerDown(event: PointerEvent) {
-  if (event.button !== 0 || editing.value || movePromise || drag.value)
+  if (event.button !== 0 || editing.value || movePromise || drag.value || rangeDrag)
     return
+  shiftGesture = false
   const target = event.target instanceof Element ? event.target : null
   if (target?.closest('.studio-table-resize'))
     return
@@ -869,12 +914,23 @@ function pointerDown(event: PointerEvent) {
   const found = hit(event)
   if (!found)
     return
-  if (event.shiftKey && tableCell.value) {
-    // This gesture belongs to the cell range, never to the table's move surface.
-    event.preventDefault()
-    event.stopPropagation()
+  if (event.shiftKey && !busy.value && !tableEditing.value) {
     const table = sourceTable()
-    tableRange.value = table ? tableRectBetween(table, tableCell.value, found.position) : null
+    if (!table)
+      return
+    // This gesture belongs to the cells, so the table's move surface must not start a drag.
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    shiftGesture = true
+    lastClick = null
+    const anchor = tableCell.value ?? found.position
+    tableCell.value = anchor
+    tableRange.value = tableRectBetween(table, anchor, found.position)
+    rangeDrag = { pointerId: event.pointerId, root: found.root, start: found.position, table, moved: false }
+    window.addEventListener('pointermove', moveRange, true)
+    window.addEventListener('pointerup', endRange, true)
+    window.addEventListener('pointercancel', endRange, true)
+    window.addEventListener('blur', cancelRange, true)
     return
   }
   tableCell.value = found.position
@@ -894,6 +950,8 @@ function pointerDown(event: PointerEvent) {
 }
 
 function doubleClick(event: MouseEvent) {
+  if (shiftGesture || event.shiftKey)
+    return
   if (event.target instanceof Element && event.target.closest('.studio-table-resize'))
     return
   const found = hit(event)
@@ -921,6 +979,8 @@ watch(tableEditRequest, (position) => {
 })
 
 watch(selection, (target, previous) => {
+  if (rangeDrag && target?.el !== rangeDrag.root)
+    endRange()
   if (drag.value && target?.el !== previous?.el)
     dragCancel()
   if (session && (target?.tag !== 'StudioTable' || target.no !== session.no || target.range?.[0] !== session.start))
@@ -940,6 +1000,7 @@ onBeforeUnmount(() => {
   void close(true).catch(reportError)
   destroyRichEditor()
   dragCancel()
+  endRange()
   cancelAnimationFrame(frame)
   document.removeEventListener('pointerdown', pointerDown, true)
   document.removeEventListener('click', click, true)

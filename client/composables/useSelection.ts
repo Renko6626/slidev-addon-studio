@@ -4,6 +4,8 @@ import type { ActionLabel } from '../i18n'
 import type { StudioTarget } from '../types'
 import { onScopeDispose, watch } from 'vue'
 import { removeBlock } from '../md/lines'
+import { readTable, writeTable } from '../md/table'
+import { clearTableContents, tableSelectionRect } from '../md/table-cell'
 import { removePositions } from '../md/batch'
 import { positionedUnit } from '../md/drag'
 import { openContextMenu } from '@slidev/client/logic/contextMenu.ts'
@@ -12,7 +14,7 @@ import { onDomEvent } from './useDomEvent'
 import { useSelectionRebind } from './useSelectionRebind'
 import { confirmQuestionRemoval } from '../actions'
 import { createTargetResolver, describeTarget as describe, isMultiSelectable, isStudioChrome, isVisible, sameRange } from '../selection-target'
-import { activePanel, busy, editing, editPointer, hovered, inspectorVisible, missed, selection, selectedTargets, setSelectedTargets, selectedComponentField, marquee, studioOpen } from '../state'
+import { activePanel, busy, editing, editPointer, hovered, inspectorVisible, missed, selection, selectedTargets, setSelectedTargets, selectedComponentField, marquee, studioOpen, reportError, tableCell, tableEditing, tableRange } from '../state'
 
 export function useSelection(
   no: () => number,
@@ -120,8 +122,8 @@ export function useSelection(
     if (isStudioChrome(event.target)) {
       if (event.shiftKey && event.target instanceof Element && event.target.closest('.studio-move')) {
         const target = throughChrome(event.clientX, event.clientY)
-        // A selected table owns Shift+click: it picks a rectangle of cells.
-        if (target?.tag === 'StudioTable' && selection.value?.el === target.el)
+        // A single selected table owns Shift+click and Shift+drag over its cells.
+        if (target?.tag === 'StudioTable' && selection.value?.el === target.el && selectedTargets.value.length === 1)
           return
         if (target && isMultiSelectable(target, content())) {
           event.preventDefault(); event.stopPropagation(); toggleTarget(target)
@@ -147,6 +149,9 @@ export function useSelection(
       }
       return
     }
+    if (event.shiftKey && target.tag === 'StudioTable' && selection.value?.el === target.el
+      && selectedTargets.value.length === 1 && event.target instanceof Element && event.target.closest('[data-studio-table-cell]'))
+      return
     // Claim the gesture before Slidev's own `v-drag` handles or a link can.
     event.preventDefault()
     event.stopPropagation()
@@ -237,6 +242,14 @@ export function useSelection(
     if (!studioOpen.value)
       return
 
+    if (event.defaultPrevented || event.isComposing)
+      return
+
+    const target = selection.value
+    const targets = selectedTargets.value
+    const tableSelection = target?.tag === 'StudioTable' && target.no === no() && targets.length === 1
+      && (tableCell.value !== null || tableRange.value !== null)
+
     if (event.key === 'Escape') {
       boxStart = null
       marquee.value = null
@@ -247,7 +260,15 @@ export function useSelection(
       // Tested on the node itself rather than on its ancestors: the editor is
       // unmounted by the time this runs, and `closest` on a node that has been
       // taken out of the document finds nothing.
-      if (isTyping(event.target) || isStudioChrome(event.target))
+      if (isTyping(event.target) || tableEditing.value)
+        return
+      if (tableSelection && !editing.value) {
+        event.preventDefault()
+        tableCell.value = null
+        tableRange.value = null
+        return
+      }
+      if (isStudioChrome(event.target))
         return
       if (editing.value)
         editing.value = false
@@ -259,13 +280,27 @@ export function useSelection(
     if (event.key !== 'Backspace' && event.key !== 'Delete')
       return
     // Never while the user is typing into one of the editor's own fields.
-    if (busy.value || editing.value || isTyping(event.target) || !selection.value?.range || !remove)
+    if (busy.value || editing.value || tableEditing.value || isTyping(event.target) || !target?.range || !remove)
       return
 
     // Backspace would otherwise navigate the browser back and lose the deck.
     event.preventDefault()
-    const target = selection.value
-    const targets = selectedTargets.value
+    if (tableSelection) {
+      const source = content()
+      const { table, unparsed } = readTable(source, target.range)
+      const rect = !unparsed && tableSelectionRect(table, tableCell.value, tableRange.value)
+      if (!rect)
+        return
+      const next = clearTableContents(table, rect)
+      if (next !== table)
+        void remove(writeTable(source, target.range, next), action('actionTableEdit'))
+          .then(() => {
+            if (selection.value === target)
+              return reselect(target.range, target.kind, target.tag)
+          })
+          .catch(reportError)
+      return
+    }
     if (!confirmQuestionRemoval(content(), targets.length > 1 ? targets.map(item => item.range!) : [target.range!])) return
     const next = targets.length > 1 ? removePositions(content(), targets.map(item => item.range!)) : removeBlock(content(), positionedUnit(content(), target.range!))
     selection.value = null

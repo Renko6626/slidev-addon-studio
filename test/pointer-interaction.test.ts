@@ -1,6 +1,7 @@
 import { effectScope, nextTick, ref } from 'vue'
 import { afterEach, expect, it, vi } from 'vitest'
 import { tagSignature } from '../shared/signature'
+import { readTable } from '../client/md/table'
 
 vi.mock('@slidev/client/logic/contextMenu.ts', () => ({ openContextMenu: () => {} }))
 // Only the slide host is substituted; selection, source lookup and gestures are real.
@@ -14,7 +15,7 @@ vi.mock('../client/dom', () => ({
 
 import { useSelection } from '../client/composables/useSelection'
 import { useTransformGizmo } from '../client/composables/useTransformGizmo'
-import { busy, editing, selection, selectedTargets, snapEnabled, studioOpen } from '../client/state'
+import { busy, editing, selection, selectedTargets, snapEnabled, studioOpen, tableCell, tableRange } from '../client/state'
 
 class SlideElement extends EventTarget {
   tagName: string
@@ -50,7 +51,7 @@ afterEach(() => {
   snapEnabled.value = true
 })
 
-function setup(firstSource = a) {
+function setup(firstSource = a, remove?: (next: string) => void) {
   let content = `${firstSource}\n\n${b}`
   const first = new SlideElement(0, firstSource)
   const second = new SlideElement(2, b)
@@ -73,7 +74,7 @@ function setup(firstSource = a) {
   scope = effectScope()
   let writes = 0
   let gizmo: ReturnType<typeof useTransformGizmo>
-  const select = scope.run(() => useSelection(() => 1, () => content, undefined, event => gizmo.startMove(event)))!
+  const select = scope.run(() => useSelection(() => 1, () => content, remove && (async next => { remove(next); content = next }), event => gizmo.startMove(event)))!
   gizmo = scope.run(() => useTransformGizmo({
     canvas: {
       scale: ref(1), slideWidth: ref(960), slideHeight: ref(540),
@@ -93,7 +94,13 @@ function setup(firstSource = a) {
     })
     ;(type === 'pointerdown' ? document : window).dispatchEvent(event)
   }
-  return { first, second, select, gizmo, pointer, content: () => content, writes: () => writes, setContent: (next: string) => { content = next } }
+  function key(key: string) {
+    const event = new Event('keydown', { cancelable: true })
+    Object.defineProperty(event, 'key', { value: key })
+    document.dispatchEvent(event)
+    return event
+  }
+  return { first, second, select, gizmo, pointer, key, content: () => content, writes: () => writes, setContent: (next: string) => { content = next } }
 }
 
 it('moves an unselected object on its first press and writes once on release', async () => {
@@ -250,4 +257,30 @@ it('box-selects independent objects from slide space and clears the marquee on r
   expect(selectedTargets.value.map(target => target.el)).toEqual([s.first, s.second])
   s.pointer('pointerup', blank)
   expect(s.writes()).toBe(0)
+})
+
+it('clears selected table cells with one write and lets Escape return to object commands', () => {
+  const write = vi.fn()
+  const s = setup(`<StudioTable :columns="[{ label: 'Title' }, { label: 'Keep' }]" :rows="[['value', 'other']]" class="custom" />`, write)
+  s.select.select(s.first)
+  const original = selection.value
+  tableCell.value = { row: null, column: 0 }
+  tableRange.value = { rowStart: -1, rowEnd: 0, columnStart: 0, columnEnd: 0 }
+
+  expect(s.key('Delete').defaultPrevented).toBe(true)
+  expect(write).toHaveBeenCalledOnce()
+  expect(selection.value).toBe(original)
+  expect(s.content()).toContain('class="custom"')
+  expect(s.content()).toContain(b)
+  const end = s.content().split('\n\n')[0]!.split('\n').length
+  const { table } = readTable(s.content(), [0, end])
+  expect(table.columns.map(column => column.label)).toEqual(['', 'Keep'])
+  expect(table.rows).toEqual([['', 'other']])
+
+  expect(s.key('Escape').defaultPrevented).toBe(true)
+  expect(selection.value).toBe(original)
+  expect(tableCell.value).toBeNull()
+  expect(tableRange.value).toBeNull()
+  expect(s.key('Backspace').defaultPrevented).toBe(true)
+  expect(selection.value).toBeNull()
 })
