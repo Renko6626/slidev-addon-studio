@@ -5,6 +5,9 @@ const net = require('node:net')
 const readline = require('node:readline')
 const { spawn, execFile } = require('node:child_process')
 const { promisify } = require('node:util')
+const { selectDependencyStore } = require('./dependency-store.cjs')
+
+const pnpmOptions = ['--config.manage-package-manager-versions=false', '--config.package-manager-strict=false']
 
 async function nodeEnvironment(executable, userData, platform = process.platform, inherited = process.env) {
   const directory = path.join(userData, 'runtime-bin')
@@ -36,15 +39,21 @@ async function freePort() {
 function createRuntime({ executable, pnpm, userData, onStatus = () => {} }) {
   let child = null
   let exit = Promise.resolve()
+  let installation
   let logPath = ''
   const status = (message, detail = '') => onStatus({ message, detail, logPath })
 
-  async function launch(args, root, onLine) {
+  async function prepareLog() {
     await fsp.mkdir(path.join(userData, 'logs'), { recursive: true })
     logPath = path.join(userData, 'logs', 'current-project.log')
+  }
+
+  async function launch(args, root, onLine, env, signal) {
+    await prepareLog()
+    env ??= await nodeEnvironment(executable, userData)
+    signal?.throwIfAborted()
     const output = fs.createWriteStream(logPath, { flags: 'a' })
     output.write(`\n[${new Date().toISOString()}] ${JSON.stringify([executable, ...args])}\n工作目录：${root}\n`)
-    const env = await nodeEnvironment(executable, userData)
     const processChild = spawn(executable, args, {
       cwd: root, env, windowsHide: true, detached: process.platform !== 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -66,28 +75,77 @@ function createRuntime({ executable, pnpm, userData, onStatus = () => {} }) {
     return processChild
   }
 
-  async function runPnpm(project, args, message) {
+  async function runPnpm(project, args, message, env, signal, marker) {
     status(message)
-    await launch([pnpm, '--config.manage-package-manager-versions=false', '--config.package-manager-strict=false', ...args], project.root, line => {
+    let missingOfflinePackage = false
+    await launch([pnpm, ...pnpmOptions, ...args], project.root, line => {
       const detail = line.trim()
       if (!detail) return
+      if (detail.includes('ERR_PNPM_NO_OFFLINE_TARBALL')) missingOfflinePackage = true
       const counts = detail.match(/Progress: resolved (\d+), reused (\d+), downloaded (\d+), added (\d+)/)
       status(message, counts ? `已解析 ${counts[1]} 个包，复用 ${counts[2]}，下载 ${counts[3]}，安装 ${counts[4]}` : detail)
-    })
+    }, env, signal)
     const code = await exit
     child = null
+    if (marker && missingOfflinePackage) {
+      try {
+        await fsp.rm(marker, { force: true })
+        await fsp.appendFile(logPath, '目标卷缓存缺少离线依赖，已清除完成标记。重新打开工程会补齐缓存。\n')
+      }
+      catch (error) { await fsp.appendFile(logPath, `无法清除目标卷缓存的完成标记：${error.message}\n`) }
+    }
+    signal.throwIfAborted()
     if (code !== 0) throw new Error(`依赖准备未完成（退出码 ${code}）。请查看日志：${logPath}`)
   }
 
-  async function install(project, { changed = false, importLock = false, storeDir, offline = false } = {}) {
-    const storeArgs = storeDir ? ['--store-dir', storeDir] : []
+  async function installDependencies(project, { changed = false, importLock = false, storeDir, offline = false }, signal) {
+    const env = await nodeEnvironment(executable, userData)
+    signal.throwIfAborted()
+    let storeArgs = []
+    let marker
+    if (storeDir) {
+      await prepareLog()
+      await fsp.appendFile(logPath, `工程：${project.root}\n随附 store：${storeDir}\n`)
+      let selection
+      try {
+        selection = await selectDependencyStore({
+          projectRoot: project.root,
+          storeDir,
+          signal,
+          queryStore: async () => {
+            const { stdout } = await promisify(execFile)(executable, [pnpm, ...pnpmOptions, 'store', 'path'], {
+              cwd: project.root, env, windowsHide: true, timeout: 15000, signal,
+            })
+            return stdout.trim().split(/\r?\n/).at(-1)?.trim()
+          },
+          onPrepare: target => status('正在准备目标卷的离线依赖缓存。', target),
+        })
+      }
+      catch (error) {
+        signal.throwIfAborted()
+        await fsp.appendFile(logPath, `${error.message}\n`)
+        throw new Error(`${error.message} 请查看日志：${logPath}`, { cause: error })
+      }
+      await fsp.appendFile(logPath, `实际 store：${selection.storeDir}\n${selection.detail}\n`)
+      storeArgs = ['--store-dir', selection.storeDir, '--config.confirm-modules-purge=false']
+      marker = selection.marker
+    }
     if (offline) {
-      await runPnpm(project, ['install', '--offline', '--frozen-lockfile', '--ignore-scripts', '--package-import-method=copy', ...storeArgs, '--reporter=append-only'], '正在从随附文件准备离线依赖，无需联网。')
+      await runPnpm(project, ['install', '--offline', '--frozen-lockfile', '--ignore-scripts', ...storeArgs, '--reporter=append-only'], '正在从随附文件准备离线依赖，无需联网。', env, signal, marker)
       return
     }
-    if (importLock) await runPnpm(project, ['import'], '正在读取工程的依赖锁文件。')
+    if (importLock) await runPnpm(project, ['import'], '正在读取工程的依赖锁文件。', env, signal)
     const frozen = !changed && fs.existsSync(path.join(project.root, 'pnpm-lock.yaml'))
-    await runPnpm(project, ['install', '--prefer-offline', ...storeArgs, '--reporter=append-only', frozen ? '--frozen-lockfile' : '--no-frozen-lockfile'], '正在准备项目依赖，优先使用本机缓存。')
+    await runPnpm(project, ['install', '--prefer-offline', ...storeArgs, '--reporter=append-only', frozen ? '--frozen-lockfile' : '--no-frozen-lockfile'], '正在准备项目依赖，优先使用本机缓存。', env, signal, marker)
+  }
+
+  async function install(project, options = {}) {
+    const controller = new AbortController()
+    const done = installDependencies(project, options, controller.signal)
+    const current = { controller, done }
+    installation = current
+    try { await done }
+    finally { if (installation === current) installation = undefined }
   }
 
   async function start(project) {
@@ -122,6 +180,13 @@ function createRuntime({ executable, pnpm, userData, onStatus = () => {} }) {
   }
 
   async function stop() {
+    const pending = installation
+    pending?.controller.abort(new Error('依赖准备已取消。'))
+    try { await stopChild() }
+    finally { await pending?.done.catch(() => {}) }
+  }
+
+  async function stopChild() {
     const running = child
     child = null
     if (!running || running.exitCode !== null) return

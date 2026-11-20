@@ -134,6 +134,7 @@ async function openPrepared(project, { changed = false, enable = false } = {}) {
   await runtime.stop()
   current = null
   await showWelcome('正在准备工程。')
+  if (quitting) return false
   if (needsInstall) await runtime.install(project, { changed: changed || enable, importLock: otherLock, storeDir: preparation.storeDir, offline: preparation.offline })
   if (quitting) return false
   const origin = await runtime.start(project)

@@ -2,6 +2,7 @@ const fs = require('node:fs/promises')
 const path = require('node:path')
 const os = require('node:os')
 const { spawn } = require('node:child_process')
+const { writeStoreSeed } = require('../dependency-store.cjs')
 const { createProject } = require('../projects.cjs')
 const { readBundledStudio } = require('../studio-packages.cjs')
 
@@ -29,6 +30,7 @@ async function prepareOffline({ resources, pnpm }) {
     await fs.copyFile(path.join(project.root, 'pnpm-lock.yaml'), path.join(bundle, 'pnpm-lock.yaml'))
     // The target is selected at build time; the authored project stays portable.
     await fs.writeFile(path.join(bundle, 'pnpm-workspace.yaml'), workspace)
+    await writeStoreSeed(path.join(bundle, 'store'), { platform: 'win32', arch: 'x64' })
     console.log('已准备 Windows x64 离线依赖与固定锁文件。')
   }
   finally { await fs.rm(temporary, { recursive: true, force: true }) }
